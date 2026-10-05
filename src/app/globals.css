@@ -1,26 +1,155 @@
 @import "tailwindcss";
 
+/* Jetons de couleur. Les graphiques lisent les --viz-* (palette validée, cf. docs). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ee;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-muted: #6f6d68;
+  --line: #e1e0d9;
+  --line-strong: #c3c2b7;
+  --accent: #2a78d6;
+  --accent-ink: #ffffff;
+  --good: #006300;
+  --bad: #b42626;
+  --warn-bg: #fff4d6;
+  --warn-ink: #6b4a00;
+  --crit-bg: #fde7e7;
+  --crit-ink: #8f1d1d;
+  --ok-bg: #e3f4e3;
+  --ok-ink: #0a5a0a;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-label: #898781;
+  --viz-seq-0: #f0efec;
+  --viz-seq-1: #cde2fb;
+  --viz-seq-2: #86b6ef;
+  --viz-seq-3: #3987e5;
+  --viz-seq-4: #1c5cab;
+  --viz-seq-5: #0d366b;
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --surface-2: #242422;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-muted: #9a988f;
+    --line: #2c2c2a;
+    --line-strong: #383835;
+    --accent: #3987e5;
+    --accent-ink: #ffffff;
+    --good: #0ca30c;
+    --bad: #e66767;
+    --warn-bg: #3a2e0d;
+    --warn-ink: #fab219;
+    --crit-bg: #3d1717;
+    --crit-ink: #f19999;
+    --ok-bg: #12301a;
+    --ok-ink: #5fd35f;
+
+    --viz-1: #3987e5;
+    --viz-2: #d95926;
+    --viz-grid: #2c2c2a;
+    --viz-axis: #383835;
+    --viz-label: #898781;
+    --viz-seq-0: #242422;
+    --viz-seq-1: #104281;
+    --viz-seq-2: #1c5cab;
+    --viz-seq-3: #3987e5;
+    --viz-seq-4: #86b6ef;
+    --viz-seq-5: #cde2fb;
   }
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #242422;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-muted: #9a988f;
+  --line: #2c2c2a;
+  --line-strong: #383835;
+  --accent: #3987e5;
+  --accent-ink: #ffffff;
+  --good: #0ca30c;
+  --bad: #e66767;
+  --warn-bg: #3a2e0d;
+  --warn-ink: #fab219;
+  --crit-bg: #3d1717;
+  --crit-ink: #f19999;
+  --ok-bg: #12301a;
+  --ok-ink: #5fd35f;
+
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-label: #898781;
+  --viz-seq-0: #242422;
+  --viz-seq-1: #104281;
+  --viz-seq-2: #1c5cab;
+  --viz-seq-3: #3987e5;
+  --viz-seq-4: #86b6ef;
+  --viz-seq-5: #cde2fb;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-crit-bg: var(--crit-bg);
+  --color-crit-ink: var(--crit-ink);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-ink: var(--ok-ink);
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Champs de formulaire */
+.champ {
+  @apply w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/25;
+}
+.etiquette {
+  @apply mb-1 block text-xs font-medium text-ink-2;
+}
+.bouton {
+  @apply inline-flex items-center justify-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-ink hover:opacity-90 disabled:opacity-50;
+}
+.bouton-second {
+  @apply inline-flex items-center justify-center gap-2 rounded-md border border-line-strong bg-surface px-3 py-2 text-sm font-medium text-ink hover:bg-surface-2 disabled:opacity-50;
+}
+.carte {
+  @apply rounded-lg border border-line bg-surface;
 }

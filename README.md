@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# regie-selfizee-web
 
-## Getting Started
+Front de la plateforme de suivi Régie Selfizee / Ma Trombine (Next.js + Tailwind + TanStack Query + ECharts).
+API : [regie-selfizee-api](https://github.com/devselfizee/regie-selfizee-api).
 
-First, run the development server:
+## Écrans
+
+| Route | Contenu |
+|---|---|
+| `/` | Vue globale : KPI vs période précédente et N-1, courbe du CA, classement des lieux, parc, exports CSV |
+| `/lieux` | Liste des lieux (CA et ventes sur 30 jours, bornes en place) |
+| `/lieux/nouveau`, `/lieux/[id]/modifier` | Fiche lieu complète (identité, segment, activité, fréquentation, environnement, emplacement, commercial, contacts) |
+| `/lieux/[id]` | Statistiques du lieu : heatmap jour × heure, jours de semaine, moyens de paiement, formules, meilleures dates, bornes |
+| `/bornes` | Parc : connexion, création, affectation / déplacement / retrait, clés API |
+| `/imports` | File d'erreurs d'ingestion |
+
+Toutes les vues statistiques se filtrent par période, gamme, module et moyen de paiement, et par les champs de la fiche lieu.
+
+## Démarrer en local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local     # NEXT_PUBLIC_API_URL=http://localhost:3003/api
+npm install
+npm run dev                    # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+L'API doit tourner (voir son README). Pour avoir des données : `npm run demo` côté API.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## À venir
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Authentification Keycloak (realm `konitys`) et droits par rôle (admin, commercial, technicien)
+- Commissions et relevés (V1.1), alertes
