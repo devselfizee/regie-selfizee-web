@@ -19,6 +19,7 @@ const PARAMETRES: Record<string, { libelle: string; unite: string }> = {
   minCaEuros: { libelle: "CA minimum de la journée", unite: "€" },
   minVentes: { libelle: "Ventes hors horaires minimum", unite: "ventes" },
   seuilTirages: { libelle: "Tirages restants", unite: "tirages" },
+  seuilEuros: { libelle: "Total des anomalies d'une borne", unite: "€" },
 };
 
 const EXPLICATIONS: Record<string, string> = {
@@ -29,6 +30,7 @@ const EXPLICATIONS: Record<string, string> = {
   PIC_SUSPECT: "CA de la veille très au-dessus de la moyenne (doublon, fraude, événement).",
   VENTE_HORS_HORAIRES: "Ventes de la veille en dehors des horaires de la fiche lieu.",
   CONSOMMABLES: "Papier ou ruban presque épuisé (d'après le heartbeat de la borne).",
+  ECART_RAPPROCHEMENT: "À l'import d'un relevé du prestataire monétique : paiements encaissés non remontés, ventes remontées non encaissées, écarts de montant.",
 };
 
 export function ReglesAlertes() {

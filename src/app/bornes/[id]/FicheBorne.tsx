@@ -10,7 +10,7 @@ import { Reserve, useMoi } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
-import { PRESETS } from "@/components/Filtres";
+import { PRESETS, useReferentiel } from "@/components/Filtres";
 
 export const CATEGORIES: Record<CategorieCout, string> = {
   CONSOMMABLES: "Consommables",
@@ -56,6 +56,7 @@ function Fiche({ id }: { id: number }) {
 
       <div className="space-y-6">
         {moi.role === "ADMIN" && <SectionRentabilite id={id} />}
+        <SectionModule borne={b} />
         <SectionInterventions id={id} />
         <SectionCouts id={id} />
         <Section titre="Historique des emplacements">
@@ -390,6 +391,79 @@ function SectionCouts({ id }: { id: number }) {
           </tbody>
         </table>
       )}
+    </Section>
+  );
+}
+
+/** Module de paiement en place et son n° de terminal (TID), indispensable au rapprochement des relevés. */
+function SectionModule({ borne }: { borne: BorneDetail }) {
+  const client = useQueryClient();
+  const { data: ref } = useReferentiel();
+  const actuel = borne.modules.find((m) => !m.retireLe);
+  const anciens = borne.modules.filter((m) => m.retireLe);
+  const [edition, setEdition] = useState(false);
+  const [f, setF] = useState({ typeId: "", numeroSerie: "", tid: "" });
+  const ouvrir = () => {
+    setF({ typeId: actuel ? String(actuel.type.id) : "", numeroSerie: actuel?.numeroSerie ?? "", tid: actuel?.identifiantPrestataire ?? "" });
+    setEdition(true);
+  };
+  const enregistrer = useMutation({
+    mutationFn: () =>
+      api(`/bornes/${borne.id}/module`, {
+        method: "PUT",
+        json: { typeId: Number(f.typeId), numeroSerie: f.numeroSerie.trim() || undefined, identifiantPrestataire: f.tid.trim() || null },
+      }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["borne", borne.id] });
+      setEdition(false);
+    },
+  });
+  const changement = actuel && (String(actuel.type.id) !== f.typeId || (actuel.numeroSerie ?? "") !== f.numeroSerie.trim());
+
+  return (
+    <Section titre="Module de paiement" actions={<button className="bouton-second" onClick={ouvrir}>{actuel ? "Modifier" : "Ajouter"}</button>}>
+      {actuel ? (
+        <dl className="grid gap-3 text-sm sm:grid-cols-3">
+          <div><dt className="text-xs text-ink-2">Type</dt><dd>{actuel.type.libelle}</dd></div>
+          <div><dt className="text-xs text-ink-2">N° de série</dt><dd>{actuel.numeroSerie ?? "—"}</dd></div>
+          <div>
+            <dt className="text-xs text-ink-2">N° de terminal (TID)</dt>
+            <dd>{actuel.identifiantPrestataire ?? <Badge ton="warn">À renseigner pour le rapprochement</Badge>}</dd>
+          </div>
+        </dl>
+      ) : (
+        <Vide>Aucun module de paiement renseigné.</Vide>
+      )}
+      {anciens.length > 0 && (
+        <p className="mt-3 text-xs text-ink-muted">
+          Précédents : {anciens.map((m) => `${m.type.libelle}${m.numeroSerie ? ` ${m.numeroSerie}` : ""} (retiré le ${date(m.retireLe)})`).join(", ")}
+        </p>
+      )}
+      <Modale titre="Module de paiement" ouverte={edition} onFermer={() => setEdition(false)}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); enregistrer.mutate(); }}>
+          <label className="block">
+            <span className="etiquette">Type *</span>
+            <select className="champ" required value={f.typeId} onChange={(e) => setF({ ...f, typeId: e.target.value })}>
+              <option value="">—</option>
+              {ref?.typesModule.filter((t) => t.actif || String(t.id) === f.typeId).map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="etiquette">N° de série</span>
+            <input className="champ" value={f.numeroSerie} onChange={(e) => setF({ ...f, numeroSerie: e.target.value })} />
+          </label>
+          <label className="block">
+            <span className="etiquette">N° de terminal chez le prestataire (TID)</span>
+            <input className="champ" value={f.tid} onChange={(e) => setF({ ...f, tid: e.target.value })} />
+            <span className="text-xs text-ink-muted">Tel qu&apos;il apparaît sur les relevés du prestataire monétique.</span>
+          </label>
+          {changement && (
+            <p className="text-sm text-warn-ink">Type ou n° de série différent : l&apos;ancien module sera marqué retiré aujourd&apos;hui et le nouveau installé.</p>
+          )}
+          {enregistrer.error && <Erreur erreur={enregistrer.error} />}
+          <button className="bouton" disabled={enregistrer.isPending}>Enregistrer</button>
+        </form>
+      </Modale>
     </Section>
   );
 }

@@ -430,11 +430,80 @@ export interface BorneDetail {
   numeroSerie: string;
   statut: string;
   gamme: { id: number; libelle: string };
-  modules: { id: number; numeroSerie: string | null; retireLe: string | null; type: { libelle: string } }[];
+  modules: { id: number; numeroSerie: string | null; identifiantPrestataire: string | null; installeLe: string | null; retireLe: string | null; type: { id: number; libelle: string } }[];
   affectations: { id: number; debut: string; fin: string | null; lieu: { id: number; enseigne: string; ville: string | null } }[];
   dernierHeartbeat: string | null;
   derniereVente: string | null;
   logicielVersion: string | null;
   cleConfiguree: boolean;
   nonAffectees: number;
+}
+
+// ─── Rapprochement monétique ───
+
+export interface ColonnesReleve {
+  date?: number;
+  heure?: number | null;
+  montant?: number;
+  reference?: number | null;
+  terminal?: number;
+}
+
+export interface ApercuReleve {
+  separateur: string;
+  entetes: string[];
+  exemples: string[][];
+  nbLignes: number;
+  colonnes: ColonnesReleve;
+}
+
+export interface ReleveResume {
+  id: number;
+  fournisseur: string;
+  fichierNom: string;
+  periodeDebut: string;
+  periodeFin: string;
+  importeLe: string;
+  lignes: number;
+  montantCents: number;
+  rapprochees: number;
+  ecarts: number;
+  nonRapprochees: number;
+}
+
+type BorneRapprochement = { id: number; identifiant: string; lieu: { id: number; enseigne: string } | null } | null;
+
+export interface RapportReleve {
+  releve: { id: number; fournisseur: string; fichierNom: string; periodeDebut: string; periodeFin: string; importeLe: string };
+  synthese: {
+    lignes: number;
+    montantCents: number;
+    rapprochees: number;
+    ecarts: number;
+    ecartCents: number;
+    nonRemontees: number;
+    nonRemonteesCents: number;
+    nonEncaissees: number;
+    nonEncaisseesCents: number;
+    terminauxInconnus: { terminal: string; lignes: number; montantCents: number }[];
+  };
+  parTerminal: {
+    terminal: string;
+    borne: BorneRapprochement;
+    lignes: number;
+    montantCents: number;
+    rapprochees: number;
+    ecarts: number;
+    ecartCents: number;
+    nonRemontees: number;
+    nonRemonteesCents: number;
+    nonEncaissees: number;
+    nonEncaisseesCents: number;
+  }[];
+  ecarts: { id: string; terminal: string; borne: BorneRapprochement; horodatage: string; montantCents: number; reference: string | null; vente: { id: string; horodatage: string; montantCents: number; transactionId: string } }[];
+  nonRemontees: { id: string; terminal: string; borne: BorneRapprochement; horodatage: string; montantCents: number; reference: string | null }[];
+  nonEncaissees: { id: string; terminal: string; borne: BorneRapprochement; lieu: { id: number; enseigne: string } | null; horodatage: string; montantCents: number; transactionId: string }[];
+  tronque: boolean;
+  import?: { lignes: number; doublons: number; rejetees: number; erreurs: { ligne: number; message: string }[]; alertes: number };
+  nouveaux?: number;
 }

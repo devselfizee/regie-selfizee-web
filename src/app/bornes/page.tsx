@@ -145,7 +145,7 @@ function MessageErreur({ erreur }: { erreur: Error | null }) {
 function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => void }) {
   const client = useQueryClient();
   const { data: ref } = useReferentiel();
-  const [f, setF] = useState({ identifiant: "", numeroSerie: "", gammeId: "", moduleTypeId: "", moduleSerie: "" });
+  const [f, setF] = useState({ identifiant: "", numeroSerie: "", gammeId: "", moduleTypeId: "", moduleSerie: "", moduleTid: "" });
   const creer = useMutation({
     mutationFn: () =>
       api<{ identifiant: string; cleApi: string }>("/bornes", {
@@ -154,7 +154,9 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
           identifiant: f.identifiant,
           numeroSerie: f.numeroSerie,
           gammeId: Number(f.gammeId),
-          module: f.moduleTypeId ? { typeId: Number(f.moduleTypeId), numeroSerie: f.moduleSerie || undefined } : undefined,
+          module: f.moduleTypeId
+            ? { typeId: Number(f.moduleTypeId), numeroSerie: f.moduleSerie || undefined, identifiantPrestataire: f.moduleTid || undefined }
+            : undefined,
         },
       }),
     onSuccess: (b) => {
@@ -193,6 +195,13 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
           <input className="champ" value={f.moduleSerie} onChange={(e) => setF({ ...f, moduleSerie: e.target.value })} />
         </label>
       </div>
+      {f.moduleTypeId && (
+        <label className="block">
+          <span className="etiquette">N° de terminal chez le prestataire (TID)</span>
+          <input className="champ" value={f.moduleTid} onChange={(e) => setF({ ...f, moduleTid: e.target.value })} />
+          <span className="text-xs text-ink-muted">Sert à rapprocher les relevés du prestataire monétique ; modifiable plus tard sur la fiche.</span>
+        </label>
+      )}
       <MessageErreur erreur={creer.error} />
       <button className="bouton" disabled={creer.isPending}>Créer et générer la clé</button>
     </form>
