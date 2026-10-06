@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Image Docker minimale : .next/standalone contient le serveur et ses dépendances
+  output: "standalone",
 };
 
 export default nextConfig;
