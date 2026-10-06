@@ -5,11 +5,11 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/lib/api";
 import { euros, jour, nombre } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { Reserve, useMoi } from "@/lib/session";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
-type Indicateur = "ca" | "caJourOuvert" | "caHeureOuverture" | "caParPlace" | "caParVisiteur";
+type Indicateur = "ca" | "caJourOuvert" | "caHeureOuverture" | "caParPlace" | "caParVisiteur" | "margeNette" | "margeJourOuvert";
 type Stat = { n: number; moyenne: number | null; mediane: number | null };
 
 interface LieuSegment extends Record<Indicateur, number | null> {
@@ -34,7 +34,9 @@ interface Segments {
   exclus: string[];
 }
 
-const INDICATEURS: { cle: Indicateur; libelle: string; aide: string }[] = [
+const INDICATEURS: { cle: Indicateur; libelle: string; aide: string; admin?: boolean }[] = [
+  { cle: "margeJourOuvert", libelle: "Marge par jour ouvert", aide: "Marge nette ÷ jours ouverts et équipés : la vraie rentabilité, comparable entre lieux", admin: true },
+  { cle: "margeNette", libelle: "Marge nette", aide: "CA HT − commissions versées au lieu − coûts et amortissement de ses bornes sur la période", admin: true },
   { cle: "caJourOuvert", libelle: "CA par jour ouvert", aide: "CA ÷ jours où le lieu était ouvert ET équipé d'une borne (comparable entre lieux saisonniers, annuels, récents)" },
   { cle: "caHeureOuverture", libelle: "CA par heure d'ouverture", aide: "CA ÷ heures d'ouverture effectives (horaires de la fiche ; 12 h par jour si non renseignés)" },
   { cle: "caParPlace", libelle: "CA par place", aide: "CA par jour ouvert ÷ capacité d'accueil" },
@@ -55,6 +57,8 @@ export default function PageAnalyse() {
 }
 
 function Analyse() {
+  const moi = useMoi();
+  const indicateurs = INDICATEURS.filter((i) => !i.admin || moi.role === "ADMIN");
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const [x, setX] = useState("typeLieu");
   const [y, setY] = useState("heureFermeture");
@@ -87,7 +91,7 @@ function Analyse() {
           onChange={(v) => { setY(v); setSelection(null); }}
           options={[{ cle: "", libelle: "Aucun (une seule ligne)" }, ...(data?.dimensions.filter((d) => d.cle !== x) ?? [])]}
         />
-        <Choix libelle="Indicateur" valeur={indicateur} onChange={(v) => setIndicateur(v as Indicateur)} options={INDICATEURS} />
+        <Choix libelle="Indicateur" valeur={indicateur} onChange={(v) => setIndicateur(v as Indicateur)} options={indicateurs} />
         <div>
           <span className="etiquette">Valeur affichée</span>
           <div className="flex gap-1">
@@ -220,7 +224,7 @@ function Resultats({
         </Section>
       )}
 
-      <TableauLieux lieux={data.lieux} indicateur={indicateur} />
+      <TableauLieux lieux={data.lieux} indicateur={indicateur} avecMarge={data.lieux.some((l) => l.margeNette !== null)} />
     </div>
   );
 }
@@ -234,8 +238,11 @@ const COLONNES: { cle: keyof LieuSegment; libelle: string; format: (v: number) =
   { cle: "caParVisiteur", libelle: "CA / visiteur", format: euros },
 ];
 
-function TableauLieux({ lieux, indicateur }: { lieux: LieuSegment[]; indicateur: Indicateur }) {
+function TableauLieux({ lieux, indicateur, avecMarge }: { lieux: LieuSegment[]; indicateur: Indicateur; avecMarge: boolean }) {
   const [tri, setTri] = useState<keyof LieuSegment>(indicateur);
+  const colonnes = avecMarge
+    ? [...COLONNES, { cle: "margeNette" as const, libelle: "Marge nette", format: euros }, { cle: "margeJourOuvert" as const, libelle: "Marge / jour", format: euros }]
+    : COLONNES;
   const tries = [...lieux].sort((a, b) => ((b[tri] as number | null) ?? -1) - ((a[tri] as number | null) ?? -1));
 
   const exporter = () => {
@@ -245,9 +252,9 @@ function TableauLieux({ lieux, indicateur }: { lieux: LieuSegment[]; indicateur:
     };
     const eur = (c: number | null) => (c === null ? "" : (c / 100).toFixed(2).replace(".", ","));
     const lignes = [
-      ["Lieu", "Ville", "Type", "CA", "Jours ouverts", "CA / jour ouvert", "CA / heure", "CA / place / jour", "CA / visiteur"].join(";"),
+      ["Lieu", "Ville", "Type", "CA", "Jours ouverts", "CA / jour ouvert", "CA / heure", "CA / place / jour", "CA / visiteur", ...(avecMarge ? ["Marge nette", "Marge / jour"] : [])].join(";"),
       ...tries.map((l) =>
-        [l.enseigne, l.ville, l.typeLieu, eur(l.ca), l.joursEffectifs, eur(l.caJourOuvert), eur(l.caHeureOuverture), eur(l.caParPlace), eur(l.caParVisiteur)]
+        [l.enseigne, l.ville, l.typeLieu, eur(l.ca), l.joursEffectifs, eur(l.caJourOuvert), eur(l.caHeureOuverture), eur(l.caParPlace), eur(l.caParVisiteur), ...(avecMarge ? [eur(l.margeNette), eur(l.margeJourOuvert)] : [])]
           .map(cellule)
           .join(";")
       ),
@@ -264,7 +271,7 @@ function TableauLieux({ lieux, indicateur }: { lieux: LieuSegment[]; indicateur:
           <thead className="text-left text-xs text-ink-2">
             <tr>
               <th className="py-2 pr-3 font-medium">Lieu</th>
-              {COLONNES.map((c) => (
+              {colonnes.map((c) => (
                 <th key={c.cle} className="py-2 pr-3 text-right font-medium">
                   <button className={`hover:text-ink ${tri === c.cle ? "text-ink" : ""}`} onClick={() => setTri(c.cle)}>
                     {c.libelle}{tri === c.cle ? " ▼" : ""}
@@ -280,7 +287,7 @@ function TableauLieux({ lieux, indicateur }: { lieux: LieuSegment[]; indicateur:
                   <Link className="font-medium hover:underline" href={`/lieux/${l.lieuId}`}>{l.enseigne}</Link>
                   <span className="text-xs text-ink-muted"> · {l.typeLieu}</span>
                 </td>
-                {COLONNES.map((c) => (
+                {colonnes.map((c) => (
                   <td key={c.cle} className={`py-2 pr-3 text-right ${tri === c.cle ? "font-medium" : "text-ink-2"}`}>
                     {l[c.cle] === null ? "—" : c.format(l[c.cle] as number)}
                   </td>
