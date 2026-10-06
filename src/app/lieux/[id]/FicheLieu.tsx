@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
-import { BoutonExport } from "@/components/BoutonExport";
+import { Exporter } from "@/components/BoutonExport";
 import { peut, useMoi } from "@/lib/session";
 import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
@@ -47,7 +47,7 @@ export function FicheLieu({ id }: { id: number }) {
         actions={
           <>
             {voitVentes && (
-              <BoutonExport chemin={`/export/transactions.csv${qs({ ...filtres, lieuId: id })}`}>Exporter les ventes (CSV)</BoutonExport>
+              <Exporter libelle="Ventes" chemin="/export/transactions" requete={qs({ ...filtres, lieuId: id })} />
             )}
             {peut.gererLieux(moi.role) && <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>}
           </>

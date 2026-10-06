@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useMoi } from "@/lib/session";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type StatsGlobales } from "@/lib/api";
-import { BoutonExport } from "@/components/BoutonExport";
+import { Exporter } from "@/components/BoutonExport";
 import { depuis, euros, eurosRond, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Kpi } from "@/components/Kpi";
@@ -39,8 +39,8 @@ function VueGlobale() {
         sousTitre={data ? `Du ${jour(data.periode.du)} au ${jour(data.periode.au)}${isFetching ? " · mise à jour…" : ""}` : undefined}
         actions={
           <>
-            <BoutonExport chemin={`/export/transactions.csv${query}`}>Exporter les ventes (CSV)</BoutonExport>
-            <BoutonExport chemin={`/export/classement.csv${query}`}>Exporter le classement</BoutonExport>
+            <Exporter libelle="Ventes" chemin="/export/transactions" requete={query} />
+            <Exporter libelle="Classement" chemin="/export/classement" requete={query} />
           </>
         }
       />

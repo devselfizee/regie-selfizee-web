@@ -7,7 +7,7 @@ import { api, qs, type Reversement, type StatutReversement } from "@/lib/api";
 import { STATUTS, versCents } from "@/lib/commissions";
 import { euros } from "@/lib/format";
 import { Reserve } from "@/lib/session";
-import { BoutonExport } from "@/components/BoutonExport";
+import { Exporter } from "@/components/BoutonExport";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 
@@ -67,7 +67,7 @@ function Reversements() {
             <button className="bouton-second" disabled={envoyerValides.isPending} onClick={() => envoyerValides.mutate()}>
               {envoyerValides.isPending ? "Envoi…" : "Envoyer les relevés validés"}
             </button>
-            <BoutonExport chemin="/reversements/export.csv">Export compta (validés)</BoutonExport>
+            <Exporter libelle="Export compta (validés)" chemin="/reversements/export" />
           </>
         }
       />
