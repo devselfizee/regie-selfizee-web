@@ -30,6 +30,8 @@ L'API doit tourner (voir son README). Pour avoir des données : `npm run demo` c
 
 Connexion Keycloak obligatoire dès que `NEXT_PUBLIC_KEYCLOAK_URL` est renseignée (client public `regie-selfizee`, realm `konitys`). Le jeton est envoyé à chaque appel de l'API, exports CSV compris. Sans cette variable (dev local), pas de connexion.
 
+**Provisoire :** tant que le front est servi en HTTP (domaine sslip.io, sans certificat), la connexion se fait sans PKCE et `crypto.randomUUID` est fourni par le front, car le navigateur ne le donne qu'en HTTPS. Le jeton circule alors en clair : à réserver aux tests, et à abandonner dès qu'un domaine en HTTPS est disponible. Le mode sécurisé se réactive automatiquement.
+
 ## À venir
 
 - Droits par rôle (admin, commercial, technicien)
