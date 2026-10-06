@@ -10,6 +10,7 @@ import { useMoi, type Role } from "@/lib/session";
 const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/", libelle: "Vue globale", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/lieux", libelle: "Lieux", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
+  { href: "/carte", libelle: "Carte", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/alertes", libelle: "Alertes", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
   { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/reversements", libelle: "Reversements", roles: ["ADMIN"] },
