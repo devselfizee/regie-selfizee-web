@@ -18,8 +18,8 @@ export async function initialiserAuth(): Promise<Keycloak> {
   await kc.init({
     onLoad: "login-required",
     checkLoginIframe: false,
-    // PKCE a besoin de Web Crypto, disponible seulement en HTTPS (ou localhost)
-    pkceMethod: window.isSecureContext ? "S256" : false,
+    // keycloak-js a besoin de Web Crypto : le front doit être servi en HTTPS (ou sur localhost)
+    pkceMethod: "S256",
   });
   instance = kc;
   return kc;
