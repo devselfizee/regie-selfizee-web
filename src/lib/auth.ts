@@ -37,6 +37,8 @@ export async function initialiserAuth(): Promise<Keycloak> {
   await kc.init({
     onLoad: "login-required",
     checkLoginIframe: false,
+    // L'API reconnaît l'utilisateur par son e-mail : on le demande explicitement
+    scope: "openid email profile",
     // PKCE (S256) a besoin de crypto.subtle, absent en http
     pkceMethod: securise ? "S256" : false,
   });
