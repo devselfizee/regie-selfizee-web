@@ -1,7 +1,10 @@
 import { jeton } from "./auth";
 
 // Client de l'API Régie. Le jeton Keycloak est ajouté à chaque appel.
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3003/api";
+// "/api" est ajouté s'il manque : NEXT_PUBLIC_API_URL peut être l'URL du domaine seule.
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3003/api")
+  .replace(/\/+$/, "")
+  .replace(/(?<!\/api)$/, "/api");
 
 export class ErreurApi extends Error {
   constructor(public status: number, public corps: { error?: string; message?: string; champs?: { chemin: string; message: string }[] }) {
