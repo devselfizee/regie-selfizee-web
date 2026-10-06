@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type ErreurImport } from "@/lib/api";
 import { dateHeure } from "@/lib/format";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
+import { Reserve } from "@/lib/session";
 
 const LIBELLES: Record<string, string> = {
   SCHEMA_INVALIDE: "JSON non conforme",
@@ -16,7 +17,15 @@ const LIBELLES: Record<string, string> = {
   CONFLIT_DOUBLON: "Doublon différent",
 };
 
-export default function Imports() {
+export default function PageImports() {
+  return (
+    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+      <Imports />
+    </Reserve>
+  );
+}
+
+function Imports() {
   const [statut, setStatut] = useState("NOUVELLE");
   const [ouverte, setOuverte] = useState<string | null>(null);
   const client = useQueryClient();

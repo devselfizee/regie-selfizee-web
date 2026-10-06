@@ -156,8 +156,8 @@ export interface LieuListe {
   typeLieu: { libelle: string };
   commercial: { nom: string; prenom: string } | null;
   bornes: { id: number; identifiant: string; dernierHeartbeat: string | null; derniereVente: string | null }[];
-  ca30jCents: number;
-  ventes30j: number;
+  ca30jCents: number | null; // null : rôle sans accès au CA
+  ventes30j: number | null;
 }
 
 export interface LieuFiche {

@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
 import { BoutonExport } from "@/components/BoutonExport";
+import { peut, useMoi } from "@/lib/session";
 import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Kpi } from "@/components/Kpi";
@@ -13,6 +14,8 @@ import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/Graph
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
 export function FicheLieu({ id }: { id: number }) {
+  const moi = useMoi();
+  const voitVentes = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   const query = qs({ ...filtres });
@@ -20,6 +23,7 @@ export function FicheLieu({ id }: { id: number }) {
     queryKey: ["stats-lieu", id, query],
     queryFn: () => api<StatsLieu>(`/stats/lieux/${id}${query}`),
     placeholderData: keepPreviousData,
+    enabled: voitVentes,
   });
 
   if (lieu.error) return <Erreur erreur={lieu.error} />;
@@ -33,16 +37,22 @@ export function FicheLieu({ id }: { id: number }) {
         sousTitre={[l.typeLieu.libelle, l.sousType?.libelle, l.ville, l.saisonnalite === "SAISONNIER" ? "saisonnier" : null].filter(Boolean).join(" · ")}
         actions={
           <>
-            <BoutonExport chemin={`/export/transactions.csv${qs({ ...filtres, lieuId: id })}`}>Exporter les ventes (CSV)</BoutonExport>
-            <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>
+            {voitVentes && (
+              <BoutonExport chemin={`/export/transactions.csv${qs({ ...filtres, lieuId: id })}`}>Exporter les ventes (CSV)</BoutonExport>
+            )}
+            {peut.gererLieux(moi.role) && <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>}
           </>
         }
       />
 
-      <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
-      {stats.error && <Erreur erreur={stats.error} />}
-      {stats.isPending && !stats.error && <Chargement />}
-      {stats.data && <Statistiques s={stats.data} />}
+      {voitVentes && (
+        <>
+          <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
+          {stats.error && <Erreur erreur={stats.error} />}
+          {stats.isPending && !stats.error && <Chargement />}
+          {stats.data && <Statistiques s={stats.data} />}
+        </>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Section titre="Fiche">
@@ -118,7 +128,7 @@ export function FicheLieu({ id }: { id: number }) {
       </div>
 
       <div className="mt-6">
-        <Section titre="Historique des bornes" actions={<Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link>}>
+        <Section titre="Historique des bornes" actions={peut.gererBornes(moi.role) ? <Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link> : undefined}>
           {l.affectations.length ? (
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-ink-2">

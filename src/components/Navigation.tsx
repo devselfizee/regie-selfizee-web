@@ -3,18 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { keycloak } from "@/lib/auth";
+import { useMoi, type Role } from "@/lib/session";
 
-const LIENS = [
-  { href: "/", libelle: "Vue globale" },
-  { href: "/lieux", libelle: "Lieux" },
-  { href: "/bornes", libelle: "Bornes" },
-  { href: "/imports", libelle: "Imports" },
+const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
+  { href: "/", libelle: "Vue globale", roles: ["ADMIN", "COMMERCIAL"] },
+  { href: "/lieux", libelle: "Lieux", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
+  { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },
+  { href: "/imports", libelle: "Imports", roles: ["ADMIN", "TECHNICIEN"] },
+  { href: "/utilisateurs", libelle: "Utilisateurs", roles: ["ADMIN"] },
 ];
+
+const ROLES: Record<Role, string> = {
+  ADMIN: "Administrateur",
+  COMMERCIAL: "Commercial",
+  TECHNICIEN: "Technicien",
+  PARTENAIRE: "Partenaire",
+};
 
 export function Navigation() {
   const chemin = usePathname();
+  const moi = useMoi();
   const kc = keycloak();
-  const utilisateur = kc?.tokenParsed as { given_name?: string; family_name?: string; preferred_username?: string } | undefined;
+  const liens =
+    moi.role === "PARTENAIRE" && moi.lieuId
+      ? [{ href: `/lieux/${moi.lieuId}`, libelle: "Mon lieu" }]
+      : LIENS.filter((l) => l.roles.includes(moi.role));
   const actif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
 
   return (
@@ -22,7 +35,7 @@ export function Navigation() {
       <div className="mr-3 shrink-0 text-sm font-semibold md:mb-6 md:px-3 md:text-base">
         Régie <span className="text-ink-muted font-normal">Selfizee</span>
       </div>
-      {LIENS.map((l) => (
+      {liens.map((l) => (
         <Link
           key={l.href}
           href={l.href}
@@ -33,16 +46,17 @@ export function Navigation() {
           {l.libelle}
         </Link>
       ))}
-      {kc && (
-        <div className="ml-auto flex shrink-0 items-center gap-2 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:border-t md:border-line md:px-3 md:pt-4">
-          <span className="hidden text-xs text-ink-2 sm:inline">
-            {[utilisateur?.given_name, utilisateur?.family_name].filter(Boolean).join(" ") || utilisateur?.preferred_username}
-          </span>
+      <div className="ml-auto flex shrink-0 items-center gap-2 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:border-t md:border-line md:px-3 md:pt-4">
+        <span className="hidden text-xs sm:inline">
+          <span className="text-ink">{[moi.prenom, moi.nom].filter(Boolean).join(" ")}</span>
+          <span className="block text-ink-muted">{ROLES[moi.role]}</span>
+        </span>
+        {kc && (
           <button type="button" className="text-left text-xs text-accent hover:underline" onClick={() => kc.logout()}>
             Déconnexion
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </nav>
   );
 }

@@ -8,6 +8,7 @@ import { dateHeure, depuis } from "@/lib/format";
 import { useReferentiel } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { CleUnique, Modale } from "@/components/Modale";
+import { Reserve } from "@/lib/session";
 
 type Action =
   | { type: "creer" }
@@ -20,7 +21,15 @@ const STATUTS: Record<string, string> = {
   EN_STOCK: "En stock", INSTALLEE: "Installée", EN_PANNE: "En panne", EN_REPARATION: "En réparation", REFORMEE: "Réformée",
 };
 
-export default function Bornes() {
+export default function PageBornes() {
+  return (
+    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+      <Bornes />
+    </Reserve>
+  );
+}
+
+function Bornes() {
   const [action, setAction] = useState<Action | null>(null);
   const { data, error, isPending } = useQuery({ queryKey: ["bornes"], queryFn: () => api<BorneListe[]>("/bornes") });
   const fermer = () => setAction(null);

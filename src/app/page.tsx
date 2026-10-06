@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMoi } from "@/lib/session";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type StatsGlobales } from "@/lib/api";
 import { BoutonExport } from "@/components/BoutonExport";
@@ -11,7 +13,17 @@ import { Kpi } from "@/components/Kpi";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
-export default function VueGlobale() {
+export default function Accueil() {
+  const moi = useMoi();
+  const router = useRouter();
+  const redirection = moi.role === "TECHNICIEN" ? "/bornes" : moi.role === "PARTENAIRE" ? `/lieux/${moi.lieuId}` : null;
+  useEffect(() => {
+    if (redirection) router.replace(redirection);
+  }, [redirection, router]);
+  return redirection ? null : <VueGlobale />;
+}
+
+function VueGlobale() {
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const query = qs({ ...filtres });
   const { data, error, isPending, isFetching } = useQuery({

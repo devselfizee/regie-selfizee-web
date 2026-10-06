@@ -7,6 +7,7 @@ import { api, ErreurApi, type LieuFiche, type Referentiel } from "@/lib/api";
 import { JOURS_SEMAINE } from "@/lib/format";
 import { useReferentiel } from "./Filtres";
 import { Chargement } from "./Etat";
+import { useMoi } from "@/lib/session";
 
 // État du formulaire : tout en chaînes (champs HTML), converti à l'envoi.
 type Horaire = { jourSemaine: number; ouverture: string; fermeture: string };
@@ -95,6 +96,7 @@ export function FormLieu({ lieu }: { lieu?: LieuFiche }) {
 function Formulaire({ lieu, refs }: { lieu?: LieuFiche; refs: Referentiel }) {
   const router = useRouter();
   const client = useQueryClient();
+  const moi = useMoi();
   const [e, setE] = useState<Etat>(() => depuisFiche(lieu));
   const set = (patch: Partial<Etat>) => setE((prev) => ({ ...prev, ...patch }));
 
@@ -225,7 +227,8 @@ function Formulaire({ lieu, refs }: { lieu?: LieuFiche; refs: Referentiel }) {
         {champ("dateSignature", "Date de signature", { type: "date" })}
         {champ("dateInstallation", "Date d'installation", { type: "date" })}
         {champ("dureeContratMois", "Durée du contrat (mois)", { type: "number" })}
-        {select("commercialId", "Commercial responsable", refs.commerciaux.map((c) => ({ value: String(c.id), label: `${c.prenom} ${c.nom}` })))}
+        {moi.role !== "COMMERCIAL" &&
+          select("commercialId", "Commercial responsable", refs.commerciaux.map((c) => ({ value: String(c.id), label: `${c.prenom} ${c.nom}` })))}
         {select("origineLeadId", "Origine du lead", options("ORIGINE_LEAD"))}
       </Bloc>
 

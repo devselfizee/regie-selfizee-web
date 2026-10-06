@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuListe } from "@/lib/api";
 import { depuis, euros, nombre } from "@/lib/format";
 import { useReferentiel } from "@/components/Filtres";
+import { peut, useMoi } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 
 const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "neutre" }> = {
@@ -16,6 +17,7 @@ const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "
 };
 
 export default function ListeLieux() {
+  const moi = useMoi();
   const [recherche, setRecherche] = useState("");
   const [typeLieuId, setTypeLieuId] = useState("");
   const [statut, setStatut] = useState("");
@@ -32,7 +34,7 @@ export default function ListeLieux() {
       <EnTete
         titre="Lieux"
         sousTitre={data ? `${data.length} lieu${data.length > 1 ? "x" : ""}` : undefined}
-        actions={<Link href="/lieux/nouveau" className="bouton">Nouveau lieu</Link>}
+        actions={peut.gererLieux(moi.role) ? <Link href="/lieux/nouveau" className="bouton">Nouveau lieu</Link> : undefined}
       />
 
       <div className="carte mb-4 grid gap-2 p-3 sm:grid-cols-3">
@@ -71,8 +73,12 @@ export default function ListeLieux() {
                 <th className="px-4 py-3 font-medium">Lieu</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Bornes</th>
-                <th className="px-4 py-3 text-right font-medium">CA 30 j</th>
-                <th className="px-4 py-3 text-right font-medium">Ventes 30 j</th>
+                {peut.voirVentes(moi.role) && (
+                  <>
+                    <th className="px-4 py-3 text-right font-medium">CA 30 j</th>
+                    <th className="px-4 py-3 text-right font-medium">Ventes 30 j</th>
+                  </>
+                )}
                 <th className="px-4 py-3 font-medium">Statut</th>
               </tr>
             </thead>
@@ -99,8 +105,12 @@ export default function ListeLieux() {
                       <span className="text-xs text-ink-muted">aucune</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">{euros(l.ca30jCents)}</td>
-                  <td className="px-4 py-3 text-right">{nombre(l.ventes30j)}</td>
+                  {peut.voirVentes(moi.role) && (
+                    <>
+                      <td className="px-4 py-3 text-right">{euros(l.ca30jCents ?? 0)}</td>
+                      <td className="px-4 py-3 text-right">{nombre(l.ventes30j ?? 0)}</td>
+                    </>
+                  )}
                   <td className="px-4 py-3">
                     <Badge ton={STATUTS[l.statut]?.ton ?? "neutre"}>{STATUTS[l.statut]?.libelle ?? l.statut}</Badge>
                   </td>
