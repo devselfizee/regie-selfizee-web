@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { keycloak } from "@/lib/auth";
 import { useMoi, type Role } from "@/lib/session";
 
 const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/", libelle: "Vue globale", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/lieux", libelle: "Lieux", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
+  { href: "/alertes", libelle: "Alertes", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
   { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/reversements", libelle: "Reversements", roles: ["ADMIN"] },
   { href: "/imports", libelle: "Imports", roles: ["ADMIN", "TECHNICIEN"] },
@@ -30,6 +33,12 @@ export function Navigation() {
     moi.role === "PARTENAIRE" && moi.lieuId
       ? [{ href: `/lieux/${moi.lieuId}`, libelle: "Mon lieu" }]
       : LIENS.filter((l) => l.roles.includes(moi.role));
+  const { data: compteur } = useQuery({
+    queryKey: ["alertes", "compteur"],
+    queryFn: () => api<{ nouvelles: number; critiques: number }>("/alertes/compteur"),
+    enabled: moi.role !== "PARTENAIRE",
+    refetchInterval: 60_000,
+  });
   const actif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
 
   return (
@@ -46,6 +55,14 @@ export function Navigation() {
           }`}
         >
           {l.libelle}
+          {l.href === "/alertes" && compteur && compteur.nouvelles > 0 && (
+            <span
+              className={`ml-2 rounded-full px-1.5 py-0.5 text-[0.7rem] font-semibold ${compteur.critiques ? "bg-crit-bg text-crit-ink" : "bg-warn-bg text-warn-ink"}`}
+              aria-label={`${compteur.nouvelles} nouvelle(s) alerte(s)`}
+            >
+              {compteur.nouvelles}
+            </span>
+          )}
         </Link>
       ))}
       <div className="ml-auto flex shrink-0 items-center gap-2 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:border-t md:border-line md:px-3 md:pt-4">

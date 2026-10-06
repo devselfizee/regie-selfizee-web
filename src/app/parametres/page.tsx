@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RefValeur } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
+import { ReglesAlertes } from "@/components/ReglesAlertes";
 
 // Listes administrables de la fiche lieu (CDC §3.1) + gammes et types de module (CDC §2)
 const LISTES: { cle: string; libelle: string; aide: string }[] = [
@@ -20,6 +21,7 @@ const LISTES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "TYPE_EVENEMENT", libelle: "Types d'événement", aide: "Journal d'événements du lieu" },
   { cle: "GAMMES", libelle: "Gammes de bornes", aide: "Ma Trombine, Prestige…" },
   { cle: "MODULES", libelle: "Modules de paiement", aide: "Code envoyé par les bornes dans le JSON (module.type)" },
+  { cle: "ALERTES", libelle: "Règles d'alerte", aide: "" },
 ];
 
 interface Element {
@@ -78,7 +80,7 @@ function Parametres() {
               </button>
             ))}
           </nav>
-          <Liste key={liste.cle} def={liste} data={data} />
+          {liste.cle === "ALERTES" ? <ReglesAlertes /> : <Liste key={liste.cle} def={liste} data={data} />}
         </div>
       )}
     </>

@@ -13,6 +13,8 @@ import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/GraphiquesLieu";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { SectionCommissions } from "@/components/SectionCommissions";
+import { ListeAlertes } from "@/components/ListeAlertes";
+import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id }: { id: number }) {
   const moi = useMoi();
@@ -25,6 +27,12 @@ export function FicheLieu({ id }: { id: number }) {
     queryFn: () => api<StatsLieu>(`/stats/lieux/${id}${query}`),
     placeholderData: keepPreviousData,
     enabled: voitVentes,
+  });
+
+  const alertes = useQuery({
+    queryKey: ["alertes", "lieu", id],
+    queryFn: () => api<Alerte[]>(`/alertes${qs({ lieuId: id, statut: "NOUVELLE,PRISE_EN_CHARGE" })}`),
+    enabled: moi.role !== "PARTENAIRE",
   });
 
   if (lieu.error) return <Erreur erreur={lieu.error} />;
@@ -45,6 +53,14 @@ export function FicheLieu({ id }: { id: number }) {
           </>
         }
       />
+
+      {alertes.data && alertes.data.length > 0 && (
+        <div className="mb-6">
+          <Section titre={`Alertes ouvertes (${alertes.data.length})`}>
+            <ListeAlertes alertes={alertes.data} compacte />
+          </Section>
+        </div>
+      )}
 
       {voitVentes && (
         <>

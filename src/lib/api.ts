@@ -334,3 +334,32 @@ export interface CommissionsLieu {
       };
   reversements: Reversement[];
 }
+
+// ─── Alertes ────────────────────────────────────────────────
+
+export type NiveauAlerte = "INFO" | "WARNING" | "CRITIQUE";
+export type StatutAlerte = "NOUVELLE" | "PRISE_EN_CHARGE" | "RESOLUE" | "IGNOREE";
+
+export interface Alerte {
+  id: number;
+  type: string;
+  libelleType: string;
+  niveau: NiveauAlerte;
+  statut: StatutAlerte;
+  message: string;
+  detecteeLe: string;
+  resolueLe: string | null;
+  commentaire: string | null;
+  lieu: { id: number; enseigne: string } | null;
+  borne: { id: number; identifiant: string } | null;
+  assignee: { id: number; nom: string; prenom: string } | null;
+}
+
+export interface RegleAlerte {
+  type: string;
+  libelle: string;
+  actif: boolean;
+  niveau: NiveauAlerte;
+  parametres: Record<string, number>;
+  defaut: { niveau: NiveauAlerte; parametres: Record<string, number> };
+}
