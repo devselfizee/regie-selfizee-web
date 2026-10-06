@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type ReleveReversement } from "@/lib/api";
 import { STATUTS } from "@/lib/commissions";
-import { date, euros, jour, nombre, pct } from "@/lib/format";
+import { date, dateHeure, euros, jour, nombre, pct } from "@/lib/format";
 import { useMoi } from "@/lib/session";
 import { Badge, Chargement, Erreur } from "@/components/Etat";
+import { BoutonExport } from "@/components/BoutonExport";
+import { EnvoiReleve } from "@/components/EnvoiReleve";
+import { Modale } from "@/components/Modale";
 
 /** Relevé de commission d'un lieu pour une période : à imprimer ou enregistrer en PDF. */
 export function Releve({ id }: { id: number }) {
   const moi = useMoi();
+  const [envoi, setEnvoi] = useState(false);
   const { data: r, error } = useQuery({ queryKey: ["releve", id], queryFn: () => api<ReleveReversement>(`/reversements/${id}`) });
   if (error) return <Erreur erreur={error} />;
   if (!r) return <Chargement />;
@@ -20,7 +25,13 @@ export function Releve({ id }: { id: number }) {
     <div className="mx-auto max-w-3xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
         <Link href={moi.role === "ADMIN" ? "/reversements" : `/lieux/${r.lieuId}`} className="text-sm text-accent hover:underline">← Retour</Link>
-        <button className="bouton" onClick={() => window.print()}>Imprimer / enregistrer en PDF</button>
+        <div className="flex flex-wrap items-center gap-2">
+          {r.envoyeLe && <span className="text-xs text-ink-2">Envoyé au lieu le {dateHeure(r.envoyeLe)}</span>}
+          <BoutonExport chemin={`/reversements/${r.id}/releve.pdf`}>Télécharger le PDF</BoutonExport>
+          {moi.role === "ADMIN" && ["VALIDE", "FACTURE_PAR_LIEU", "AUTOFACTURE", "PAYE"].includes(r.statut) && (
+            <button className="bouton" onClick={() => setEnvoi(true)}>Envoyer par e-mail</button>
+          )}
+        </div>
       </div>
 
       <article className="carte space-y-6 p-8 print:border-0 print:p-0">
@@ -124,6 +135,9 @@ export function Releve({ id }: { id: number }) {
           Relevé établi le {date(r.calculeLe)} à partir des ventes enregistrées par les bornes Selfizee installées dans l&apos;établissement.
         </footer>
       </article>
+      <Modale titre="Envoyer le relevé au lieu" ouverte={envoi} onFermer={() => setEnvoi(false)}>
+        <EnvoiReleve r={r} onFini={() => setEnvoi(false)} />
+      </Modale>
     </div>
   );
 }

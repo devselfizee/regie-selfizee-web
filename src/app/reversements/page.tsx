@@ -42,6 +42,11 @@ function Reversements() {
     mutationFn: () => api<{ calcules: number; figes: number; supprimes: number }>("/reversements/calculer", { method: "POST", json: {} }),
     onSuccess: rafraichir,
   });
+  const envoyerValides = useMutation({
+    mutationFn: () =>
+      api<{ envoyes: number; sansDestinataire: string[]; echecs: { lieu: string; erreur: string }[] }>("/reversements/envoyer-valides", { method: "POST" }),
+    onSuccess: rafraichir,
+  });
   const statut = useMutation({
     mutationFn: ({ id, statut }: { id: number; statut: StatutReversement }) => api(`/reversements/${id}/statut`, { method: "PATCH", json: { statut } }),
     onSuccess: rafraichir,
@@ -59,10 +64,23 @@ function Reversements() {
             <button className="bouton-second" disabled={calculer.isPending} onClick={() => calculer.mutate()}>
               {calculer.isPending ? "Calcul…" : "Calculer les périodes terminées"}
             </button>
+            <button className="bouton-second" disabled={envoyerValides.isPending} onClick={() => envoyerValides.mutate()}>
+              {envoyerValides.isPending ? "Envoi…" : "Envoyer les relevés validés"}
+            </button>
             <BoutonExport chemin="/reversements/export.csv">Export compta (validés)</BoutonExport>
           </>
         }
       />
+      {envoyerValides.error && <Erreur erreur={envoyerValides.error} />}
+      {envoyerValides.data && (
+        <div className="mb-3 text-sm text-ink-2">
+          {envoyerValides.data.envoyes} relevé(s) envoyé(s).
+          {envoyerValides.data.sansDestinataire.length > 0 && (
+            <> Sans e-mail sur la fiche (à compléter) : {envoyerValides.data.sansDestinataire.join(", ")}.</>
+          )}
+          {envoyerValides.data.echecs.map((e) => <div key={e.lieu} className="text-bad">{e.lieu} : {e.erreur}</div>)}
+        </div>
+      )}
       {calculer.data && (
         <p className="mb-3 text-sm text-ink-2">
           {calculer.data.calcules} période(s) calculée(s), {calculer.data.figes} déjà validée(s) laissée(s) telles quelles.
@@ -111,6 +129,7 @@ function Reversements() {
                   <td className="px-4 py-3">
                     <Badge ton={STATUTS[r.statut].ton}>{STATUTS[r.statut].libelle}</Badge>
                     {r.numeroFacture && <div className="mt-1 text-xs text-ink-muted">{r.numeroFacture}</div>}
+                    {r.envoyeLe && <div className="mt-1 text-xs text-ink-muted">✉ envoyé</div>}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap justify-end gap-1">

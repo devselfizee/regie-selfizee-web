@@ -299,6 +299,7 @@ export interface Reversement {
   factureLe: string | null;
   payeLe: string | null;
   exporteComptaLe: string | null;
+  envoyeLe: string | null;
   detailCalcul: {
     periode: string;
     contrat: string;
@@ -316,6 +317,9 @@ export interface ReleveReversement extends Reversement {
   contrat: { version: number; dateEffet: string };
   ajustements: { id: number; montantCents: number; motif: string; createdAt: string; user: { nom: string; prenom: string } }[];
   ventesParJour: { jour: string; nbVentes: number; caTtcCents: number; rembourseTtcCents: number }[];
+  /** Admin seulement */
+  destinatairesParDefaut?: string[];
+  contactsEmail?: { role: string; nom: string; prenom: string | null; email: string }[];
 }
 
 export interface CommissionsLieu {
