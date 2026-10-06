@@ -9,6 +9,7 @@ const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/", libelle: "Vue globale", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/lieux", libelle: "Lieux", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
   { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },
+  { href: "/reversements", libelle: "Reversements", roles: ["ADMIN"] },
   { href: "/imports", libelle: "Imports", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/utilisateurs", libelle: "Utilisateurs", roles: ["ADMIN"] },
 ];
@@ -31,7 +32,7 @@ export function Navigation() {
   const actif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
 
   return (
-    <nav className="sticky top-0 z-10 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface px-4 py-2 md:h-screen md:w-56 md:flex-col md:items-stretch md:gap-1 md:border-r md:border-b-0 md:px-3 md:py-6">
+    <nav className="print:hidden sticky top-0 z-10 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface px-4 py-2 md:h-screen md:w-56 md:flex-col md:items-stretch md:gap-1 md:border-r md:border-b-0 md:px-3 md:py-6">
       <div className="mr-3 shrink-0 text-sm font-semibold md:mb-6 md:px-3 md:text-base">
         Régie <span className="text-ink-muted font-normal">Selfizee</span>
       </div>

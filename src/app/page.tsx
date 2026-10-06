@@ -76,10 +76,18 @@ function Contenu({ data }: { data: StatsGlobales }) {
           <div className="text-xs font-medium text-ink-2">Remboursements</div>
           <div className="mt-1 text-lg font-semibold">{euros(c.rembourseTtcCents)}</div>
         </div>
-        <div className="carte p-4">
-          <div className="text-xs font-medium text-ink-2">Commissions dues · CA net Selfizee</div>
-          <div className="mt-1 text-sm text-ink-muted">Disponible avec le moteur de commissions (V1.1)</div>
-        </div>
+        {data.commissions && (
+          <div className="carte p-4">
+            <div className="text-xs font-medium text-ink-2">Commissions dues · CA net Selfizee</div>
+            <div className="mt-1 text-lg font-semibold">
+              {euros(data.commissions.montantCents)} <span className="text-sm font-normal text-ink-2">· net {eurosRond(c.caTtcCents - data.commissions.montantCents)}</span>
+            </div>
+            <div className="mt-1 text-xs text-ink-muted">
+              {data.commissions.nbPeriodes} période(s) terminée(s) dans l&apos;intervalle
+              {data.commissions.nbAValider > 0 && <> · <Link className="text-accent hover:underline" href="/reversements">{data.commissions.nbAValider} à valider</Link></>}
+            </div>
+          </div>
+        )}
       </div>
 
       <Section titre="Chiffre d'affaires TTC">

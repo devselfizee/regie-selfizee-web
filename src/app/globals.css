@@ -133,6 +133,11 @@ body {
   font-family: var(--font-sans);
 }
 
+@media print {
+  body { background: #fff; }
+  @page { size: A4; margin: 14mm; }
+}
+
 .tabular {
   font-variant-numeric: tabular-nums;
 }

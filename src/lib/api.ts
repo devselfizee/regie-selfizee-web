@@ -112,6 +112,8 @@ export interface StatsGlobales {
     joursAvecVente: number;
     caParJourVenteCents: number;
   }[];
+  /** Réservé admin : commissions des périodes calculées comprises dans la période */
+  commissions: { montantCents: number; nbPeriodes: number; nbAValider: number } | null;
   parc: {
     bornesAffectees: number;
     actives: number;
@@ -239,4 +241,96 @@ export interface ErreurImport {
   createdAt: string;
   payload: unknown;
   import: { id: string; borneIdentifiant: string | null; recuLe: string; type: string; ipSource: string | null };
+}
+
+// ─── Commissions ────────────────────────────────────────────
+
+export type ModeleCommission = "AUCUNE" | "POURCENTAGE" | "POURCENTAGE_APRES_SEUIL" | "PALIERS" | "FORFAIT";
+export type StatutReversement = "A_CALCULER" | "CALCULE" | "VALIDE" | "FACTURE_PAR_LIEU" | "AUTOFACTURE" | "PAYE";
+
+export interface Contrat {
+  id: number;
+  version: number;
+  dateEffet: string;
+  dateFin: string | null;
+  modele: ModeleCommission;
+  base: "TTC" | "HT";
+  netRemboursements: boolean;
+  periodicite: "MOIS" | "TRIMESTRE" | "SAISON" | "ANNEE";
+  tauxBp: number | null;
+  seuilCents: number | null;
+  seuilMode: "AU_DELA" | "DES_ATTEINTE" | null;
+  seuilCumul: "PAR_PERIODE" | "CUMULE" | null;
+  forfaitCents: number | null;
+  minimumGarantiCents: number | null;
+  paliersMode: "MARGINAL" | "GLOBAL" | null;
+  paliers: { depuisCents: number; tauxBp: number }[];
+  motifAvenant: string | null;
+  description: string;
+  creePar: { nom: string; prenom: string } | null;
+  createdAt: string;
+  _count: { reversements: number };
+}
+
+export interface LigneCalcul {
+  libelle: string;
+  baseCents?: number;
+  tauxBp?: number;
+  montantCents: number;
+}
+
+export interface Reversement {
+  id: number;
+  lieuId: number;
+  periodeDebut: string;
+  periodeFin: string;
+  periode?: string;
+  statut: StatutReversement;
+  caTtcCents: number;
+  caHtCents: number;
+  rembourseCents: number;
+  baseCalculCents: number;
+  commissionCalculeeCents: number;
+  ajustementsCents: number;
+  montantAReverserCents: number;
+  numeroFacture: string | null;
+  calculeLe: string | null;
+  valideLe: string | null;
+  factureLe: string | null;
+  payeLe: string | null;
+  exporteComptaLe: string | null;
+  detailCalcul: {
+    periode: string;
+    contrat: string;
+    versionContrat: number;
+    nbVentes: number;
+    cumulAvantCents: number | null;
+    minimumApplique: boolean;
+    lignes: LigneCalcul[];
+  } | null;
+  lieu?: { id: number; enseigne: string; ville: string | null };
+}
+
+export interface ReleveReversement extends Reversement {
+  lieu: { id: number; enseigne: string; ville: string | null; raisonSociale: string; siret: string | null; adresse: string | null; codePostal: string | null };
+  contrat: { version: number; dateEffet: string };
+  ajustements: { id: number; montantCents: number; motif: string; createdAt: string; user: { nom: string; prenom: string } }[];
+  ventesParJour: { jour: string; nbVentes: number; caTtcCents: number; rembourseTtcCents: number }[];
+}
+
+export interface CommissionsLieu {
+  contrats: Contrat[];
+  enCours:
+    | null
+    | { contratId: number; periode: null; horsSaison: true }
+    | {
+        contratId: number;
+        periode: { debut: string; fin: string; libelle: string };
+        caTtcCents: number;
+        baseCalculCents: number;
+        commissionEstimeeCents: number;
+        seuil: { seuilCents: number; atteintCents: number; cumule: boolean } | null;
+        minimumGarantiCents: number | null;
+      };
+  reversements: Reversement[];
 }

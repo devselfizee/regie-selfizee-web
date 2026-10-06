@@ -18,7 +18,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <Providers>
             <Session>
               <Navigation />
-              <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8">{children}</main>
+              <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8 print:p-0">{children}</main>
             </Session>
           </Providers>
         </Authentification>

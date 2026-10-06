@@ -3,7 +3,19 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 /** Fenêtre modale native (<dialog>) : focus, Échap et fond gérés par le navigateur. */
-export function Modale({ titre, ouverte, onFermer, children }: { titre: string; ouverte: boolean; onFermer: () => void; children: ReactNode }) {
+export function Modale({
+  titre,
+  ouverte,
+  onFermer,
+  large = false,
+  children,
+}: {
+  titre: string;
+  ouverte: boolean;
+  onFermer: () => void;
+  large?: boolean;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -16,7 +28,7 @@ export function Modale({ titre, ouverte, onFermer, children }: { titre: string; 
     <dialog
       ref={ref}
       onClose={onFermer}
-      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/40"
+      className={`m-auto ${large ? "w-[min(46rem,calc(100vw-2rem))]" : "w-[min(32rem,calc(100vw-2rem))]"} max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/40`}
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 className="text-sm font-semibold">{titre}</h2>
