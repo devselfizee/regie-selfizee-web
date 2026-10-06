@@ -67,8 +67,8 @@ export interface RefValeur {
 
 export interface Referentiel {
   listes: Record<string, RefValeur[]>;
-  gammes: { id: number; code: string; libelle: string }[];
-  typesModule: { id: number; code: string; libelle: string }[];
+  gammes: { id: number; code: string; libelle: string; actif: boolean }[];
+  typesModule: { id: number; code: string; libelle: string; actif: boolean }[];
   commerciaux: { id: number; nom: string; prenom: string }[];
 }
 

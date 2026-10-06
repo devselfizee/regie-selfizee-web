@@ -106,8 +106,8 @@ export function Filtres({
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Select nom="gammeId" valeurs={valeurs} set={set} libelle="Gamme" options={(ref?.gammes ?? []).map((g) => ({ value: g.id, label: g.libelle }))} />
-        <Select nom="typeModuleId" valeurs={valeurs} set={set} libelle="Module de paiement" options={(ref?.typesModule ?? []).map((t) => ({ value: t.id, label: t.libelle }))} />
+        <Select nom="gammeId" valeurs={valeurs} set={set} libelle="Gamme" options={(ref?.gammes ?? []).filter((g) => g.actif).map((g) => ({ value: g.id, label: g.libelle }))} />
+        <Select nom="typeModuleId" valeurs={valeurs} set={set} libelle="Module de paiement" options={(ref?.typesModule ?? []).filter((t) => t.actif).map((t) => ({ value: t.id, label: t.libelle }))} />
         <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={Object.entries(MOYENS).map(([value, label]) => ({ value, label }))} />
         {filtresLieu && (
           <>

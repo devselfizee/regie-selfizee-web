@@ -12,6 +12,7 @@ const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/reversements", libelle: "Reversements", roles: ["ADMIN"] },
   { href: "/imports", libelle: "Imports", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/utilisateurs", libelle: "Utilisateurs", roles: ["ADMIN"] },
+  { href: "/parametres", libelle: "Paramètres", roles: ["ADMIN"] },
 ];
 
 const ROLES: Record<Role, string> = {

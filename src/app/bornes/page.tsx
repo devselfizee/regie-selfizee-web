@@ -177,7 +177,7 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
         <span className="etiquette">Gamme *</span>
         <select className="champ" required value={f.gammeId} onChange={(e) => setF({ ...f, gammeId: e.target.value })}>
           <option value="">—</option>
-          {ref?.gammes.map((g) => <option key={g.id} value={g.id}>{g.libelle}</option>)}
+          {ref?.gammes.filter((g) => g.actif).map((g) => <option key={g.id} value={g.id}>{g.libelle}</option>)}
         </select>
       </label>
       <div className="grid grid-cols-2 gap-2">
@@ -185,7 +185,7 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
           <span className="etiquette">Module de paiement</span>
           <select className="champ" value={f.moduleTypeId} onChange={(e) => setF({ ...f, moduleTypeId: e.target.value })}>
             <option value="">—</option>
-            {ref?.typesModule.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+            {ref?.typesModule.filter((t) => t.actif).map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
           </select>
         </label>
         <label className="block">
