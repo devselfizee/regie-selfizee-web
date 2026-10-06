@@ -51,6 +51,12 @@ export function Session({ children }: { children: ReactNode }) {
             ? "Votre compte n'a pas encore accès à cette application. Demandez à un administrateur de vous ajouter avec votre adresse e-mail."
             : error.message}
         </p>
+        {refuse && (
+          <p className="mt-3 text-sm">
+            Compte connecté :{" "}
+            <strong>{(error as ErreurApi).corps.email ?? "aucun e-mail transmis par Keycloak"}</strong>
+          </p>
+        )}
         {keycloak() && (
           <button type="button" className="bouton-second mt-6" onClick={() => keycloak()?.logout()}>
             Se déconnecter

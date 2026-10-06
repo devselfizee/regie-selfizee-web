@@ -7,7 +7,7 @@ export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:300
   .replace(/(?<!\/api)$/, "/api");
 
 export class ErreurApi extends Error {
-  constructor(public status: number, public corps: { error?: string; message?: string; champs?: { chemin: string; message: string }[] }) {
+  constructor(public status: number, public corps: { error?: string; message?: string; email?: string; champs?: { chemin: string; message: string }[] }) {
     super(corps.message ?? corps.error ?? `Erreur ${status}`);
   }
 }
