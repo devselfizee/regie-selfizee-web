@@ -137,6 +137,12 @@ export function FicheLieu({ id }: { id: number }) {
           ) : (
             <Vide>Horaires non renseignés : ils servent au CA par heure d&apos;ouverture et aux alertes.</Vide>
           )}
+          {l.saisonnalite === "SAISONNIER" && !l.saisons.length && (
+            <p className="mt-3 rounded-md bg-warn-bg px-3 py-2 text-sm text-warn-ink">
+              ▲ Lieu saisonnier sans saison renseignée : il est considéré ouvert toute l&apos;année pour les alertes, l&apos;analyse
+              et les commissions par saison. Ajoutez ses dates de saison dans la fiche.
+            </p>
+          )}
           {l.saisons.length > 0 && (
             <p className="mt-3 text-sm text-ink-2">
               Saisons : {l.saisons.map((s) => `${s.libelle ? s.libelle + " " : ""}(${date(s.debut)} → ${date(s.fin)})`).join(", ")}
