@@ -144,6 +144,15 @@ export interface StatsLieu {
     dernierHeartbeat: string | null;
     derniereVente: string | null;
     heartbeatsRecus: number;
+    disponibilite: {
+      minutesAttendues: number;
+      minutesEnLigne: number;
+      taux: number | null;
+      coupures: number;
+      plusLongueCoupureMin: number;
+      pannes: number;
+      minutesPanne: number;
+    };
   }[];
 }
 

@@ -263,11 +263,35 @@ function Statistiques({ s }: { s: StatsLieu }) {
 
       <Section titre="Bornes sur la période">
         <Tableau
-          entetes={["Borne", "Gamme", "Dernière vente", "Dernier signal", "Signaux reçus"]}
-          lignes={s.bornes.map((b) => [b.identifiant, b.gamme, depuis(b.derniereVente), depuis(b.dernierHeartbeat), nombre(b.heartbeatsRecus)])}
+          entetes={["Borne", "Disponibilité", "Coupures", "Pannes déclarées", "Dernière vente", "Dernier signal"]}
+          lignes={s.bornes.map((b) => {
+            const d = b.disponibilite;
+            return [
+              <span key="b">{b.identifiant} <span className="text-xs text-ink-muted">{b.gamme}</span></span>,
+              !b.dernierHeartbeat ? <span key="d" className="text-ink-muted">jamais connectée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
+              d.coupures ? `${d.coupures} (max ${duree(d.plusLongueCoupureMin)})` : "—",
+              d.pannes ? `${d.pannes} · ${duree(d.minutesPanne)}` : "—",
+              depuis(b.derniereVente),
+              depuis(b.dernierHeartbeat),
+            ];
+          })}
         />
       </Section>
     </div>
+  );
+}
+
+/** « 2 h 05 » ou « 45 min » */
+const duree = (min: number) => (min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}` : `${min} min`);
+
+/** Taux de disponibilité, coloré : ≥ 95 % bon, 80–95 % moyen, < 80 % mauvais (avec icône) */
+function Disponibilite({ taux }: { taux: number }) {
+  const ton = taux >= 0.95 ? "text-good" : taux >= 0.8 ? "text-warn-ink" : "text-bad";
+  const icone = taux >= 0.95 ? "●" : taux >= 0.8 ? "▲" : "■";
+  return (
+    <span className={ton}>
+      <span aria-hidden className="text-[0.6rem]">{icone}</span> {pct(taux)}
+    </span>
   );
 }
 
