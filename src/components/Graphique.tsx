@@ -6,12 +6,13 @@ import { BarChart, HeatmapChart, LineChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
+  MarkLineComponent,
   TooltipComponent,
   VisualMapComponent,
 } from "echarts/components";
 import { SVGRenderer } from "echarts/renderers";
 
-echarts.use([LineChart, BarChart, HeatmapChart, GridComponent, LegendComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
+echarts.use([LineChart, BarChart, HeatmapChart, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
 
 export type Jetons = Record<
   "viz1" | "viz2" | "grid" | "axis" | "label" | "ink" | "ink2" | "surface" | "seq0" | "seq1" | "seq2" | "seq3" | "seq4" | "seq5",

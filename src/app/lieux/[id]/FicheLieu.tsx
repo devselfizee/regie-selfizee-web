@@ -216,7 +216,16 @@ function Statistiques({ s }: { s: StatsLieu }) {
       </div>
 
       <Section titre="Chiffre d'affaires TTC">
-        <GraphiqueCA du={s.periode.du} au={s.periode.au} granularite={s.granularite} serie={s.serie} />
+        <GraphiqueCA
+          du={s.periode.du}
+          au={s.periode.au}
+          granularite={s.granularite}
+          serie={s.serie}
+          reperes={s.interventions.map((i) => ({ jour: i.jour, libelle: `Intervention ${i.borne} : ${i.motif}` }))}
+        />
+        {s.interventions.length > 0 && (
+          <p className="mt-2 text-xs text-ink-muted">Traits « SAV » : interventions sur les bornes du lieu ({s.interventions.length}).</p>
+        )}
       </Section>
 
       <Section titre="Quand ça vend : CA par jour et par heure">

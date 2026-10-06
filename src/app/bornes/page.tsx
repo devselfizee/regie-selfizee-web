@@ -62,7 +62,7 @@ function Bornes() {
               {data.map((b) => (
                 <tr key={b.id} className="border-t border-line align-top">
                   <td className="px-4 py-3">
-                    <div className="font-medium">{b.identifiant}</div>
+                    <Link className="font-medium hover:underline" href={`/bornes/${b.id}`}>{b.identifiant}</Link>
                     <div className="text-xs text-ink-muted">
                       {b.gamme.libelle} · {b.numeroSerie} · {STATUTS[b.statut] ?? b.statut}
                       {b.logicielVersion && ` · v${b.logicielVersion}`}

@@ -13,12 +13,15 @@ export function GraphiqueCA({
   granularite,
   serie,
   serieN1,
+  reperes = [],
 }: {
   du: string;
   au: string;
   granularite: Granularite;
   serie: PointSerie[];
   serieN1?: PointSerie[];
+  /** Repères verticaux (interventions SAV…) : jour "AAAA-MM-JJ" et libellé */
+  reperes?: { jour: string; libelle: string }[];
 }) {
   const option = useCallback(
     (j: Jetons) => {
@@ -54,6 +57,20 @@ export function GraphiqueCA({
             symbolSize: 8,
             showSymbol: periodes.length <= 31,
             areaStyle: { color: j.viz1, opacity: 0.08 },
+            markLine: reperes.length
+              ? {
+                  symbol: "none",
+                  silent: false,
+                  lineStyle: { color: j.ink2, type: "dashed", width: 1 },
+                  label: { formatter: "SAV", color: j.ink2, fontSize: 10, position: "end" },
+                  tooltip: { formatter: (p: { name: string }) => p.name },
+                  // Chaque repère tombe dans la période (jour, semaine, mois) qui le contient
+                  data: reperes
+                    .map((r) => ({ r, i: periodes.filter((p) => p <= r.jour).length - 1 }))
+                    .filter(({ i }) => i >= 0)
+                    .map(({ r, i }) => ({ xAxis: i, name: r.libelle })),
+                }
+              : undefined,
           },
           ...(avecN1
             ? [
@@ -72,7 +89,7 @@ export function GraphiqueCA({
         ],
       };
     },
-    [du, au, granularite, serie, serieN1]
+    [du, au, granularite, serie, serieN1, reperes]
   );
 
   return <Graphique option={option} description={`Chiffre d'affaires TTC par ${granularite} du ${du} au ${au}`} />;

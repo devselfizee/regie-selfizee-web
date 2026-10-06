@@ -125,6 +125,7 @@ export interface StatsGlobales {
 export interface StatsLieu {
   periode: { du: string; au: string };
   granularite: Granularite;
+  interventions: { jour: string; motif: string; borne: string }[];
   kpis: Comparaisons;
   serie: PointSerie[];
   heatmap: { jourSemaine: number; heure: number; nbVentes: number; caTtcCents: number }[];
@@ -366,4 +367,65 @@ export interface RegleAlerte {
   niveau: NiveauAlerte;
   parametres: Record<string, number>;
   defaut: { niveau: NiveauAlerte; parametres: Record<string, number> };
+}
+
+// ─── Coûts, interventions, rentabilité ──────────────────────
+
+export type CategorieCout = "CONSOMMABLES" | "DEPLACEMENT" | "INTERVENTION" | "PIECE" | "AUTRE";
+
+export interface Cout {
+  id: number;
+  date: string;
+  categorie: CategorieCout;
+  montantCents: number;
+  libelle: string | null;
+  intervention: { id: number; motif: string } | null;
+}
+
+export interface Intervention {
+  id: number;
+  date: string;
+  motif: string;
+  compteRendu: string | null;
+  enPanneDepuis: string | null;
+  resolueLe: string | null;
+  technicien: { id: number; nom: string; prenom: string } | null;
+  coutCents: number;
+}
+
+export interface Rentabilite {
+  caTtcCents: number;
+  caHtCents: number;
+  nbVentes: number;
+  commissionsCents: number;
+  coutsCents: number;
+  coutsParCategorie: Partial<Record<CategorieCout, number>>;
+  amortissementCents: number;
+  margeNetteCents: number;
+}
+
+export interface RetourInvestissement {
+  coutAchatCents: number;
+  depuis: string;
+  cumulMargeCents: number;
+  partRemboursee: number;
+  dateRetour: string | null;
+  margeMensuelleCents: number | null;
+  moisRestants: number | null;
+  mois: { mois: string; margeCents: number; cumulCents: number }[];
+}
+
+export interface BorneDetail {
+  id: number;
+  identifiant: string;
+  numeroSerie: string;
+  statut: string;
+  gamme: { id: number; libelle: string };
+  modules: { id: number; numeroSerie: string | null; retireLe: string | null; type: { libelle: string } }[];
+  affectations: { id: number; debut: string; fin: string | null; lieu: { id: number; enseigne: string; ville: string | null } }[];
+  dernierHeartbeat: string | null;
+  derniereVente: string | null;
+  logicielVersion: string | null;
+  cleConfiguree: boolean;
+  nonAffectees: number;
 }
