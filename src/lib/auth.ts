@@ -37,8 +37,8 @@ export async function initialiserAuth(): Promise<Keycloak> {
   await kc.init({
     onLoad: "login-required",
     checkLoginIframe: false,
-    // L'API reconnaît l'utilisateur par son e-mail : on le demande explicitement
-    scope: "openid email profile",
+    // Pas de "scope" explicite : Keycloak répond invalid_scope si un scope demandé n'est pas
+    // rattaché au client. L'e-mail (indispensable à l'API) vient du scope "email" en Default sur le client.
     // PKCE (S256) a besoin de crypto.subtle, absent en http
     pkceMethod: securise ? "S256" : false,
   });
