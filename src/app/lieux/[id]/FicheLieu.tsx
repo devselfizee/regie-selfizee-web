@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { api, API_URL, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
+import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
+import { BoutonExport } from "@/components/BoutonExport";
 import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Kpi } from "@/components/Kpi";
@@ -32,7 +33,7 @@ export function FicheLieu({ id }: { id: number }) {
         sousTitre={[l.typeLieu.libelle, l.sousType?.libelle, l.ville, l.saisonnalite === "SAISONNIER" ? "saisonnier" : null].filter(Boolean).join(" · ")}
         actions={
           <>
-            <a className="bouton-second" href={`${API_URL}/export/transactions.csv${qs({ ...filtres, lieuId: id })}`}>Exporter les ventes (CSV)</a>
+            <BoutonExport chemin={`/export/transactions.csv${qs({ ...filtres, lieuId: id })}`}>Exporter les ventes (CSV)</BoutonExport>
             <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>
           </>
         }

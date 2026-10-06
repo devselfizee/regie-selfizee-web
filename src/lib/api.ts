@@ -1,4 +1,6 @@
-// Client de l'API Régie. L'authentification Keycloak (jeton Bearer) sera branchée ici.
+import { jeton } from "./auth";
+
+// Client de l'API Régie. Le jeton Keycloak est ajouté à chaque appel.
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3003/api";
 
 export class ErreurApi extends Error {
@@ -9,15 +11,32 @@ export class ErreurApi extends Error {
 
 export async function api<T>(chemin: string, options: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...init } = options;
+  const t = await jeton();
   const res = await fetch(`${API_URL}${chemin}`, {
     ...init,
-    headers: { ...(json !== undefined ? { "Content-Type": "application/json" } : {}), ...init.headers },
+    headers: {
+      ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(t ? { Authorization: `Bearer ${t}` } : {}),
+      ...init.headers,
+    },
     body: json !== undefined ? JSON.stringify(json) : init.body,
   });
   if (res.status === 204) return undefined as T;
   const corps = await res.json().catch(() => ({}));
   if (!res.ok) throw new ErreurApi(res.status, corps);
   return corps as T;
+}
+
+/** Télécharge un fichier de l'API (export CSV) avec le jeton : un simple lien ne l'enverrait pas. */
+export async function telecharger(chemin: string) {
+  const t = await jeton();
+  const res = await fetch(`${API_URL}${chemin}`, { headers: t ? { Authorization: `Bearer ${t}` } : {} });
+  if (!res.ok) throw new ErreurApi(res.status, await res.json().catch(() => ({})));
+  const nom = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "")?.[1] ?? "export.csv";
+  const url = URL.createObjectURL(await res.blob());
+  const lien = Object.assign(document.createElement("a"), { href: url, download: nom });
+  lien.click();
+  URL.revokeObjectURL(url);
 }
 
 /** Query string à partir d'un objet (valeurs vides ignorées, tableaux joints par des virgules). */

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { keycloak } from "@/lib/auth";
 
 const LIENS = [
   { href: "/", libelle: "Vue globale" },
@@ -12,6 +13,8 @@ const LIENS = [
 
 export function Navigation() {
   const chemin = usePathname();
+  const kc = keycloak();
+  const utilisateur = kc?.tokenParsed as { given_name?: string; family_name?: string; preferred_username?: string } | undefined;
   const actif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
 
   return (
@@ -30,6 +33,16 @@ export function Navigation() {
           {l.libelle}
         </Link>
       ))}
+      {kc && (
+        <div className="ml-auto flex shrink-0 items-center gap-2 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:border-t md:border-line md:px-3 md:pt-4">
+          <span className="hidden text-xs text-ink-2 sm:inline">
+            {[utilisateur?.given_name, utilisateur?.family_name].filter(Boolean).join(" ") || utilisateur?.preferred_username}
+          </span>
+          <button type="button" className="text-left text-xs text-accent hover:underline" onClick={() => kc.logout()}>
+            Déconnexion
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

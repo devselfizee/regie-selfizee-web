@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { api, API_URL, qs, type StatsGlobales } from "@/lib/api";
+import { api, qs, type StatsGlobales } from "@/lib/api";
+import { BoutonExport } from "@/components/BoutonExport";
 import { depuis, euros, eurosRond, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Kpi } from "@/components/Kpi";
@@ -26,8 +27,8 @@ export default function VueGlobale() {
         sousTitre={data ? `Du ${jour(data.periode.du)} au ${jour(data.periode.au)}${isFetching ? " · mise à jour…" : ""}` : undefined}
         actions={
           <>
-            <a className="bouton-second" href={`${API_URL}/export/transactions.csv${query}`}>Exporter les ventes (CSV)</a>
-            <a className="bouton-second" href={`${API_URL}/export/classement.csv${query}`}>Exporter le classement</a>
+            <BoutonExport chemin={`/export/transactions.csv${query}`}>Exporter les ventes (CSV)</BoutonExport>
+            <BoutonExport chemin={`/export/classement.csv${query}`}>Exporter le classement</BoutonExport>
           </>
         }
       />

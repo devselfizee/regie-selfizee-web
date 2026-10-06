@@ -19,14 +19,18 @@ Toutes les vues statistiques se filtrent par période, gamme, module et moyen de
 ## Démarrer en local
 
 ```bash
-cp .env.example .env.local     # NEXT_PUBLIC_API_URL=http://localhost:3003/api
+cp .env.example .env.local     # NEXT_PUBLIC_API_URL=http://localhost:3003/api, Keycloak vide = sans connexion
 npm install
 npm run dev                    # http://localhost:3000
 ```
 
 L'API doit tourner (voir son README). Pour avoir des données : `npm run demo` côté API.
 
+## Authentification
+
+Connexion Keycloak obligatoire dès que `NEXT_PUBLIC_KEYCLOAK_URL` est renseignée (client public `regie-selfizee`, realm `konitys`). Le jeton est envoyé à chaque appel de l'API, exports CSV compris. Sans cette variable (dev local), pas de connexion.
+
 ## À venir
 
-- Authentification Keycloak (realm `konitys`) et droits par rôle (admin, commercial, technicien)
+- Droits par rôle (admin, commercial, technicien)
 - Commissions et relevés (V1.1), alertes
