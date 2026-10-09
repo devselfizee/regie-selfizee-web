@@ -35,9 +35,9 @@ interface Etat {
 const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 const jourIso = (v: string | null) => (v ? v.slice(0, 10) : "");
 
-function depuisFiche(l?: LieuFiche): Etat {
+function depuisFiche(l?: LieuFiche, statut = "ACTIF"): Etat {
   return {
-    statut: l?.statut ?? "ACTIF",
+    statut: l?.statut ?? statut,
     raisonSociale: s(l?.raisonSociale), enseigne: s(l?.enseigne), siret: s(l?.siret),
     adresse: s(l?.adresse), codePostal: s(l?.codePostal), ville: s(l?.ville),
     latitude: s(l?.latitude), longitude: s(l?.longitude),
@@ -87,17 +87,18 @@ function versApi(e: Etat) {
   };
 }
 
-export function FormLieu({ lieu }: { lieu?: LieuFiche }) {
+/** `statut` : statut par défaut d'une nouvelle fiche (« PROSPECT » depuis la page Prospects). */
+export function FormLieu({ lieu, statut }: { lieu?: LieuFiche; statut?: string }) {
   const { data: ref } = useReferentiel();
   if (!ref) return <Chargement />;
-  return <Formulaire lieu={lieu} refs={ref} />;
+  return <Formulaire lieu={lieu} refs={ref} statut={statut} />;
 }
 
-function Formulaire({ lieu, refs }: { lieu?: LieuFiche; refs: Referentiel }) {
+function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentiel; statut?: string }) {
   const router = useRouter();
   const client = useQueryClient();
   const moi = useMoi();
-  const [e, setE] = useState<Etat>(() => depuisFiche(lieu));
+  const [e, setE] = useState<Etat>(() => depuisFiche(lieu, statut));
   const set = (patch: Partial<Etat>) => setE((prev) => ({ ...prev, ...patch }));
 
   const enregistrer = useMutation({

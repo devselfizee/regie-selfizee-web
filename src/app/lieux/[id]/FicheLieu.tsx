@@ -14,13 +14,14 @@ import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/Graph
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { SectionCommissions } from "@/components/SectionCommissions";
 import { PrevisionLieuSection } from "@/components/SectionPrevision";
+import { SectionPotentiel } from "@/components/Prospect";
 import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
 import { ListeAlertes } from "@/components/ListeAlertes";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id }: { id: number }) {
   const moi = useMoi();
-  const voitVentes = peut.voirVentes(moi.role);
+  const voitVentesRole = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   const query = qs({ ...filtres });
@@ -28,7 +29,7 @@ export function FicheLieu({ id }: { id: number }) {
     queryKey: ["stats-lieu", id, query],
     queryFn: () => api<StatsLieu>(`/stats/lieux/${id}${query}`),
     placeholderData: keepPreviousData,
-    enabled: voitVentes,
+    enabled: voitVentesRole && lieu.data?.statut !== "PROSPECT",
   });
 
   const alertes = useQuery({
@@ -40,6 +41,9 @@ export function FicheLieu({ id }: { id: number }) {
   if (lieu.error) return <Erreur erreur={lieu.error} />;
   if (!lieu.data) return <Chargement />;
   const l = lieu.data;
+  // Un prospect n'a pas encore de ventes : on montre son potentiel estimé à la place
+  const prospect = l.statut === "PROSPECT";
+  const voitVentes = voitVentesRole && !prospect;
 
   return (
     <>
@@ -61,6 +65,12 @@ export function FicheLieu({ id }: { id: number }) {
           <Section titre={`Alertes ouvertes (${alertes.data.length})`}>
             <ListeAlertes alertes={alertes.data} compacte />
           </Section>
+        </div>
+      )}
+
+      {prospect && (moi.role === "ADMIN" || moi.role === "COMMERCIAL") && (
+        <div className="mb-6">
+          <SectionPotentiel lieuId={id} />
         </div>
       )}
 

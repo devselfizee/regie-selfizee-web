@@ -627,3 +627,33 @@ export interface EvenementLieu {
   fin: string | null;
   impact: ImpactEvenement | null;
 }
+
+// ─── Prospects ───
+
+export interface EstimationProspect {
+  caJourOuvertCents: number;
+  basseCents: number;
+  hauteCents: number;
+  score: number;
+  classe: "A" | "B" | "C" | "D";
+  confiance: "FORTE" | "MOYENNE" | "FAIBLE";
+  similariteMoyenne: number;
+  voisins: { id: number | null; enseigne: string; caJourOuvertCents: number; similarite: number; communs: string[]; differences: string[] }[];
+}
+
+export interface Prospect {
+  id: number;
+  enseigne: string;
+  ville: string | null;
+  typeLieu: string;
+  completude: { taux: number; manquants: string[] };
+  joursOuvertsAn: number | null;
+  caAnnuelCents: number | null;
+  estimation: EstimationProspect | null;
+}
+
+export interface ListeProspects {
+  references: number;
+  precision: { ecartMedian: number; lieux: number } | null;
+  prospects: Prospect[];
+}
