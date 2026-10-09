@@ -528,6 +528,8 @@ export interface JourPrevision {
   jour: string;
   realiseCents: number | null;
   prevuCents: number;
+  /** Correction calendrier / météo appliquée à la prévision du jour */
+  correction?: { facteur: number; raisons: string[] };
 }
 
 export type Atteinte =

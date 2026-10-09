@@ -36,6 +36,7 @@ export function GraphiquePrevision({ jours, n1Cents }: { jours: JourPrevision[];
             const lignes = [`<strong>${jour(x.jour)}</strong>`];
             if (realise[i] !== null) lignes.push(`Réalisé cumulé : ${fmt(realise[i]!)}`);
             if (prevu[i] !== null && i > dernierRealise) lignes.push(`Prévu cumulé : ${fmt(prevu[i]!)}`);
+            if (x.correction?.raisons.length) lignes.push(`<span style="color:${j.ink2}">${x.correction.raisons.join(" · ")}</span>`);
             lignes.push(x.realiseCents !== null ? `Jour : ${eurosRond(x.realiseCents + x.prevuCents)}${x.prevuCents ? " (dont prévu " + eurosRond(x.prevuCents) + ")" : ""}` : `Jour (prévu) : ${eurosRond(x.prevuCents)}`);
             return lignes.join("<br>");
           },
@@ -118,4 +119,4 @@ export function AvertissementsPrevision({ p }: { p: PrevisionResume }) {
 }
 
 export const METHODE =
-  "Méthode : moyenne du même jour de la semaine sur les 8 dernières semaines (jours d'ouverture seulement), corrigée de la saisonnalité de l'an dernier quand elle est connue. Fourchette à 80 %.";
+  "Méthode : moyenne du même jour de la semaine sur les 8 dernières semaines (jours d'ouverture seulement), corrigée de la saisonnalité de l'an dernier quand elle est connue, puis des jours fériés, des vacances et de la pluie prévue selon l'effet mesuré pour le lieu. Fourchette à 80 %.";
