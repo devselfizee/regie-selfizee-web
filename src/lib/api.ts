@@ -564,3 +564,64 @@ export interface PrevisionGlobale {
   jours: JourPrevision[];
   lieux: (PrevisionResume & { id: number; enseigne: string; ville: string | null })[];
 }
+
+// ─── Calendrier, météo et journal d'événements ───
+
+export interface EffetContexte {
+  effet: number | null;
+  n: number;
+}
+
+export interface EffetsContexte {
+  jours: number;
+  feries: EffetContexte;
+  vacances: EffetContexte;
+  pluie: EffetContexte;
+  temperatures: (EffetContexte & { tranche: string })[];
+}
+
+export interface JourContexte {
+  jour: string;
+  ferie: string | null;
+  vacances: string | null;
+  meteo: { tempMax: number | null; precipitationMm: number | null; codeWmo: number | null; prevision: boolean } | null;
+  temps: string | null;
+}
+
+export interface ContexteLieu {
+  du: string;
+  au: string;
+  zoneScolaire: "A" | "B" | "C" | "CORSE" | null;
+  geolocalise: boolean;
+  effets: EffetsContexte;
+  jours: JourContexte[];
+}
+
+export interface ContexteSegments {
+  du: string;
+  au: string;
+  ensemble: EffetsContexte & { libelle: string; lieux: number };
+  typesLieu: (EffetsContexte & { libelle: string; lieux: number })[];
+}
+
+export interface PeriodeImpact {
+  jours: number;
+  caParJourCents: number;
+  ventesParJour: number;
+  panierMoyenCents: number;
+}
+
+export type ImpactEvenement =
+  | { type: "PONCTUEL"; caCents: number; habituelCents: number; effet: number | null }
+  | { type: "DURABLE"; avant: PeriodeImpact; apres: PeriodeImpact; effetCa: number | null; effetVentes: number | null; effetPanier: number | null }
+  | { type: "EN_COURS"; joursObserves: number }
+  | { type: "A_VENIR" };
+
+export interface EvenementLieu {
+  id: number;
+  type: { id: number; code: string; libelle: string };
+  libelle: string;
+  debut: string;
+  fin: string | null;
+  impact: ImpactEvenement | null;
+}

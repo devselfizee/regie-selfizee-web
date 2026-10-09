@@ -14,14 +14,20 @@ export function GraphiqueCA({
   serie,
   serieN1,
   reperes = [],
+  bandes = [],
+  infosJour,
 }: {
   du: string;
   au: string;
   granularite: Granularite;
   serie: PointSerie[];
   serieN1?: PointSerie[];
-  /** Repères verticaux (interventions SAV…) : jour "AAAA-MM-JJ" et libellé */
-  reperes?: { jour: string; libelle: string }[];
+  /** Repères verticaux (interventions SAV, événements…) : jour "AAAA-MM-JJ", libellé et étiquette courte */
+  reperes?: { jour: string; libelle: string; court?: string }[];
+  /** Périodes grisées (vacances scolaires…) */
+  bandes?: { du: string; au: string; libelle: string }[];
+  /** Ligne ajoutée à l'infobulle d'un jour (météo, férié…), en granularité jour */
+  infosJour?: Record<string, string>;
 }) {
   const option = useCallback(
     (j: Jetons) => {
@@ -41,6 +47,8 @@ export function GraphiqueCA({
               const p = it.seriesName === "N-1" ? n1![i] : courant[i];
               return `${it.marker} ${it.seriesName} : <b>${euros(p.caTtcCents)}</b> · ${nombre(p.nbVentes)} ventes`;
             });
+            const info = granularite === "jour" ? infosJour?.[periodes[i]] : undefined;
+            if (info) lignes.push(`<span style="color:${j.ink2}">${info}</span>`);
             return `<div style="font-weight:600;margin-bottom:4px">${libellePeriode(periodes[i], granularite)}</div>${lignes.join("<br>")}`;
           },
         },
@@ -62,13 +70,24 @@ export function GraphiqueCA({
                   symbol: "none",
                   silent: false,
                   lineStyle: { color: j.ink2, type: "dashed", width: 1 },
-                  label: { formatter: "SAV", color: j.ink2, fontSize: 10, position: "end" },
+                  label: { formatter: (p: { data: { court?: string } }) => p.data.court ?? "SAV", color: j.ink2, fontSize: 10, position: "end" },
                   tooltip: { formatter: (p: { name: string }) => p.name },
                   // Chaque repère tombe dans la période (jour, semaine, mois) qui le contient
                   data: reperes
                     .map((r) => ({ r, i: periodes.filter((p) => p <= r.jour).length - 1 }))
                     .filter(({ i }) => i >= 0)
-                    .map(({ r, i }) => ({ xAxis: i, name: r.libelle })),
+                    .map(({ r, i }) => ({ xAxis: i, name: r.libelle, court: r.court })),
+                }
+              : undefined,
+            markArea: bandes.length
+              ? {
+                  silent: true,
+                  itemStyle: { color: j.ink2, opacity: 0.07 },
+                  label: { color: j.ink2, fontSize: 10, position: "insideTop" },
+                  data: bandes
+                    .map((b) => ({ b, i: Math.max(0, periodes.filter((p) => p <= b.du).length - 1), k: periodes.filter((p) => p <= b.au).length - 1 }))
+                    .filter(({ b, k }) => k >= 0 && b.au >= periodes[0] && b.du <= periodes[periodes.length - 1])
+                    .map(({ b, i, k }) => [{ xAxis: i, name: b.libelle }, { xAxis: k }]),
                 }
               : undefined,
           },
@@ -89,7 +108,7 @@ export function GraphiqueCA({
         ],
       };
     },
-    [du, au, granularite, serie, serieN1, reperes]
+    [du, au, granularite, serie, serieN1, reperes, bandes, infosJour]
   );
 
   return <Graphique option={option} description={`Chiffre d'affaires TTC par ${granularite} du ${du} au ${au}`} />;

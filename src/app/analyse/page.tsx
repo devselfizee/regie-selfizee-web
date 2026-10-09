@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { api, qs } from "@/lib/api";
+import { Effet, EXPLICATION_EFFETS, lignesEffets } from "@/components/Contexte";
+import { api, qs, type ContexteSegments } from "@/lib/api";
 import { euros, jour, nombre } from "@/lib/format";
 import { Reserve, useMoi } from "@/lib/session";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
@@ -109,7 +110,57 @@ function Analyse() {
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
       {data && <Resultats data={data} indicateur={indicateur} stat={stat} selection={selection} setSelection={setSelection} />}
+      <div className="mt-6">
+        <ContexteParType filtres={filtres} />
+      </div>
     </>
+  );
+}
+
+/** Effet du calendrier et de la météo par type de lieu, sur 12 mois (filtres de lieu appliqués, pas la période). */
+function ContexteParType({ filtres }: { filtres: ValeursFiltres }) {
+  const query = qs({ ...filtres, du: undefined, au: undefined, granularite: undefined });
+  const { data, error, isPending } = useQuery({
+    queryKey: ["contexte-segments", query],
+    queryFn: () => api<ContexteSegments>(`/stats/contexte${query}`),
+    placeholderData: keepPreviousData,
+    staleTime: 10 * 60_000,
+  });
+  const groupes = data ? [data.ensemble, ...data.typesLieu] : [];
+  const lignes = data ? lignesEffets(data.ensemble).map((l) => l.libelle) : [];
+  return (
+    <Section titre="Calendrier et météo : effet sur le CA par type de lieu (12 derniers mois)">
+      {error && <Erreur erreur={error} />}
+      {isPending && !error && <Chargement />}
+      {data && (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-ink-2">
+                <tr>
+                  <th className="py-2 pr-4 font-medium" />
+                  {groupes.map((g) => (
+                    <th key={g.libelle} className="py-2 pr-4 text-right font-medium">
+                      {g.libelle}
+                      <div className="font-normal text-ink-muted">{g.lieux} lieu(x)</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="tabular">
+                {lignes.map((libelle, k) => (
+                  <tr key={libelle} className="border-t border-line">
+                    <td className="py-1.5 pr-4">{libelle}</td>
+                    {groupes.map((g) => <td key={g.libelle} className="py-1.5 pr-4 text-right"><Effet e={lignesEffets(g)[k].effet} /></td>)}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-ink-muted">{EXPLICATION_EFFETS} « j » : nombre de jours observés dans la catégorie.</p>
+        </>
+      )}
+    </Section>
   );
 }
 

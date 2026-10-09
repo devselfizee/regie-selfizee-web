@@ -14,6 +14,7 @@ import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/Graph
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { SectionCommissions } from "@/components/SectionCommissions";
 import { PrevisionLieuSection } from "@/components/SectionPrevision";
+import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
 import { ListeAlertes } from "@/components/ListeAlertes";
 import type { Alerte } from "@/lib/api";
 
@@ -68,7 +69,7 @@ export function FicheLieu({ id }: { id: number }) {
           <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
           {stats.error && <Erreur erreur={stats.error} />}
           {stats.isPending && !stats.error && <Chargement />}
-          {stats.data && <Statistiques s={stats.data} />}
+          {stats.data && <Statistiques s={stats.data} lieuId={id} />}
         </>
       )}
 
@@ -77,6 +78,16 @@ export function FicheLieu({ id }: { id: number }) {
           <PrevisionLieuSection lieuId={id} />
         </div>
       )}
+
+      {voitVentes && (
+        <div className="mt-6">
+          <SectionContexte lieuId={id} />
+        </div>
+      )}
+
+      <div className="mt-6">
+        <JournalEvenements lieuId={id} peutEcrire={moi.role !== "PARTENAIRE"} />
+      </div>
 
       {(moi.role === "ADMIN" || moi.role === "PARTENAIRE") && (
         <div className="mt-6">
@@ -204,8 +215,11 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
   );
 }
 
-function Statistiques({ s }: { s: StatsLieu }) {
+function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
   const { courant: c, precedente: p, n1 } = s.kpis;
+  const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);
+  const evenements = useEvenements(lieuId);
+  const sup = superpositions(contexte.data, evenements.data);
   if (!c.nbVentes && !c.nbRefusees) {
     return (
       <div className="carte p-4">
@@ -228,11 +242,14 @@ function Statistiques({ s }: { s: StatsLieu }) {
           au={s.periode.au}
           granularite={s.granularite}
           serie={s.serie}
-          reperes={s.interventions.map((i) => ({ jour: i.jour, libelle: `Intervention ${i.borne} : ${i.motif}` }))}
+          reperes={[...s.interventions.map((i) => ({ jour: i.jour, libelle: `Intervention ${i.borne} : ${i.motif}`, court: "SAV" })), ...sup.reperes]}
+          bandes={sup.bandes}
+          infosJour={sup.infosJour}
         />
-        {s.interventions.length > 0 && (
-          <p className="mt-2 text-xs text-ink-muted">Traits « SAV » : interventions sur les bornes du lieu ({s.interventions.length}).</p>
-        )}
+        <p className="mt-2 text-xs text-ink-muted">
+          Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. Traits : jours fériés, événements du journal
+          {s.interventions.length > 0 && `, interventions SAV (${s.interventions.length})`}. La météo du jour est dans l&apos;infobulle.
+        </p>
       </Section>
 
       <Section titre="Quand ça vend : CA par jour et par heure">
