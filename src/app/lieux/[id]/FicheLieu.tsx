@@ -13,6 +13,7 @@ import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/GraphiquesLieu";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { SectionCommissions } from "@/components/SectionCommissions";
+import { PrevisionLieuSection } from "@/components/SectionPrevision";
 import { ListeAlertes } from "@/components/ListeAlertes";
 import type { Alerte } from "@/lib/api";
 
@@ -69,6 +70,12 @@ export function FicheLieu({ id }: { id: number }) {
           {stats.isPending && !stats.error && <Chargement />}
           {stats.data && <Statistiques s={stats.data} />}
         </>
+      )}
+
+      {voitVentes && l.statut === "ACTIF" && (
+        <div className="mt-6">
+          <PrevisionLieuSection lieuId={id} />
+        </div>
       )}
 
       {(moi.role === "ADMIN" || moi.role === "PARTENAIRE") && (

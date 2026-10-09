@@ -507,3 +507,60 @@ export interface RapportReleve {
   import?: { lignes: number; doublons: number; rejetees: number; erreurs: { ligne: number; message: string }[]; alertes: number };
   nouveaux?: number;
 }
+
+// ─── Prévisions ───
+
+export interface PrevisionResume {
+  du: string;
+  au: string;
+  realiseCents: number;
+  restantCents: number;
+  totalCents: number;
+  basseCents: number;
+  hauteCents: number;
+  joursOuvertsRestants: number;
+  fiable: boolean;
+  correctionSaisonniere: number | null;
+  arretDepuis: string | null;
+}
+
+export interface JourPrevision {
+  jour: string;
+  realiseCents: number | null;
+  prevuCents: number;
+}
+
+export type Atteinte =
+  | { statut: "ATTEINT"; jour: string }
+  | { statut: "PREVU"; jour: string }
+  | { statut: "NON_ATTEINT"; manqueCents: number };
+
+export interface PrevisionLieu {
+  mois: PrevisionResume & { jours: (JourPrevision & { ouvert: boolean })[] };
+  commission: {
+    periode: { debut: string; fin: string; libelle: string };
+    base: "TTC" | "HT";
+    seuilCumule: boolean;
+    commissionActuelleCents: number;
+    commissionPrevueCents: number;
+    commissionBasseCents: number;
+    commissionHauteCents: number;
+    seuils: { libelle: string; montantCents: number; atteinte: Atteinte }[];
+    prevision: PrevisionResume;
+  } | null;
+}
+
+export interface PrevisionGlobale {
+  du: string;
+  au: string;
+  realiseCents: number;
+  restantCents: number;
+  totalCents: number;
+  basseCents: number;
+  hauteCents: number;
+  n1Cents: number;
+  precedentCents: number;
+  lieuxPeuFiables: number;
+  jours: JourPrevision[];
+  lieux: (PrevisionResume & { id: number; enseigne: string; ville: string | null })[];
+}

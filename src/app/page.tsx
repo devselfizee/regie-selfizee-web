@@ -11,6 +11,7 @@ import { depuis, euros, eurosRond, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Kpi } from "@/components/Kpi";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
+import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
 export default function Accueil() {
@@ -89,6 +90,8 @@ function Contenu({ data }: { data: StatsGlobales }) {
           </div>
         )}
       </div>
+
+      <PrevisionGlobaleSection />
 
       <Section titre="Chiffre d'affaires TTC">
         <GraphiqueCA du={data.periode.du} au={data.periode.au} granularite={data.granularite} serie={data.serie} serieN1={data.serieN1} />
