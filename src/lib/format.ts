@@ -31,6 +31,8 @@ export const MOYENS: Record<string, string> = {
   SANS_CONTACT: "Sans contact",
   ESPECES: "Espèces",
   MOBILE: "Mobile",
+  WEB: "QR (paiement web)",
+  AUCUN: "Gratuit",
   AUTRE: "Autre",
 };
 

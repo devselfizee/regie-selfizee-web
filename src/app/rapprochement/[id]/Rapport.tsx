@@ -91,7 +91,7 @@ function Contenu({ id }: { id: number }) {
       <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Tuile libelle="Rapprochées" valeur={pct(s.lignes ? s.rapprochees / s.lignes : 0)} detail={`${nombre(s.rapprochees)} sur ${nombre(s.lignes)} lignes · ${euros(s.montantCents)} au relevé`} />
         <Tuile libelle="Encaissé, non remonté" valeur={euros(s.nonRemonteesCents)} detail={`${nombre(s.nonRemontees)} paiement(s) absent(s) des bornes`} alerte={s.nonRemontees > 0} />
-        <Tuile libelle="Remonté, non encaissé" valeur={euros(s.nonEncaisseesCents)} detail={`${nombre(s.nonEncaissees)} vente(s) absente(s) du relevé`} alerte={s.nonEncaissees > 0} />
+        <Tuile libelle="Remonté, non encaissé" valeur={euros(s.nonEncaisseesCents)} detail={`${nombre(s.nonEncaissees)} vente(s) absente(s) du relevé${s.nonEncaisseesIncertaines ? `, dont ${s.nonEncaisseesIncertaines} à l'enregistrement incertain` : ""}`} alerte={s.nonEncaissees > 0} />
         <Tuile libelle="Écarts de montant" valeur={euros(s.ecartCents)} detail={`${nombre(s.ecarts)} paiement(s), relevé − borne`} alerte={s.ecarts > 0} />
       </div>
 
@@ -138,7 +138,12 @@ function Contenu({ id }: { id: number }) {
             <Tableau
               entetes={["Date", "Borne", "Montant", "ID transaction"]}
               droite={[2]}
-              lignes={r.nonEncaissees.map((v) => [dateHeure(v.horodatage), <LienBorne key="b" borne={v.borne} terminal={v.terminal} />, euros(v.montantCents), v.transactionId])}
+              lignes={r.nonEncaissees.map((v) => [
+                dateHeure(v.horodatage),
+                <LienBorne key="b" borne={v.borne} terminal={v.terminal} />,
+                euros(v.montantCents),
+                <span key="t">{v.transactionId}{v.incertain && <span className="ml-2 text-xs text-warn-ink">enregistrement incertain</span>}</span>,
+              ])}
             />
           </Section>
         )}

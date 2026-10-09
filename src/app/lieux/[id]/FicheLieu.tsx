@@ -246,6 +246,8 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
         <Kpi libelle="Refus / annulations" valeur={`${pct(c.tauxRefus)} · ${nombre(c.nbAnnulees)} annul.`} courant={c.tauxRefus} precedente={p.tauxRefus} inverse />
       </div>
 
+      <ActiviteNonFacturee k={c} />
+
       <Section titre="Chiffre d'affaires TTC">
         <GraphiqueCA
           du={s.periode.du}
@@ -353,4 +355,17 @@ function Tableau({ entetes, lignes }: { entetes: string[]; lignes: ReactNode[][]
       </table>
     </div>
   );
+}
+
+/** Schéma 1.1 des bornes : ce qui ne fait pas de CA (offert, gratuit, expiré) et le CA à confirmer. */
+function ActiviteNonFacturee({ k }: { k: StatsLieu["kpis"]["courant"] }) {
+  const elements = [
+    k.nbOffertes ? `${nombre(k.nbOffertes)} offerte(s) : imprimée(s) sans débit` : null,
+    k.nbGratuites ? `${nombre(k.nbGratuites)} séance(s) gratuite(s)` : null,
+    k.tiragesNonFactures ? `${nombre(k.tiragesNonFactures)} tirage(s) non facturé(s)` : null,
+    k.nbExpirees ? `${nombre(k.nbExpirees)} paiement(s) expiré(s) : terminal sans réponse` : null,
+    k.nbIncertaines ? `${euros(k.caIncertainTtcCents ?? 0)} de CA à l'enregistrement incertain (${nombre(k.nbIncertaines)} vente(s), à vérifier au rapprochement)` : null,
+  ].filter(Boolean);
+  if (!elements.length) return null;
+  return <p className="text-sm text-ink-2"><span className="font-medium text-ink">Hors chiffre d&apos;affaires :</span> {elements.join(" · ")}.</p>;
 }

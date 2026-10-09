@@ -81,6 +81,13 @@ export interface Kpis {
   nbRefusees: number;
   nbAnnulees: number;
   tauxRefus: number;
+  // Schéma 1.1 des bornes
+  nbExpirees?: number;
+  nbOffertes?: number;
+  nbGratuites?: number;
+  tiragesNonFactures?: number;
+  nbIncertaines?: number;
+  caIncertainTtcCents?: number;
   lieuxAvecVentes: number;
 }
 
@@ -485,6 +492,7 @@ export interface RapportReleve {
     nonRemonteesCents: number;
     nonEncaissees: number;
     nonEncaisseesCents: number;
+    nonEncaisseesIncertaines?: number;
     terminauxInconnus: { terminal: string; lignes: number; montantCents: number }[];
   };
   parTerminal: {
@@ -502,7 +510,7 @@ export interface RapportReleve {
   }[];
   ecarts: { id: string; terminal: string; borne: BorneRapprochement; horodatage: string; montantCents: number; reference: string | null; vente: { id: string; horodatage: string; montantCents: number; transactionId: string } }[];
   nonRemontees: { id: string; terminal: string; borne: BorneRapprochement; horodatage: string; montantCents: number; reference: string | null }[];
-  nonEncaissees: { id: string; terminal: string; borne: BorneRapprochement; lieu: { id: number; enseigne: string } | null; horodatage: string; montantCents: number; transactionId: string }[];
+  nonEncaissees: { id: string; terminal: string; borne: BorneRapprochement; lieu: { id: number; enseigne: string } | null; horodatage: string; montantCents: number; transactionId: string; incertain?: boolean }[];
   tronque: boolean;
   import?: { lignes: number; doublons: number; rejetees: number; erreurs: { ligne: number; message: string }[]; alertes: number };
   nouveaux?: number;
@@ -656,4 +664,22 @@ export interface ListeProspects {
   references: number;
   precision: { ecartMedian: number; lieux: number } | null;
   prospects: Prospect[];
+}
+
+// ─── Ventes (recherche, remboursement) ───
+
+export interface Vente {
+  id: string;
+  transactionIdModule: string;
+  horodatage: string;
+  montantTtcCents: number;
+  statut: string;
+  moyenPaiement: string;
+  referenceMonetique: string | null;
+  encaissement: "CONFIRME" | "INCERTAIN" | null;
+  gratuite: string | null;
+  rembourseCents: number;
+  borne: { id: number; identifiant: string };
+  lieu: { id: number; enseigne: string } | null;
+  typeModule: { libelle: string };
 }
