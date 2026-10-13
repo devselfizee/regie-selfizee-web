@@ -260,7 +260,7 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
         />
         <p className="mt-2 text-xs text-ink-muted">
           Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. Traits : jours fériés, événements du journal
-          {s.interventions.length > 0 && `, interventions SAV (${s.interventions.length})`}. La météo du jour est dans l&apos;infobulle.
+          {s.interventions.length > 0 && `, interventions SAV (${s.interventions.length})`}. La météo du jour est dans l&apos;infobulle (Météo-France, MET Norway).
         </p>
       </Section>
 

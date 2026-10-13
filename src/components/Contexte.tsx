@@ -63,6 +63,9 @@ export const lignesEffets = (e: EffetsContexte): { libelle: string; effet: Effet
   ...e.temperatures.map((t) => ({ libelle: `Maximale ${t.tranche}`, effet: t })),
 ];
 
+/** Citation obligatoire des sources météo (Licence Ouverte Météo-France, CC BY 4.0 MET Norway). */
+export const SOURCES_METEO = "Météo : Météo-France (relevés, Licence Ouverte) et MET Norway (prévisions, CC BY 4.0).";
+
 export const EXPLICATION_EFFETS =
   "Chaque jour est comparé au même jour de la semaine des 4 semaines avant et après : la saison et le jour de la semaine ne faussent pas la comparaison. Pour les longues vacances (été), les jours de référence sont eux aussi en vacances : l'effet affiché est alors sous-estimé.";
 
@@ -115,6 +118,7 @@ export function SectionContexte({ lieuId }: { lieuId: number }) {
             ) : (
               <Vide>Pas de prévision météo pour ce lieu.</Vide>
             )}
+            <p className="mt-2 text-xs text-ink-muted">{SOURCES_METEO}</p>
           </div>
         </div>
       )}

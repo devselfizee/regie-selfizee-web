@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Effet, EXPLICATION_EFFETS, lignesEffets } from "@/components/Contexte";
+import { Effet, EXPLICATION_EFFETS, lignesEffets, SOURCES_METEO } from "@/components/Contexte";
 import { api, qs, type ContexteSegments } from "@/lib/api";
 import { euros, jour, nombre } from "@/lib/format";
 import { Reserve, useMoi } from "@/lib/session";
@@ -157,7 +157,7 @@ function ContexteParType({ filtres }: { filtres: ValeursFiltres }) {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-ink-muted">{EXPLICATION_EFFETS} « j » : nombre de jours observés dans la catégorie.</p>
+          <p className="mt-2 text-xs text-ink-muted">{EXPLICATION_EFFETS} « j » : nombre de jours observés dans la catégorie. {SOURCES_METEO}</p>
         </>
       )}
     </Section>
