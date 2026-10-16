@@ -158,3 +158,29 @@ body {
 .carte {
   @apply rounded-lg border border-line bg-surface;
 }
+
+/* Variables de la plateforme Konitys, utilisées par l'en-tête et la barre latérale chargés en ligne
+   (mêmes valeurs que l'application stock) */
+:root {
+  --k-bg: #ebf0fa;
+  --k-surface: #ffffff;
+  --k-surface-2: #e3eaf5;
+  --k-border: #d6dfed;
+  --k-text: #1a1d2b;
+  --k-muted: #5e6a82;
+  --k-primary: #4f46e5;
+  --k-primary-2: #eef2ff;
+  --k-primary-border: #c7d2fe;
+  --k-success: #16a34a;
+  --k-warning: #ea580c;
+  --k-danger: #dc2626;
+  --k-sidebar-bg: #1e2a40;
+  --k-sidebar-text: #94a3b8;
+  --k-sidebar-text-active: #f1f5f9;
+  --k-sidebar-hover: #263650;
+  --k-sidebar-border: #2f4264;
+  --k-sidebar-section: #6b85a8;
+  --k-sidebar-w: 224px;
+  --k-sidebar-rail: 52px;
+  --k-topbar-h: 48px;
+}
