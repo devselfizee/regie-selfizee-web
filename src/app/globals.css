@@ -3,15 +3,16 @@
 /* Jetons de couleur. Les graphiques lisent les --viz-* (palette validée, cf. docs). */
 :root {
   color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --surface-2: #f3f2ee;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --ink-muted: #6f6d68;
-  --line: #e1e0d9;
-  --line-strong: #c3c2b7;
-  --accent: #2a78d6;
+  /* Thème clair aux couleurs de la plateforme Konitys (comme l'application stock) */
+  --page: #ebf0fa;
+  --surface: #ffffff;
+  --surface-2: #e3eaf5;
+  --ink: #1a1d2b;
+  --ink-2: #4a5468;
+  --ink-muted: #5e6a82;
+  --line: #d6dfed;
+  --line-strong: #b9c6db;
+  --accent: #4f46e5;
   --accent-ink: #ffffff;
   --good: #006300;
   --bad: #b42626;
@@ -35,6 +36,7 @@
   --viz-seq-5: #0d366b;
 }
 
+/* Thème sombre : désactivé (data-theme="light" sur <html>), gardé pour plus tard */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;

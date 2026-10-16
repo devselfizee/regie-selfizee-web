@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="fr" className="h-full antialiased">
+    <html lang="fr" data-theme="light" className="h-full antialiased">
       <body className="min-h-full">
         <Authentification>
           <Providers>
