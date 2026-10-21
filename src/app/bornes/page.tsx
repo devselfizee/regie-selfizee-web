@@ -69,7 +69,7 @@ function Bornes() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {b.enLigne ? <Badge ton="ok">En ligne</Badge> : <Badge ton={b.dernierHeartbeat ? "crit" : "neutre"}>{b.dernierHeartbeat ? "Muette" : "Jamais connectée"}</Badge>}
+                    {b.enLigne ? <Badge ton="ok">En ligne</Badge> : b.dernierHeartbeat ? <Badge ton="crit">Muette</Badge> : <span title="La borne n’a encore rien envoyé à Régie : la synchronisation n’est pas encore installée ou configurée sur la borne."><Badge ton="neutre">Pas encore synchronisée</Badge></span>}
                     <div className="mt-1 text-xs text-ink-muted">signal {depuis(b.dernierHeartbeat)}</div>
                   </td>
                   <td className="px-4 py-3">

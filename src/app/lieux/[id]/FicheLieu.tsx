@@ -304,7 +304,7 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
             const d = b.disponibilite;
             return [
               <span key="b">{b.identifiant} <span className="text-xs text-ink-muted">{b.gamme}</span></span>,
-              !b.dernierHeartbeat ? <span key="d" className="text-ink-muted">jamais connectée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
+              !b.dernierHeartbeat ? <span key="d" className="text-ink-muted" title="La borne n’a encore rien envoyé à Régie">pas encore synchronisée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
               d.coupures ? `${d.coupures} (max ${duree(d.plusLongueCoupureMin)})` : "—",
               d.pannes ? `${d.pannes} · ${duree(d.minutesPanne)}` : "—",
               depuis(b.derniereVente),
