@@ -17,7 +17,11 @@ export function Modale({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  // L'événement « close » arrive aussi quand le parent ferme la modale (ex. pour en ouvrir une autre) :
+  // dans ce cas il ne doit pas rappeler onFermer, qui fermerait la suivante.
+  const ouverteRef = useRef(ouverte);
   useEffect(() => {
+    ouverteRef.current = ouverte;
     const d = ref.current;
     if (!d) return;
     if (ouverte && !d.open) d.showModal();
@@ -27,7 +31,7 @@ export function Modale({
   return (
     <dialog
       ref={ref}
-      onClose={onFermer}
+      onClose={() => ouverteRef.current && onFermer()}
       className={`m-auto ${large ? "w-[min(46rem,calc(100vw-2rem))]" : "w-[min(32rem,calc(100vw-2rem))]"} max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/40`}
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
