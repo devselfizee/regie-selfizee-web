@@ -1,5 +1,6 @@
 "use client";
 
+import { AdresseGoogle, autocompletionGoogle } from "./AdresseGoogle";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -162,12 +163,28 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
           { value: "RESILIE", label: "Résilié" },
           { value: "PROSPECT", label: "Prospect" },
         ], true)}
-        {champ("adresse", "Adresse")}
+        <Champ libelle="Adresse" erreur={erreurs.get("adresse")}>
+          <AdresseGoogle
+            valeur={e.adresse}
+            onSaisie={(adresse) => set({ adresse })}
+            onChoix={(a) =>
+              set({ adresse: a.adresse, codePostal: a.codePostal, ville: a.ville, latitude: String(a.latitude), longitude: String(a.longitude) })
+            }
+          />
+        </Champ>
         {champ("codePostal", "Code postal")}
         {champ("ville", "Ville")}
-        <div className="grid grid-cols-2 gap-2">
-          {champ("latitude", "Latitude")}
-          {champ("longitude", "Longitude")}
+        <div>
+          <span className="etiquette">Position (automatique)</span>
+          <div className="grid grid-cols-2 gap-2">
+            <input className="champ bg-surface-2 text-ink-2" readOnly tabIndex={-1} aria-label="Latitude" value={e.latitude} placeholder="Latitude" />
+            <input className="champ bg-surface-2 text-ink-2" readOnly tabIndex={-1} aria-label="Longitude" value={e.longitude} placeholder="Longitude" />
+          </div>
+          <span className="text-xs text-ink-muted">
+            {autocompletionGoogle
+              ? "Remplie en choisissant l'adresse dans la liste Google (sinon, calculée à l'enregistrement)."
+              : "Calculée à partir de l'adresse à l'enregistrement."}
+          </span>
         </div>
       </Bloc>
 

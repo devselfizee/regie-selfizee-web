@@ -10,8 +10,7 @@ import { DonneesDemo } from "@/components/DonneesDemo";
 
 // Listes administrables de la fiche lieu (CDC §3.1) + gammes et types de module (CDC §2)
 const LISTES: { cle: string; libelle: string; aide: string }[] = [
-  { cle: "TYPE_LIEU", libelle: "Types de lieu", aide: "Camping, boîte de nuit, bar…" },
-  { cle: "SOUS_TYPE_LIEU", libelle: "Sous-types", aide: "Précision du type de lieu (ex. Camping 4-5*)" },
+  { cle: "TYPE_LIEU", libelle: "Types et sous-types", aide: "Chaque type de lieu (camping, bar…) et ses sous-types (camping 3*, camping 4-5*…)." },
   { cle: "STANDING", libelle: "Standing", aide: "Gamme du lieu" },
   { cle: "CLIENTELE", libelle: "Clientèles", aide: "Clientèle dominante (plusieurs choix possibles)" },
   { cle: "ZONE_GEO", libelle: "Zones", aide: "Urbaine, littoral, montagne…" },
@@ -20,8 +19,8 @@ const LISTES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "ECLAIRAGE", libelle: "Éclairage", aide: "Éclairage de l'emplacement" },
   { cle: "ORIGINE_LEAD", libelle: "Origines du lead", aide: "Comment le lieu a été trouvé" },
   { cle: "TYPE_EVENEMENT", libelle: "Types d'événement", aide: "Journal d'événements du lieu" },
-  { cle: "GAMMES", libelle: "Gammes de bornes", aide: "Ma Trombine, Prestige…" },
-  { cle: "MODULES", libelle: "Modules de paiement", aide: "Code envoyé par les bornes dans le JSON (module.type)" },
+  { cle: "GAMMES", libelle: "Gammes de bornes", aide: "Spherik, Kalifun, Classic… Le code est un identifiant fixe : il ne change pas quand on renomme le libellé." },
+  { cle: "MODULES", libelle: "Modules de paiement", aide: "Le code est celui que les bornes envoient (module.type) : il ne change pas quand on renomme le libellé." },
   { cle: "ALERTES", libelle: "Règles d'alerte", aide: "" },
   { cle: "DEMO", libelle: "Données de démonstration", aide: "" },
 ];
@@ -89,103 +88,196 @@ function Parametres() {
   );
 }
 
+type Patch = { id: number; libelle?: string; actif?: boolean };
+
+/**
+ * Une liste administrable. Les codes sont des identifiants techniques fixes (ils ne suivent pas les
+ * renommages : l'historique, les filtres et l'initialisation des listes s'appuient dessus) ; ils ne sont
+ * montrés que pour les gammes et les modules de paiement, où ils comptent (envoyés par les bornes).
+ */
 function Liste({ def, data }: { def: (typeof LISTES)[number]; data: Referentiel }) {
   const client = useQueryClient();
-  const [nouveau, setNouveau] = useState("");
-  const [code, setCode] = useState("");
-  const [parentId, setParentId] = useState("");
-  const typeLieux = data.listes.TYPE_LIEU ?? [];
-
+  const technique = def.cle === "GAMMES" || def.cle === "MODULES";
   const elements: Element[] =
     def.cle === "GAMMES" ? data.gammes : def.cle === "MODULES" ? data.typesModule : (data.listes[def.cle] ?? []);
   const base = def.cle === "GAMMES" ? "/referentiel/gammes" : def.cle === "MODULES" ? "/referentiel/types-module" : "/referentiel/valeurs";
   const rafraichir = () => client.invalidateQueries({ queryKey: ["referentiel"] });
 
-  const ajouter = useMutation({
-    mutationFn: () =>
-      api(base, {
-        method: "POST",
-        json: {
-          code: code || versCode(nouveau),
-          libelle: nouveau.trim(),
-          ...(base === "/referentiel/valeurs" ? { categorie: def.cle, ordre: elements.length } : {}),
-          ...(def.cle === "SOUS_TYPE_LIEU" && parentId ? { parentId: Number(parentId) } : {}),
-        },
-      }),
-    onSuccess: () => {
-      setNouveau("");
-      setCode("");
-      rafraichir();
-    },
-  });
   const modifier = useMutation({
-    mutationFn: ({ id, ...patch }: { id: number; libelle?: string; actif?: boolean }) => api(`${base}/${id}`, { method: "PATCH", json: patch }),
+    mutationFn: ({ id, ...patch }: Patch) => api(`${base}/${id}`, { method: "PATCH", json: patch }),
     onSuccess: rafraichir,
   });
+  const ordonner = useMutation({
+    mutationFn: (ids: number[]) => api("/referentiel/valeurs/ordre", { method: "POST", json: { ids } }),
+    onSuccess: rafraichir,
+  });
+  const erreur = modifier.error ?? ordonner.error;
+
+  const sousTypes = data.listes.SOUS_TYPE_LIEU ?? [];
+  const orphelins = def.cle === "TYPE_LIEU" ? sousTypes.filter((s) => !elements.some((t) => t.id === s.parentId)) : [];
 
   return (
     <section className="carte p-4">
       <h2 className="text-base font-semibold">{def.libelle}</h2>
       <p className="mb-4 text-sm text-ink-2">{def.aide}</p>
 
-      <ul className="divide-y divide-line">
-        {elements.map((e) => (
-          <li key={e.id} className={`flex flex-wrap items-center gap-2 py-2 ${e.actif ? "" : "opacity-60"}`}>
-            <input
-              className="champ !w-auto min-w-48 flex-1"
-              defaultValue={e.libelle}
-              aria-label={`Libellé de ${e.code}`}
-              onBlur={(ev) => ev.target.value.trim() && ev.target.value !== e.libelle && modifier.mutate({ id: e.id, libelle: ev.target.value.trim() })}
-            />
-            <code className="text-xs text-ink-muted">{e.code}</code>
-            {def.cle === "SOUS_TYPE_LIEU" && (
-              <span className="text-xs text-ink-2">{typeLieux.find((t) => t.id === e.parentId)?.libelle ?? "—"}</span>
+      <Lignes
+        elements={elements}
+        technique={technique}
+        ordonnable={!technique}
+        onModifier={(p) => modifier.mutate(p)}
+        onOrdonner={(ids) => ordonner.mutate(ids)}
+        enfants={
+          def.cle === "TYPE_LIEU"
+            ? (type) => (
+                <div className="mt-1 mb-2 ml-8 border-l-2 border-line pl-3">
+                  <Lignes
+                    elements={sousTypes.filter((s) => s.parentId === type.id)}
+                    technique={false}
+                    ordonnable
+                    petit
+                    onModifier={(p) => modifier.mutate(p)}
+                    onOrdonner={(ids) => ordonner.mutate(ids)}
+                  />
+                  <Ajout def={{ ...def, cle: "SOUS_TYPE_LIEU" }} base="/referentiel/valeurs" ordre={sousTypes.filter((s) => s.parentId === type.id).length} parentId={type.id} placeholder={`Nouveau sous-type de « ${type.libelle} »`} petit />
+                </div>
+              )
+            : undefined
+        }
+      />
+      {orphelins.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs text-ink-2">Sous-types sans type (à rattacher ou désactiver) :</p>
+          <Lignes elements={orphelins} technique={false} ordonnable={false} petit onModifier={(p) => modifier.mutate(p)} onOrdonner={() => {}} />
+        </div>
+      )}
+
+      <div className="mt-4 border-t border-line pt-4">
+        <Ajout def={def} base={base} ordre={elements.length} technique={technique} placeholder={def.cle === "TYPE_LIEU" ? "Nouveau type de lieu" : "Libellé"} />
+      </div>
+      {erreur && <p role="alert" className="mt-2 text-sm text-bad">{erreur.message}</p>}
+    </section>
+  );
+}
+
+/** Lignes d'une liste : libellé modifiable, ↑ ↓ pour l'ordre, activer / désactiver. */
+function Lignes({
+  elements,
+  technique,
+  ordonnable,
+  petit = false,
+  onModifier,
+  onOrdonner,
+  enfants,
+}: {
+  elements: Element[];
+  technique: boolean;
+  ordonnable: boolean;
+  petit?: boolean;
+  onModifier: (p: Patch) => void;
+  onOrdonner: (ids: number[]) => void;
+  enfants?: (e: Element) => React.ReactNode;
+}) {
+  const deplacer = (i: number, sens: -1 | 1) => {
+    const ids = elements.map((e) => e.id);
+    [ids[i], ids[i + sens]] = [ids[i + sens], ids[i]];
+    onOrdonner(ids);
+  };
+  if (!elements.length) return <p className={`text-ink-muted ${petit ? "py-1 text-xs" : "py-3 text-sm"}`}>Aucune valeur pour l&apos;instant.</p>;
+  return (
+    <ul className={petit ? "" : "divide-y divide-line"}>
+      {elements.map((e, i) => (
+        <li key={e.id} className={petit ? "py-1" : "py-2"}>
+          <div className={`flex flex-wrap items-center gap-2 ${e.actif ? "" : "opacity-60"}`}>
+            {ordonnable && (
+              <span className="flex flex-col">
+                <button type="button" className="px-1 text-xs leading-none text-ink-2 hover:text-ink disabled:opacity-30" disabled={i === 0} aria-label={`Monter ${e.libelle}`} onClick={() => deplacer(i, -1)}>▲</button>
+                <button type="button" className="px-1 text-xs leading-none text-ink-2 hover:text-ink disabled:opacity-30" disabled={i === elements.length - 1} aria-label={`Descendre ${e.libelle}`} onClick={() => deplacer(i, 1)}>▼</button>
+              </span>
             )}
+            <input
+              className={`champ !w-auto min-w-48 flex-1 ${petit ? "!py-1 text-sm" : ""}`}
+              defaultValue={e.libelle}
+              aria-label={`Libellé de ${e.libelle}`}
+              onBlur={(ev) => ev.target.value.trim() && ev.target.value !== e.libelle && onModifier({ id: e.id, libelle: ev.target.value.trim() })}
+            />
+            {technique && <code className="text-xs text-ink-muted" title="Code fixe, utilisé par les bornes">{e.code}</code>}
             {!e.actif && <Badge ton="neutre">Désactivé</Badge>}
-            <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => modifier.mutate({ id: e.id, actif: !e.actif })}>
+            <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => onModifier({ id: e.id, actif: !e.actif })}>
               {e.actif ? "Désactiver" : "Réactiver"}
             </button>
-          </li>
-        ))}
-        {!elements.length && <li className="py-3 text-sm text-ink-muted">Aucune valeur pour l&apos;instant.</li>}
-      </ul>
+          </div>
+          {enfants?.(e)}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
-      <form
-        className="mt-4 flex flex-wrap items-end gap-2 border-t border-line pt-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (nouveau.trim()) ajouter.mutate();
-        }}
-      >
-        <label className="min-w-48 flex-1">
-          <span className="etiquette">Nouvelle valeur</span>
-          <input className="champ" value={nouveau} onChange={(e) => setNouveau(e.target.value)} placeholder="Libellé" />
-        </label>
-        {def.cle === "SOUS_TYPE_LIEU" && (
-          <label>
-            <span className="etiquette">Type de lieu</span>
-            <select className="champ" required value={parentId} onChange={(e) => setParentId(e.target.value)}>
-              <option value="">—</option>
-              {typeLieux.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-            </select>
-          </label>
-        )}
+/** Ajout d'une valeur ; le code est déduit du libellé (saisi seulement pour les gammes et modules). */
+function Ajout({
+  def,
+  base,
+  ordre,
+  parentId,
+  technique = false,
+  petit = false,
+  placeholder,
+}: {
+  def: { cle: string };
+  base: string;
+  ordre: number;
+  parentId?: number;
+  technique?: boolean;
+  petit?: boolean;
+  placeholder: string;
+}) {
+  const client = useQueryClient();
+  const [libelle, setLibelle] = useState("");
+  const [code, setCode] = useState("");
+  const ajouter = useMutation({
+    mutationFn: () =>
+      api(base, {
+        method: "POST",
+        json: {
+          code: code || versCode(libelle),
+          libelle: libelle.trim(),
+          ...(base === "/referentiel/valeurs" ? { categorie: def.cle, ordre } : {}),
+          ...(parentId ? { parentId } : {}),
+        },
+      }),
+    onSuccess: () => {
+      setLibelle("");
+      setCode("");
+      client.invalidateQueries({ queryKey: ["referentiel"] });
+    },
+  });
+  return (
+    <form
+      className={`flex flex-wrap items-end gap-2 ${petit ? "mt-1" : ""}`}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (libelle.trim()) ajouter.mutate();
+      }}
+    >
+      <label className="min-w-48 flex-1">
+        {!petit && <span className="etiquette">Nouvelle valeur</span>}
+        <input className={`champ ${petit ? "!py-1 text-sm" : ""}`} value={libelle} onChange={(e) => setLibelle(e.target.value)} placeholder={placeholder} aria-label={placeholder} />
+      </label>
+      {technique && (
         <label>
-          <span className="etiquette">Code {def.cle === "MODULES" ? "(celui envoyé par les bornes)" : "(automatique)"}</span>
-          <input
-            className="champ font-mono"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder={versCode(nouveau) || "CODE"}
-          />
+          <span className="etiquette">Code {def.cle === "MODULES" ? "(celui envoyé par les bornes)" : ""}</span>
+          <input className="champ font-mono" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder={versCode(libelle) || "CODE"} />
         </label>
-        <button className="bouton" disabled={!nouveau.trim() || ajouter.isPending}>Ajouter</button>
-      </form>
-      {(ajouter.error || modifier.error) && (
-        <p role="alert" className="mt-2 text-sm text-bad">
-          {(ajouter.error ?? modifier.error)?.message === "DEJA_EXISTANT" ? "Ce code existe déjà." : (ajouter.error ?? modifier.error)?.message}
-        </p>
       )}
-    </section>
+      <button className={petit ? "bouton-second !px-2 !py-1 text-xs" : "bouton"} disabled={!libelle.trim() || ajouter.isPending}>
+        Ajouter
+      </button>
+      {ajouter.error && (
+        <span role="alert" className="w-full text-sm text-bad">
+          {ajouter.error.message === "DEJA_EXISTANT" ? "Cette valeur existe déjà." : ajouter.error.message}
+        </span>
+      )}
+    </form>
   );
 }

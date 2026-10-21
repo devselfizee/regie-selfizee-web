@@ -438,7 +438,7 @@ export interface BorneDetail {
   statut: string;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; identifiantPrestataire: string | null; installeLe: string | null; retireLe: string | null; type: { id: number; libelle: string } }[];
-  affectations: { id: number; debut: string; fin: string | null; lieu: { id: number; enseigne: string; ville: string | null } }[];
+  affectations: { id: number; debut: string; fin: string | null; lieu: { id: number; enseigne: string; ville: string | null; dateInstallation: string | null } }[];
   dernierHeartbeat: string | null;
   derniereVente: string | null;
   logicielVersion: string | null;

@@ -31,6 +31,8 @@ export function FicheBorne({ id }: { id: number }) {
 function Fiche({ id }: { id: number }) {
   const moi = useMoi();
   const { data: b, error } = useQuery({ queryKey: ["borne", id], queryFn: () => api<BorneDetail>(`/bornes/${id}`) });
+  const [edition, setEdition] = useState(false);
+  const [dates, setDates] = useState<BorneDetail["affectations"][number] | null>(null);
   if (error) return <Erreur erreur={error} />;
   if (!b) return <Chargement />;
   const actuelle = b.affectations.find((a) => !a.fin);
@@ -43,7 +45,12 @@ function Fiche({ id }: { id: number }) {
         sousTitre={[b.gamme.libelle, b.numeroSerie, moduleActuel && `${moduleActuel.type.libelle}${moduleActuel.numeroSerie ? ` ${moduleActuel.numeroSerie}` : ""}`, b.logicielVersion && `v${b.logicielVersion}`]
           .filter(Boolean)
           .join(" · ")}
-        actions={<Link href="/bornes" className="bouton-second">← Toutes les bornes</Link>}
+        actions={
+          <>
+            <Link href="/bornes" className="bouton-second">← Toutes les bornes</Link>
+            <button className="bouton" onClick={() => setEdition(true)}>Modifier la borne</button>
+          </>
+        }
       />
 
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
@@ -62,15 +69,27 @@ function Fiche({ id }: { id: number }) {
         <Section titre="Historique des emplacements">
           <ul className="divide-y divide-line text-sm">
             {b.affectations.map((a) => (
-              <li key={a.id} className="flex justify-between gap-3 py-2">
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2">
                 <Link className="hover:underline" href={`/lieux/${a.lieu.id}`}>{a.lieu.enseigne}<span className="text-ink-muted"> · {a.lieu.ville}</span></Link>
-                <span className="text-ink-2">{dateHeure(a.debut)} → {a.fin ? dateHeure(a.fin) : "aujourd'hui"}</span>
+                <span className="flex items-center gap-3 text-ink-2">
+                  {dateHeure(a.debut)} → {a.fin ? dateHeure(a.fin) : "aujourd'hui"}
+                  <button className="text-xs text-accent hover:underline" onClick={() => setDates(a)}>Modifier les dates</button>
+                </span>
               </li>
             ))}
             {!b.affectations.length && <li className="py-2 text-ink-muted">Jamais installée.</li>}
           </ul>
+          <p className="mt-2 text-xs text-ink-muted">
+            Les ventes sont rattachées au lieu où la borne était à leur date : corriger une date les recalcule (statistiques et commissions).
+          </p>
         </Section>
       </div>
+      <Modale titre={`Modifier ${b.identifiant}`} ouverte={edition} onFermer={() => setEdition(false)}>
+        {edition && <FormEditionBorne borne={b} onFini={() => setEdition(false)} />}
+      </Modale>
+      <Modale titre="Dates dans le lieu" ouverte={dates !== null} onFermer={() => setDates(null)}>
+        {dates && <FormDatesAffectation borneId={b.id} affectation={dates} onFini={() => setDates(null)} />}
+      </Modale>
     </>
   );
 }
@@ -465,5 +484,118 @@ function SectionModule({ borne }: { borne: BorneDetail }) {
         </form>
       </Modale>
     </Section>
+  );
+}
+
+/** "2026-07-04T18:30:00Z" → "2026-07-04T20:30" (heure locale, pour un champ datetime-local) */
+const versLocal = (iso: string) => {
+  const d = new Date(iso);
+  const deux = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${deux(d.getHours())}:${deux(d.getMinutes())}`;
+};
+
+const STATUTS_BORNE: Record<string, string> = {
+  EN_STOCK: "En stock",
+  INSTALLEE: "Installée",
+  EN_PANNE: "En panne",
+  EN_REPARATION: "En réparation",
+  REFORMEE: "Réformée",
+};
+
+function FormEditionBorne({ borne, onFini }: { borne: BorneDetail; onFini: () => void }) {
+  const client = useQueryClient();
+  const { data: ref } = useReferentiel();
+  const [f, setF] = useState({ identifiant: borne.identifiant, numeroSerie: borne.numeroSerie, gammeId: String(borne.gamme.id), statut: borne.statut });
+  const enregistrer = useMutation({
+    mutationFn: () =>
+      api(`/bornes/${borne.id}`, {
+        method: "PUT",
+        json: { identifiant: f.identifiant, numeroSerie: f.numeroSerie, gammeId: Number(f.gammeId), statut: f.statut },
+      }),
+    onSuccess: () => {
+      client.invalidateQueries();
+      onFini();
+    },
+  });
+  const identifiantChange = f.identifiant.trim().toUpperCase() !== borne.identifiant;
+  return (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); enregistrer.mutate(); }}>
+      <label className="block">
+        <span className="etiquette">Identifiant (celui envoyé par la borne) *</span>
+        <input className="champ" required value={f.identifiant} onChange={(e) => setF({ ...f, identifiant: e.target.value.toUpperCase() })} />
+      </label>
+      {identifiantChange && (
+        <p className="text-sm text-warn-ink">
+          La borne devra envoyer ce nouvel identifiant : tant qu&apos;elle envoie l&apos;ancien, ses envois sont refusés.
+        </p>
+      )}
+      <label className="block">
+        <span className="etiquette">Numéro de série *</span>
+        <input className="champ" required value={f.numeroSerie} onChange={(e) => setF({ ...f, numeroSerie: e.target.value })} />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="etiquette">Gamme *</span>
+          <select className="champ" required value={f.gammeId} onChange={(e) => setF({ ...f, gammeId: e.target.value })}>
+            {ref?.gammes.filter((g) => g.actif || String(g.id) === f.gammeId).map((g) => <option key={g.id} value={g.id}>{g.libelle}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="etiquette">Statut</span>
+          <select className="champ" value={f.statut} onChange={(e) => setF({ ...f, statut: e.target.value })}>
+            {Object.entries(STATUTS_BORNE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </label>
+      </div>
+      <p className="text-xs text-ink-muted">Le module de paiement et son n° de terminal se modifient dans la section « Module de paiement ».</p>
+      {enregistrer.error && <Erreur erreur={enregistrer.error} />}
+      <button className="bouton" disabled={enregistrer.isPending}>Enregistrer</button>
+    </form>
+  );
+}
+
+function FormDatesAffectation({ borneId, affectation, onFini }: { borneId: number; affectation: BorneDetail["affectations"][number]; onFini: () => void }) {
+  const client = useQueryClient();
+  const [debut, setDebut] = useState(versLocal(affectation.debut));
+  const [fin, setFin] = useState(affectation.fin ? versLocal(affectation.fin) : "");
+  const installation = affectation.lieu.dateInstallation;
+  const enregistrer = useMutation({
+    mutationFn: () =>
+      api(`/affectations/${affectation.id}`, {
+        method: "PATCH",
+        json: { debut: new Date(debut).toISOString(), fin: fin ? new Date(fin).toISOString() : null },
+      }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["borne", borneId] });
+      client.invalidateQueries();
+      onFini();
+    },
+  });
+  return (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); enregistrer.mutate(); }}>
+      <p className="text-sm">
+        Présence de la borne à <strong>{affectation.lieu.enseigne}</strong>.
+      </p>
+      <label className="block">
+        <span className="etiquette">Arrivée dans le lieu *</span>
+        <input className="champ" type="datetime-local" required value={debut} onChange={(e) => setDebut(e.target.value)} />
+      </label>
+      {installation && (
+        <button type="button" className="text-xs text-accent hover:underline" onClick={() => setDebut(`${installation.slice(0, 10)}T00:00`)}>
+          Reprendre la date d&apos;installation de la fiche du lieu ({date(installation)})
+        </button>
+      )}
+      <label className="block">
+        <span className="etiquette">Départ du lieu</span>
+        <input className="champ" type="datetime-local" value={fin} min={debut} onChange={(e) => setFin(e.target.value)} />
+        <span className="text-xs text-ink-muted">Vide : la borne y est toujours.</span>
+      </label>
+      <p className="text-xs text-ink-2">
+        Les ventes de la borne sont rattachées à nouveau selon ces dates : celles d&apos;avant l&apos;arrivée ne comptent plus pour ce lieu, celles
+        d&apos;après y sont ajoutées (statistiques, commissions des périodes non validées).
+      </p>
+      {enregistrer.error && <Erreur erreur={enregistrer.error} />}
+      <button className="bouton" disabled={enregistrer.isPending}>Enregistrer</button>
+    </form>
   );
 }
