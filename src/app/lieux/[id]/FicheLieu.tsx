@@ -55,6 +55,7 @@ export function FicheLieu({ id }: { id: number }) {
             {voitVentes && (
               <Exporter libelle="Ventes" chemin="/export/transactions" requete={qs({ ...filtres, lieuId: id })} />
             )}
+            {peut.administrer(moi.role) && <Link href={`/lieux/${id}/evenement`} className="bouton-second">Fiche événement (borne)</Link>}
             {peut.gererLieux(moi.role) && <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>}
           </>
         }

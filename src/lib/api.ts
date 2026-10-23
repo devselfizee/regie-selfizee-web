@@ -683,3 +683,46 @@ export interface Vente {
   lieu: { id: number; enseigne: string } | null;
   typeModule: { libelle: string };
 }
+
+// Fiche événement d'un lieu (config de la borne, CDC page souvenir § 13). Montants en centimes.
+export type GabaritEvenement = "bandelette" | "pola" | "planche" | "carte";
+export type LotJeu = "free" | "pct50" | "pct30" | "none";
+
+export interface ReglagesEvenement {
+  lieu: {
+    nom: string;
+    ville: string | null;
+    dateDebut: string;
+    dateFin: string;
+    ton: "club" | "bar" | "famille" | "pro";
+    illustrations: "festif" | "chic";
+    avisGoogleUrl: string | null;
+    instagram: string | null;
+    tiktok: string | null;
+    hashtag: string | null;
+    assistance: { proprietaire: "selfizee" | "client"; telephone: string | null; email: string | null };
+  };
+  gabarits: { choisis: GabaritEvenement[]; accueil: GabaritEvenement[] };
+  tarifs: {
+    paliers: { de: number; prixCents: number }[];
+    palierMisEnAvant: number | null;
+    libelleMisEnAvant: string;
+    plusUnCents: number;
+    codesPromo: boolean;
+    jeu: { actif: boolean; lots: Record<LotJeu, number>; maxLotsParJour: number };
+    reimpressionWeb: boolean;
+    photoAppel: { actif: boolean; inactiviteSec: number };
+    envoiPostal: { actif: boolean; fraisCents: number };
+  };
+}
+
+export interface FicheEvenementLieu {
+  enregistre: boolean;
+  code: string | null;
+  version: number;
+  publieeLe: string | null;
+  modifieDepuisPublication: boolean;
+  reglages: ReglagesEvenement;
+  horaires: { jourSemaine: number; ouverture: string; fermeture: string }[];
+  controles: { niveau: "erreur" | "avertissement"; message: string }[];
+}
