@@ -1,0 +1,74 @@
+/* Page publique « Mes photos » : maquette page-mes-photos-v1.html (livraison du 21/10/2026).
+   Univers de la page souvenir : nuit, titres jaunes à ombre rose, boutons pilule à relief. */
+.page {
+  --paper: #0f0918;
+  --paper-2: #2b1d44;
+  --ink: #f7f1ff;
+  --muted: #cbbfe0;
+  --line: rgba(247, 241, 255, 0.26);
+  --jaune: #ffe14d;
+  --rose: #ff3da8;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  color-scheme: dark;
+}
+.top { max-width: 980px; margin: 0 auto; padding: 22px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+.top img { height: 34px; width: auto; display: block; }
+.top a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.main { max-width: 980px; margin: 0 auto; padding: 40px 20px 60px; }
+.titre {
+  font-family: var(--f-display), "Arial Black", sans-serif; font-weight: 900; font-size: 40px; line-height: 1.05;
+  text-transform: uppercase; margin: 0 0 12px; color: var(--jaune); text-shadow: 4px 4px 0 var(--rose);
+}
+.lead { font-size: 18px; color: var(--muted); margin: 0 0 36px; max-width: 560px; }
+.cartes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+.carte { background: var(--paper-2); border-radius: 20px; padding: 28px 24px 26px; min-width: 0; }
+.carte h2 { font-family: var(--f-display), "Arial Black", sans-serif; font-weight: 900; font-size: 18px; text-transform: uppercase; margin: 0 0 6px; line-height: 1.15; }
+.carte p { margin: 0 0 20px; color: var(--muted); line-height: 1.45; }
+.eventail { display: block; margin: 0 0 10px -10px; }
+.cases { display: flex; gap: 8px; margin: 0 0 18px; }
+.cases input {
+  width: 100%; min-width: 0; height: 60px; border: 0; border-radius: 12px; background: #fff; color: #1b1300;
+  font: 600 28px var(--mono); text-align: center; text-transform: uppercase; outline: 3px solid transparent;
+}
+.cases input:focus, .email:focus { outline-color: var(--rose); }
+.champ { display: block; margin: 0 0 18px; }
+.champ span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.email {
+  width: 100%; height: 60px; padding: 0 16px; border: 0; border-radius: 12px; background: #fff; color: #1b1300;
+  font: 600 18px var(--f-body), system-ui, sans-serif; outline: 3px solid transparent;
+}
+.email::placeholder { color: #8a8a8a; }
+.bouton {
+  display: block; width: 100%; padding: 17px 22px; border: 0; border-radius: 999px; background: var(--jaune); color: #1b1300;
+  box-shadow: 0 4px 0 #b89a00; font: 700 14px var(--f-display), "Arial Black", sans-serif; text-transform: uppercase;
+  letter-spacing: 0.3px; cursor: pointer; text-align: center;
+}
+.bouton:active { transform: translateY(3px); box-shadow: 0 1px 0 #b89a00; }
+.bouton:disabled { opacity: 0.6; cursor: wait; }
+.bouton:focus-visible { outline: 3px solid var(--rose); outline-offset: 3px; }
+.clair { background: #fff; box-shadow: 0 4px 0 #b9b2c4; }
+.clair:active { box-shadow: 0 1px 0 #b9b2c4; }
+.petit { font-size: 13px; color: var(--muted); margin: 14px 0 0; line-height: 1.45; }
+.erreur { color: #ff8fcf; font-weight: 600; margin: -8px 0 14px; }
+.envoye { padding: 18px; border: 2px dashed var(--jaune); border-radius: 14px; margin-top: 18px; line-height: 1.45; }
+.envoye b { display: block; font-family: var(--f-display), "Arial Black", sans-serif; font-size: 14px; text-transform: uppercase; color: var(--jaune); margin-bottom: 4px; }
+.demo { margin: 0 0 28px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.5; }
+.demo a { color: var(--jaune); word-break: break-all; }
+.aide { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 640px; }
+.aide b { color: var(--ink); }
+.pied { max-width: 980px; margin: 0 auto; padding: 0 20px 40px; font-size: 12px; color: #9d8fb8; }
+@media (max-width: 720px) {
+  .titre { font-size: 30px; }
+  .lead { font-size: 16px; }
+  .cartes { grid-template-columns: 1fr; }
+  .main { padding-top: 28px; }
+}
+@media (max-width: 380px) {
+  .cases { gap: 5px; }
+  .cases input { height: 52px; font-size: 22px; }
+}

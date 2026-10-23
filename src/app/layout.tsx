@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Providers } from "./providers";
-import { Coquille } from "@/components/Coquille";
-import { Authentification } from "@/components/Authentification";
-import { Session } from "@/lib/session";
+import { Espaces } from "@/components/Espaces";
 
 export const metadata: Metadata = {
   title: "Régie Selfizee",
@@ -14,13 +11,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" data-theme="light" className="h-full antialiased">
       <body className="min-h-full">
-        <Authentification>
-          <Providers>
-            <Session>
-              <Coquille>{children}</Coquille>
-            </Session>
-          </Providers>
-        </Authentification>
+        <Espaces>{children}</Espaces>
       </body>
     </html>
   );
