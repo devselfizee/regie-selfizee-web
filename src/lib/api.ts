@@ -716,6 +716,18 @@ export interface ReglagesEvenement {
   };
 }
 
+/** Cadre dessiné au studio pour un gabarit du kit (liste : sans le canvas). */
+export interface CadreEvenement {
+  id?: number;
+  gabarit: GabaritEvenement;
+  nom: string;
+  formatId: string;
+  gabaritStudioId: string | null;
+  nbPoses: number;
+  vignette: string | null;
+  updatedAt: string;
+}
+
 export interface FicheEvenementLieu {
   enregistre: boolean;
   code: string | null;

@@ -9,6 +9,8 @@ import { Session } from "@/lib/session";
 
 // Pages publiques (invités, sans compte) : ni connexion Keycloak, ni barre ni menu de la plateforme
 const PUBLIQUES = ["/mes-photos"];
+// Pages plein écran (studio de cadres) : connecté, mais sans la barre ni le menu de la plateforme
+const PLEIN_ECRAN = /^\/lieux\/\d+\/evenement\/studio\//;
 
 export function Espaces({ children }: { children: ReactNode }) {
   const chemin = usePathname();
@@ -16,9 +18,7 @@ export function Espaces({ children }: { children: ReactNode }) {
   return (
     <Authentification>
       <Providers>
-        <Session>
-          <Coquille>{children}</Coquille>
-        </Session>
+        <Session>{PLEIN_ECRAN.test(chemin) ? children : <Coquille>{children}</Coquille>}</Session>
       </Providers>
     </Authentification>
   );

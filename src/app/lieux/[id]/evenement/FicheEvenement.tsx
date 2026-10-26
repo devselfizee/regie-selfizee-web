@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, telecharger, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
+import { api, telecharger, type CadreEvenement, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
 import { dateHeure, euros, JOURS_SEMAINE } from "@/lib/format";
@@ -21,8 +22,10 @@ export function FicheEvenement({ id }: { id: number }) {
 function Chargeur({ id }: { id: number }) {
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   const fiche = useQuery({ queryKey: ["evenement-lieu", id], queryFn: () => api<FicheEvenementLieu>(`/lieux/${id}/evenement`) });
-  // Ici et non dans l'éditeur : l'éditeur repart des réglages enregistrés après chaque enregistrement
-  const [ecran, setEcran] = useState(0);
+  // Ici et non dans l'éditeur : l'éditeur repart des réglages enregistrés après chaque enregistrement.
+  // ?ecran=gabarits : retour du studio de cadres sur l'écran d'où on l'a ouvert.
+  const demande = useSearchParams().get("ecran");
+  const [ecran, setEcran] = useState(() => Math.max(0, ["lieu", "gabarits", "tarifs"].indexOf(demande ?? "")));
   if (lieu.error || fiche.error) return <Erreur erreur={lieu.error ?? fiche.error} />;
   if (!lieu.data || !fiche.data) return <Chargement />;
   return <Editeur key={fiche.dataUpdatedAt} lieuId={id} enseigne={lieu.data.enseigne} fiche={fiche.data} ecran={ecran} setEcran={setEcran} />;
@@ -32,6 +35,7 @@ const ECRANS = ["Le lieu", "Gabarits", "Tarifs et options"] as const;
 
 function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number; enseigne: string; fiche: FicheEvenementLieu; ecran: number; setEcran: (n: number) => void }) {
   const client = useQueryClient();
+  const router = useRouter();
   const [r, setR] = useState<ReglagesEvenement>(fiche.reglages);
   const modifie = JSON.stringify(r) !== JSON.stringify(fiche.reglages);
 
@@ -44,6 +48,11 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
     onSuccess: (f) => client.setQueryData(["evenement-lieu", lieuId], f),
   });
   const [erreurTelechargement, setErreurTelechargement] = useState<unknown>(null);
+  // Le studio s'ouvre sur une autre page : on enregistre d'abord ce qui ne l'est pas (gabarit tout juste coché…)
+  const ouvrirStudio = async (g: GabaritEvenement) => {
+    if (modifie || !fiche.enregistre) await enregistrer.mutateAsync();
+    router.push(`/lieux/${lieuId}/evenement/studio/${g}`);
+  };
   const telechargerConfig = (publiee: boolean) =>
     telecharger(`/lieux/${lieuId}/evenement/config.json${publiee ? "?publiee=1" : ""}`).catch(setErreurTelechargement);
 
@@ -86,7 +95,7 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
           </nav>
 
           {ecran === 0 && <EcranLieu r={r} setR={setR} horaires={fiche.horaires} lieuId={lieuId} />}
-          {ecran === 1 && <EcranGabarits r={r} setR={setR} />}
+          {ecran === 1 && <EcranGabarits r={r} setR={setR} lieuId={lieuId} ouvrirStudio={ouvrirStudio} ouverture={enregistrer.isPending} />}
           {ecran === 2 && <EcranTarifs r={r} setR={setR} />}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -147,7 +156,7 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
               {publier.error && <Erreur erreur={publier.error} />}
               {erreurTelechargement !== null && <Erreur erreur={erreurTelechargement} />}
               <p className="text-xs text-ink-muted">
-                Le zip de l&apos;événement (cadres, fonds) et l&apos;habillage des gabarits aux couleurs du lieu viendront avec le studio.
+                Les cadres se dessinent au studio, depuis l&apos;écran Gabarits. Le zip de l&apos;événement (cadres, fonds) reste à générer.
               </p>
             </div>
           </Section>
@@ -292,8 +301,15 @@ const GABARITS: { cle: GabaritEvenement; nom: string; detail: string; qr: boolea
   { cle: "carte", nom: "Photo 10x15 + deux cartes à QR", detail: "Ruban 15x20 obligatoire ; même QR sur les deux cartes, une pour chaque invité.", qr: true },
 ];
 
-function EcranGabarits({ r, setR }: PropsEcran) {
+function EcranGabarits({ r, setR, lieuId, ouvrirStudio, ouverture }: PropsEcran & { lieuId: number; ouvrirStudio: (g: GabaritEvenement) => void; ouverture: boolean }) {
   const { choisis, accueil } = r.gabarits;
+  const client = useQueryClient();
+  // Relue à chaque retour du studio
+  const cadres = useQuery({ queryKey: ["cadres-evenement", lieuId], queryFn: () => api<CadreEvenement[]>(`/lieux/${lieuId}/evenement/cadres`), staleTime: 0 });
+  const retirer = useMutation({
+    mutationFn: (g: GabaritEvenement) => api(`/lieux/${lieuId}/evenement/cadres/${g}`, { method: "DELETE" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["cadres-evenement", lieuId] }),
+  });
   const maj = (g: Partial<ReglagesEvenement["gabarits"]>) => setR((x) => ({ ...x, gabarits: { ...x.gabarits, ...g } }));
   const basculer = (cle: GabaritEvenement, oui: boolean) =>
     maj(oui ? { choisis: [...choisis, cle] } : { choisis: choisis.filter((c) => c !== cle), accueil: accueil.filter((c) => c !== cle) });
@@ -307,13 +323,14 @@ function EcranGabarits({ r, setR }: PropsEcran) {
   return (
     <Section titre="Gabarits du kit nightlife">
       <p className="mb-3 text-sm text-ink-2">
-        Cochez les gabarits proposés par la borne, dans l&apos;ordre de l&apos;écran de choix. Les cadres sont ceux du kit ; leur habillage avec le logo
-        et la couleur du lieu viendra avec le studio.
+        Cochez les gabarits proposés par la borne, dans l&apos;ordre de l&apos;écran de choix. Pour chaque gabarit coché, le studio dessine son cadre
+        aux formats du gabarit ; sans cadre dessiné, la borne garde celui du kit.
       </p>
       <ul className="space-y-2">
         {ordonnes.map((g) => {
           const rang = choisis.indexOf(g.cle);
           const actif = rang >= 0;
+          const cadre = cadres.data?.find((c) => c.gabarit === g.cle);
           return (
             <li key={g.cle} className={`flex flex-wrap items-start gap-3 rounded-md border p-3 ${actif ? "border-accent bg-surface" : "border-line bg-surface-2"}`}>
               <input
@@ -341,6 +358,30 @@ function EcranGabarits({ r, setR }: PropsEcran) {
                     Mis en avant sur l&apos;écran d&apos;accueil
                   </label>
                 )}
+                {actif && (
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    {cadre?.vignette && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={cadre.vignette} alt={`Cadre ${g.nom}`} className="h-16 w-auto rounded border border-line bg-surface-2 object-contain" />
+                    )}
+                    <button type="button" className="bouton !py-1 text-xs" disabled={ouverture} onClick={() => ouvrirStudio(g.cle)}>
+                      {ouverture ? "Enregistrement…" : cadre ? "Modifier le cadre" : "Ouvrir le studio"}
+                    </button>
+                    {cadre && (
+                      <>
+                        <span className="text-xs text-ink-muted">Cadre enregistré le {dateHeure(cadre.updatedAt)}</span>
+                        <button
+                          type="button"
+                          className="text-xs text-crit-ink hover:underline"
+                          disabled={retirer.isPending}
+                          onClick={() => confirm(`Retirer le cadre de « ${g.nom} » ? La borne reprendra celui du kit.`) && retirer.mutate(g.cle)}
+                        >
+                          Retirer le cadre
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               {actif && (
                 <div className="flex gap-1">
@@ -352,6 +393,7 @@ function EcranGabarits({ r, setR }: PropsEcran) {
           );
         })}
       </ul>
+      {(cadres.error || retirer.error) && <div className="mt-3"><Erreur erreur={cadres.error ?? retirer.error} /></div>}
     </Section>
   );
 }

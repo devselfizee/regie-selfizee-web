@@ -107,6 +107,36 @@
   --viz-seq-5: #cde2fb;
 }
 
+/* Studio de cadres (copié de Kalifun, src/studio) : ses noms de palette pointent sur les couleurs de la Régie */
+@theme {
+  --color-coral-50: #eef2ff;
+  --color-coral-100: #e0e7ff;
+  --color-coral-200: #c7d2fe;
+  --color-coral-300: #a5b4fc;
+  --color-coral-400: #818cf8;
+  --color-coral-500: #6366f1;
+  --color-coral-600: #4f46e5;
+  --color-coral-700: #4338ca;
+  --color-blush-50: #eef2ff;
+  --color-cream-50: #ebf0fa;
+  --color-cream-100: #e3eaf5;
+  --color-cream-200: #d6dfed;
+  --color-ink-50: #f3f6fb;
+  --color-ink-100: #d6dfed;
+  --color-ink-400: #5e6a82;
+  --color-ink-500: #5e6a82;
+  --color-ink-700: #4a5468;
+  --color-ink-900: #1a1d2b;
+  --shadow-pop: 0 10px 30px -8px rgba(79, 70, 229, 0.35);
+  --shadow-soft: 0 6px 24px -8px rgba(26, 29, 43, 0.15);
+  --font-display: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+}
+
 @theme inline {
   --color-page: var(--page);
   --color-surface: var(--surface);
