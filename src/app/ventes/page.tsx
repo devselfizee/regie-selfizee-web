@@ -31,8 +31,10 @@ function Ventes() {
   const [q, setQ] = useState("");
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
+  // Séances sans vente (gratuites, offertes, refusées, annulées, expirées) : masquées par défaut
+  const [tout, setTout] = useState(false);
   const [rembourser, setRembourser] = useState<Vente | null>(null);
-  const query = qs({ q: q.trim() || undefined, du: du || undefined, au: au || undefined });
+  const query = qs({ q: q.trim() || undefined, du: du || undefined, au: au || undefined, tout: tout ? 1 : undefined });
   const { data, error, isPending } = useQuery({
     queryKey: ["ventes", query],
     queryFn: () => api<Vente[]>(`/ventes${query}`),
@@ -58,10 +60,19 @@ function Ventes() {
           <span className="etiquette">Au</span>
           <input type="date" className="champ" value={au} onChange={(e) => setAu(e.target.value)} />
         </label>
+        <label className="flex items-start gap-2 text-sm sm:col-span-3">
+          <input type="checkbox" className="mt-0.5 h-4 w-4 accent-accent" checked={tout} onChange={(e) => setTout(e.target.checked)} />
+          <span>
+            Afficher aussi les séances sans vente
+            <span className="block text-xs text-ink-muted">
+              Gratuites, offertes, refusées, annulées, expirées (terminal sans réponse : aucun débit). Elles ne comptent jamais dans le CA. Une recherche les trouve toujours.
+            </span>
+          </span>
+        </label>
       </div>
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
-      {data && !data.length && <Vide>Aucune vente ne correspond.</Vide>}
+      {data && !data.length && <Vide>{tout ? "Aucune transaction ne correspond." : "Aucune vente ne correspond."}</Vide>}
       {data && data.length > 0 && (
         <div className="carte overflow-x-auto">
           <table className="w-full text-sm">
@@ -79,6 +90,7 @@ function Ventes() {
             <tbody className="tabular">
               {data.map((v) => {
                 const statut = STATUTS[v.statut] ?? { libelle: v.statut, ton: "neutre" as const };
+                const vendue = (v.statut === "ACCEPTEE" && !v.gratuite && v.moyenPaiement !== "AUCUN" && v.montantTtcCents > 0) || v.statut === "REMBOURSEE";
                 const remboursable = v.statut === "ACCEPTEE" && v.montantTtcCents > v.rembourseCents;
                 return (
                   <tr key={v.id} className="border-t border-line align-top">
@@ -96,7 +108,14 @@ function Ventes() {
                       <div className="text-xs text-ink-muted">{v.typeModule.libelle}</div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {euros(v.montantTtcCents)}
+                      {vendue ? (
+                        euros(v.montantTtcCents)
+                      ) : (
+                        <span className="text-ink-muted" title="Montant demandé, non encaissé">
+                          {euros(v.montantTtcCents)}
+                          {v.montantTtcCents > 0 && <span className="block text-xs">demandés, non encaissés</span>}
+                        </span>
+                      )}
                       {v.rembourseCents > 0 && <div className="text-xs text-bad">− {euros(v.rembourseCents)} remboursés</div>}
                     </td>
                     <td className="px-4 py-3">

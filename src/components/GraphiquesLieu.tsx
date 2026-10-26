@@ -98,8 +98,11 @@ export function MoyensPaiement({ moyens }: { moyens: StatsLieu["moyensPaiement"]
     (j: Jetons) => {
       // Carte insérée et sans contact : une seule barre « Carte bancaire », le détail au survol
       type Ligne = StatsLieu["moyensPaiement"][number] & { libelle: string; detail: StatsLieu["moyensPaiement"] };
-      const cartes = moyens.filter((m) => CARTE_BANCAIRE.includes(m.moyen));
-      const lignes: Ligne[] = moyens.filter((m) => !CARTE_BANCAIRE.includes(m.moyen)).map((m) => ({ ...m, libelle: MOYENS[m.moyen] ?? m.moyen, detail: [] }));
+      // Un moyen sans CA ni refus n'a servi à aucune vente : séances gratuites (« aucun ») ou expirées
+      // (terminal sans réponse, envoyées en « autre »). Ce ne sont pas des paiements : pas de barre.
+      const utiles = moyens.filter((m) => m.caTtcCents > 0 || m.nbRefusees > 0);
+      const cartes = utiles.filter((m) => CARTE_BANCAIRE.includes(m.moyen));
+      const lignes: Ligne[] = utiles.filter((m) => !CARTE_BANCAIRE.includes(m.moyen)).map((m) => ({ ...m, libelle: MOYENS[m.moyen] ?? m.moyen, detail: [] }));
       if (cartes.length) {
         lignes.push({
           moyen: "CARTE",
