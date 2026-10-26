@@ -64,7 +64,7 @@ function Bornes() {
                   <td className="px-4 py-3">
                     <Link className="font-medium hover:underline" href={`/bornes/${b.id}`}>{b.identifiant}</Link>
                     <div className="text-xs text-ink-muted">
-                      {b.gamme.libelle} · {b.numeroSerie} · {STATUTS[b.statut] ?? b.statut}
+                      {[b.gamme.libelle, b.numeroSerie !== b.identifiant && b.numeroSerie, STATUTS[b.statut] ?? b.statut].filter(Boolean).join(" · ")}
                       {b.logicielVersion && ` · v${b.logicielVersion}`}
                     </div>
                   </td>
@@ -145,14 +145,13 @@ function MessageErreur({ erreur }: { erreur: Error | null }) {
 function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => void }) {
   const client = useQueryClient();
   const { data: ref } = useReferentiel();
-  const [f, setF] = useState({ identifiant: "", numeroSerie: "", gammeId: "", moduleTypeId: "", moduleSerie: "", moduleTid: "" });
+  const [f, setF] = useState({ identifiant: "", gammeId: "", moduleTypeId: "", moduleSerie: "", moduleTid: "" });
   const creer = useMutation({
     mutationFn: () =>
       api<{ identifiant: string; cleApi: string }>("/bornes", {
         method: "POST",
         json: {
           identifiant: f.identifiant,
-          numeroSerie: f.numeroSerie,
           gammeId: Number(f.gammeId),
           module: f.moduleTypeId
             ? { typeId: Number(f.moduleTypeId), numeroSerie: f.moduleSerie || undefined, identifiantPrestataire: f.moduleTid || undefined }
@@ -168,12 +167,9 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
   return (
     <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); creer.mutate(); }}>
       <label className="block">
-        <span className="etiquette">Identifiant (celui envoyé dans les JSON) *</span>
-        <input className="champ" required placeholder="MT-0043" value={f.identifiant} onChange={(e) => setF({ ...f, identifiant: e.target.value.toUpperCase() })} />
-      </label>
-      <label className="block">
-        <span className="etiquette">Numéro de série *</span>
-        <input className="champ" required value={f.numeroSerie} onChange={(e) => setF({ ...f, numeroSerie: e.target.value })} />
+        <span className="etiquette">Identifiant de la borne *</span>
+        <input className="champ" required placeholder="S220" value={f.identifiant} onChange={(e) => setF({ ...f, identifiant: e.target.value.toUpperCase() })} />
+        <span className="mt-1 block text-xs text-ink-muted">Celui que la borne envoie avec ses ventes (borne_id), par exemple S220.</span>
       </label>
       <label className="block">
         <span className="etiquette">Gamme *</span>
