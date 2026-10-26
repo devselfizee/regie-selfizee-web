@@ -58,10 +58,23 @@ export function CarteLieux({ points, onClic, hauteur = 560 }: { points: PointCar
     import("leaflet").then((L) => {
       if (annule || !conteneur.current || carte.current) return;
       const m = L.map(conteneur.current, { center: [46.6, 2.4], zoom: 6, scrollWheelZoom: true });
-      L.tileLayer(TUILES_IGN, {
+      const fond = L.tileLayer(TUILES_IGN, {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.ign.fr/">IGN</a> – Géoplateforme',
       }).addTo(m);
+      // Le serveur IGN rate parfois une tuile : sans nouvel essai, elle reste un carré gris
+      const essais = new WeakMap<HTMLImageElement, number>();
+      fond.on("tileerror", (e: { tile: HTMLImageElement }) => {
+        const n = (essais.get(e.tile) ?? 0) + 1;
+        if (n > 3) return;
+        essais.set(e.tile, n);
+        const src = e.tile.src.replace(/&essai=\d+$/, "");
+        setTimeout(() => (e.tile.src = `${src}&essai=${n}`), 400 * n);
+      });
+      // Conteneur redimensionné (menu replié, fenêtre) : sinon des zones restent sans tuiles
+      const observateur = new ResizeObserver(() => m.invalidateSize());
+      observateur.observe(conteneur.current);
+      m.on("unload", () => observateur.disconnect());
       calque.current = L.layerGroup().addTo(m);
       carte.current = m;
     });

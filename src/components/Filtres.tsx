@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Granularite, type Referentiel } from "@/lib/api";
 import { OPTIONS_MOYENS } from "@/lib/format";
@@ -69,6 +70,11 @@ export function Filtres({
     return c.du === valeurs.du && c.au === valeurs.au;
   })?.cle;
 
+  // Filtres secondaires repliés par défaut (retour de Sébastien : trop de filtres d'un coup) ; ouverts si l'un est actif
+  const SECONDAIRES: (keyof ValeursFiltres)[] = ["gammeId", "typeModuleId", "moyenPaiement", "typeLieuId", "zoneGeoId", "standingId", "clienteleId", "saisonnalite", "interieurExterieur"];
+  const nbActifs = SECONDAIRES.filter((k) => valeurs[k]).length;
+  const [ouverts, setOuverts] = useState(nbActifs > 0);
+
   const liste = (cat: string) => (ref?.listes[cat] ?? []).filter((v) => v.actif).map((v) => ({ value: v.id, label: v.libelle }));
 
   return (
@@ -103,9 +109,18 @@ export function Filtres({
             <option value="annee">Année</option>
           </select>
         </label>
+        <button type="button" className="bouton-second" aria-expanded={ouverts} onClick={() => setOuverts(!ouverts)}>
+          {ouverts ? "Moins de filtres" : "Plus de filtres"}
+          {nbActifs > 0 && <span className="rounded-full bg-accent px-1.5 text-xs text-accent-ink">{nbActifs}</span>}
+        </button>
+        {nbActifs > 0 && (
+          <button type="button" className="text-sm text-accent hover:underline" onClick={() => set(Object.fromEntries(SECONDAIRES.map((k) => [k, undefined])))}>
+            Effacer les filtres
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" hidden={!ouverts}>
         <Select nom="gammeId" valeurs={valeurs} set={set} libelle="Gamme" options={(ref?.gammes ?? []).filter((g) => g.actif).map((g) => ({ value: g.id, label: g.libelle }))} />
         <Select nom="typeModuleId" valeurs={valeurs} set={set} libelle="Module de paiement" options={(ref?.typesModule ?? []).filter((t) => t.actif).map((t) => ({ value: t.id, label: t.libelle }))} />
         <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={OPTIONS_MOYENS} />

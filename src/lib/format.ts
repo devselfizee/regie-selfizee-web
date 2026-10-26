@@ -42,7 +42,8 @@ export const OPTIONS_MOYENS = [
   { value: CARTE_BANCAIRE.join(","), label: "Carte bancaire (terminal)" },
   { value: "CB", label: "  · carte insérée" },
   { value: "SANS_CONTACT", label: "  · sans contact" },
-  ...["MOBILE", "WEB", "ESPECES", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
+  // Pas d'espèces : les bornes ne les gèrent pas (retour de Sébastien)
+  ...["MOBILE", "WEB", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
 ];
 
 /** "il y a 3 h" — pour l'état des bornes */

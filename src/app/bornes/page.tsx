@@ -33,6 +33,16 @@ function Bornes() {
   const [action, setAction] = useState<Action | null>(null);
   const { data, error, isPending } = useQuery({ queryKey: ["bornes"], queryFn: () => api<BorneListe[]>("/bornes") });
   const fermer = () => setAction(null);
+  // Recherche (borne ou lieu) et filtre par gamme (retour de Sébastien)
+  const [recherche, setRecherche] = useState("");
+  const [gammeId, setGammeId] = useState("");
+  const { data: ref } = useReferentiel();
+  const q = recherche.trim().toLowerCase();
+  const visibles = (data ?? []).filter(
+    (b) =>
+      (!gammeId || String(b.gamme.id) === gammeId) &&
+      (!q || b.identifiant.toLowerCase().includes(q) || (b.lieuActuel ? `${b.lieuActuel.enseigne} ${b.lieuActuel.ville ?? ""}`.toLowerCase().includes(q) : false))
+  );
 
   return (
     <>
@@ -46,21 +56,47 @@ function Bornes() {
       {isPending && !error && <Chargement />}
       {data && !data.length && <Vide>Aucune borne enregistrée.</Vide>}
       {data && data.length > 0 && (
+        <div className="carte mb-4 grid gap-3 p-3 sm:grid-cols-[2fr_1fr]">
+          <label className="block">
+            <span className="etiquette">Recherche</span>
+            <input id="bornes-recherche" className="champ" placeholder="N° de borne (S220), lieu, ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="etiquette">Type de borne</span>
+            <select id="bornes-gamme" className="champ" value={gammeId} onChange={(e) => setGammeId(e.target.value)}>
+              <option value="">Toutes</option>
+              {ref?.gammes.map((g) => <option key={g.id} value={g.id}>{g.libelle}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
+      {data && data.length > 0 && !visibles.length && <Vide>Aucune borne ne correspond.</Vide>}
+      {visibles.length > 0 && (
         <div className="carte overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-ink-2">
               <tr>
+                <th className="px-4 py-3 font-medium">Lieu actuel</th>
                 <th className="px-4 py-3 font-medium">Borne</th>
                 <th className="px-4 py-3 font-medium">Connexion</th>
-                <th className="px-4 py-3 font-medium">Lieu actuel</th>
                 <th className="px-4 py-3 font-medium">Dernière vente</th>
                 <th className="px-4 py-3 font-medium">Paiement</th>
                 <th className="px-4 py-3 font-medium"><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
-              {data.map((b) => (
+              {visibles.map((b) => (
                 <tr key={b.id} className="border-t border-line align-top">
+                  <td className="px-4 py-3">
+                    {b.lieuActuel ? (
+                      <>
+                        <Link className="hover:underline" href={`/lieux/${b.lieuActuel.id}`}>{b.lieuActuel.enseigne}</Link>
+                        <div className="text-xs text-ink-muted">depuis le {dateHeure(b.affectationActuelle!.debut)}</div>
+                      </>
+                    ) : (
+                      <Badge ton="warn">Non affectée</Badge>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <Link className="font-medium hover:underline" href={`/bornes/${b.id}`}>{b.identifiant}</Link>
                     <div className="text-xs text-ink-muted">
@@ -71,16 +107,6 @@ function Bornes() {
                   <td className="px-4 py-3">
                     {b.enLigne ? <Badge ton="ok">En ligne</Badge> : b.dernierHeartbeat ? <Badge ton="crit">Muette</Badge> : <span title="La borne n’a encore rien envoyé à Régie : la synchronisation n’est pas encore installée ou configurée sur la borne."><Badge ton="neutre">Pas encore synchronisée</Badge></span>}
                     <div className="mt-1 text-xs text-ink-muted">signal {depuis(b.dernierHeartbeat)}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    {b.lieuActuel ? (
-                      <>
-                        <Link className="hover:underline" href={`/lieux/${b.lieuActuel.id}`}>{b.lieuActuel.enseigne}</Link>
-                        <div className="text-xs text-ink-muted">depuis le {dateHeure(b.affectationActuelle!.debut)}</div>
-                      </>
-                    ) : (
-                      <Badge ton="warn">Non affectée</Badge>
-                    )}
                   </td>
                   <td className="px-4 py-3 text-ink-2">{depuis(b.derniereVente)}</td>
                   <td className="px-4 py-3 text-xs text-ink-2">
