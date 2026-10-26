@@ -29,6 +29,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/lieux", libelle: "Lieux", icone: "MapPin", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
       { href: "/bornes", libelle: "Bornes", icone: "Monitor", roles: ["ADMIN", "TECHNICIEN"] },
       { href: "/imports", libelle: "Imports", icone: "Upload", roles: ["ADMIN", "TECHNICIEN"] },
+      { href: "/journal", libelle: "Journal des bornes", icone: "ScrollText", roles: ["ADMIN", "TECHNICIEN"] },
     ],
   },
   {
