@@ -27,8 +27,8 @@ export const JOURS_SEMAINE = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendre
 export const JOURS_COURTS = ["", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export const MOYENS: Record<string, string> = {
-  CB: "Carte (insérée)",
-  SANS_CONTACT: "Sans contact",
+  CB: "CB (carte insérée)",
+  SANS_CONTACT: "CB sans contact",
   ESPECES: "Espèces",
   MOBILE: "Mobile",
   WEB: "QR (paiement web)",
