@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs } from "@/lib/api";
 import { dateHeure } from "@/lib/format";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
@@ -163,9 +163,12 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
                   {l.ipSource && ` · IP ${l.ipSource}`}
                 </span>
               </div>
-              <button type="button" className="bouton-second !px-2 !py-1 text-xs" onClick={() => setOuvert(ouvert === l.id ? null : l.id)}>
-                {ouvert === l.id ? "Masquer" : "Voir le contenu"}
-              </button>
+              <div className="flex flex-wrap gap-1">
+                {l.type === "TRANSACTIONS" && l.borne && l.statut !== "OK" && <Rejouer id={l.id} />}
+                <button type="button" className="bouton-second !px-2 !py-1 text-xs" onClick={() => setOuvert(ouvert === l.id ? null : l.id)}>
+                  {ouvert === l.id ? "Masquer" : "Voir le contenu"}
+                </button>
+              </div>
             </div>
             <p className="mt-1 text-xs text-ink-2 tabular">
               {l.type === "TRANSACTIONS" && l.statut !== "REJETE"
@@ -184,6 +187,27 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
           <button type="button" className="bouton-second !py-1" disabled={page >= pages} onClick={() => setPage(page + 1)}>Plus anciens →</button>
         </div>
       )}
+    </>
+  );
+}
+
+/** Rejoue un lot de ventes refusé, une fois la cause corrigée (module réactivé…). Sans risque de doublon. */
+function Rejouer({ id }: { id: string }) {
+  const client = useQueryClient();
+  const rejouer = useMutation({
+    mutationFn: () => api<{ recues: number; creees: number; doublons: number; rejetees: number }>(`/imports/journal/${id}/rejouer`, { method: "POST" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["journal"] }),
+  });
+  if (rejouer.data) {
+    const r = rejouer.data;
+    return <span className="self-center text-xs text-ink-2">Rejoué : {r.creees} nouvelle(s), {r.doublons} déjà reçue(s), {r.rejetees} refusée(s)</span>;
+  }
+  return (
+    <>
+      {rejouer.error && <span className="self-center text-xs text-crit-ink">{rejouer.error.message}</span>}
+      <button type="button" className="bouton-second !px-2 !py-1 text-xs" disabled={rejouer.isPending} title="Après avoir corrigé la cause du refus" onClick={() => rejouer.mutate()}>
+        {rejouer.isPending ? "…" : "Rejouer"}
+      </button>
     </>
   );
 }
