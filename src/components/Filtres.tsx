@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { api, type Granularite, type Referentiel } from "@/lib/api";
-import { MOYENS } from "@/lib/format";
+import { OPTIONS_MOYENS } from "@/lib/format";
 
 export interface ValeursFiltres {
   du: string;
@@ -108,7 +108,7 @@ export function Filtres({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <Select nom="gammeId" valeurs={valeurs} set={set} libelle="Gamme" options={(ref?.gammes ?? []).filter((g) => g.actif).map((g) => ({ value: g.id, label: g.libelle }))} />
         <Select nom="typeModuleId" valeurs={valeurs} set={set} libelle="Module de paiement" options={(ref?.typesModule ?? []).filter((t) => t.actif).map((t) => ({ value: t.id, label: t.libelle }))} />
-        <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={Object.entries(MOYENS).map(([value, label]) => ({ value, label }))} />
+        <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={OPTIONS_MOYENS} />
         {filtresLieu && (
           <>
             <Select nom="typeLieuId" valeurs={valeurs} set={set} libelle="Type de lieu" options={liste("TYPE_LIEU")} />

@@ -27,14 +27,23 @@ export const JOURS_SEMAINE = ["", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendre
 export const JOURS_COURTS = ["", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export const MOYENS: Record<string, string> = {
-  CB: "CB (carte insérée)",
-  SANS_CONTACT: "CB sans contact",
+  CB: "CB · carte insérée",
+  SANS_CONTACT: "CB · sans contact",
   ESPECES: "Espèces",
   MOBILE: "Mobile",
   WEB: "QR (paiement web)",
   AUCUN: "Gratuit",
   AUTRE: "Autre",
 };
+
+// Carte insérée et sans contact : le même paiement bancaire par le terminal (Hexapay) ; le détail est un sous-filtre
+export const CARTE_BANCAIRE = ["CB", "SANS_CONTACT"];
+export const OPTIONS_MOYENS = [
+  { value: CARTE_BANCAIRE.join(","), label: "Carte bancaire (terminal)" },
+  { value: "CB", label: "  · carte insérée" },
+  { value: "SANS_CONTACT", label: "  · sans contact" },
+  ...["MOBILE", "WEB", "ESPECES", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
+];
 
 /** "il y a 3 h" — pour l'état des bornes */
 export function depuis(iso: string | null | undefined): string {

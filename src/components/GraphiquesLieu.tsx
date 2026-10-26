@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import type { StatsLieu } from "@/lib/api";
-import { euros, eurosRond, JOURS_COURTS, JOURS_SEMAINE, MOYENS, nombre } from "@/lib/format";
+import { CARTE_BANCAIRE, euros, eurosRond, JOURS_COURTS, JOURS_SEMAINE, MOYENS, nombre } from "@/lib/format";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "./Graphique";
 
 const HEURES = Array.from({ length: 24 }, (_, h) => `${h}h`);
@@ -96,7 +96,21 @@ export function JoursSemaine({ jours }: { jours: StatsLieu["joursSemaine"] }) {
 export function MoyensPaiement({ moyens }: { moyens: StatsLieu["moyensPaiement"] }) {
   const option = useCallback(
     (j: Jetons) => {
-      const tries = [...moyens].sort((a, b) => a.caTtcCents - b.caTtcCents);
+      // Carte insérée et sans contact : une seule barre « Carte bancaire », le détail au survol
+      type Ligne = StatsLieu["moyensPaiement"][number] & { libelle: string; detail: StatsLieu["moyensPaiement"] };
+      const cartes = moyens.filter((m) => CARTE_BANCAIRE.includes(m.moyen));
+      const lignes: Ligne[] = moyens.filter((m) => !CARTE_BANCAIRE.includes(m.moyen)).map((m) => ({ ...m, libelle: MOYENS[m.moyen] ?? m.moyen, detail: [] }));
+      if (cartes.length) {
+        lignes.push({
+          moyen: "CARTE",
+          libelle: "Carte bancaire",
+          caTtcCents: cartes.reduce((s, m) => s + m.caTtcCents, 0),
+          nbVentes: cartes.reduce((s, m) => s + m.nbVentes, 0),
+          nbRefusees: cartes.reduce((s, m) => s + m.nbRefusees, 0),
+          detail: cartes,
+        });
+      }
+      const tries = lignes.sort((a, b) => a.caTtcCents - b.caTtcCents);
       return {
         legend: { show: false },
         grid: { left: 8, right: 64, top: 8, bottom: 8, containLabel: true },
@@ -105,11 +119,12 @@ export function MoyensPaiement({ moyens }: { moyens: StatsLieu["moyensPaiement"]
           axisPointer: { type: "shadow" },
           formatter: (items: { dataIndex: number }[]) => {
             const m = tries[items[0].dataIndex];
-            return `<b>${MOYENS[m.moyen] ?? m.moyen}</b><br>${euros(m.caTtcCents)} · ${nombre(m.nbVentes)} ventes<br>${nombre(m.nbRefusees)} refus`;
+            const detail = m.detail.map((d) => `${MOYENS[d.moyen] ?? d.moyen} : ${euros(d.caTtcCents)} · ${nombre(d.nbVentes)} ventes`).join("<br>");
+            return `<b>${m.libelle}</b><br>${euros(m.caTtcCents)} · ${nombre(m.nbVentes)} ventes<br>${nombre(m.nbRefusees)} refus${detail ? `<br><br>${detail}` : ""}`;
           },
         },
         xAxis: { ...axeValeur(j), axisLabel: { show: false }, splitLine: { show: false } },
-        yAxis: axeCategorie(j, tries.map((m) => MOYENS[m.moyen] ?? m.moyen)),
+        yAxis: axeCategorie(j, tries.map((m) => m.libelle)),
         series: [
           {
             type: "bar",
