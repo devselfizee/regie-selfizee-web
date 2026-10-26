@@ -42,7 +42,7 @@ function Fiche({ id }: { id: number }) {
     <>
       <EnTete
         titre={b.identifiant}
-        sousTitre={[b.gamme.libelle, b.numeroSerie !== b.identifiant && b.numeroSerie, moduleActuel && `${moduleActuel.type.libelle}${moduleActuel.numeroSerie ? ` ${moduleActuel.numeroSerie}` : ""}`, b.logicielVersion && `v${b.logicielVersion}`]
+        sousTitre={[b.gamme.libelle, moduleActuel && `${moduleActuel.type.libelle}${moduleActuel.numeroSerie ? ` ${moduleActuel.numeroSerie}` : ""}`, b.logicielVersion && `v${b.logicielVersion}`]
           .filter(Boolean)
           .join(" · ")}
         actions={
@@ -505,15 +505,13 @@ const STATUTS_BORNE: Record<string, string> = {
 function FormEditionBorne({ borne, onFini }: { borne: BorneDetail; onFini: () => void }) {
   const client = useQueryClient();
   const { data: ref } = useReferentiel();
-  const [f, setF] = useState({ identifiant: borne.identifiant, numeroSerie: borne.numeroSerie === borne.identifiant ? "" : borne.numeroSerie, gammeId: String(borne.gamme.id), statut: borne.statut });
+  const [f, setF] = useState({ identifiant: borne.identifiant, gammeId: String(borne.gamme.id), statut: borne.statut });
   const enregistrer = useMutation({
     mutationFn: () =>
       api(`/bornes/${borne.id}`, {
         method: "PUT",
         json: {
           identifiant: f.identifiant,
-          // Vide : le n° de série suit l'identifiant (s'il le suivait déjà), sinon il est conservé
-          numeroSerie: f.numeroSerie.trim() || (borne.numeroSerie === borne.identifiant ? f.identifiant.trim().toUpperCase() : undefined),
           gammeId: Number(f.gammeId),
           statut: f.statut,
         },
@@ -535,10 +533,6 @@ function FormEditionBorne({ borne, onFini }: { borne: BorneDetail; onFini: () =>
           La borne devra envoyer ce nouvel identifiant : tant qu&apos;elle envoie l&apos;ancien, ses envois sont refusés.
         </p>
       )}
-      <label className="block">
-        <span className="etiquette">N° de série du fabricant (facultatif)</span>
-        <input className="champ" placeholder="Vide : l'identifiant" value={f.numeroSerie} onChange={(e) => setF({ ...f, numeroSerie: e.target.value })} />
-      </label>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
           <span className="etiquette">Gamme *</span>

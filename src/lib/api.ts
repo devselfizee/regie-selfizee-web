@@ -229,14 +229,13 @@ export interface LieuFiche {
     id: number;
     debut: string;
     fin: string | null;
-    borne: { id: number; identifiant: string; numeroSerie: string; gamme: { libelle: string }; dernierHeartbeat: string | null };
+    borne: { id: number; identifiant: string; gamme: { libelle: string }; dernierHeartbeat: string | null };
   }[];
 }
 
 export interface BorneListe {
   id: number;
   identifiant: string;
-  numeroSerie: string;
   statut: string;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; type: { id: number; code: string; libelle: string } }[];
@@ -434,7 +433,6 @@ export interface RetourInvestissement {
 export interface BorneDetail {
   id: number;
   identifiant: string;
-  numeroSerie: string;
   statut: string;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; identifiantPrestataire: string | null; installeLe: string | null; retireLe: string | null; type: { id: number; libelle: string } }[];

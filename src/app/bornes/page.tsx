@@ -64,7 +64,7 @@ function Bornes() {
                   <td className="px-4 py-3">
                     <Link className="font-medium hover:underline" href={`/bornes/${b.id}`}>{b.identifiant}</Link>
                     <div className="text-xs text-ink-muted">
-                      {[b.gamme.libelle, b.numeroSerie !== b.identifiant && b.numeroSerie, STATUTS[b.statut] ?? b.statut].filter(Boolean).join(" · ")}
+                      {b.gamme.libelle} · {STATUTS[b.statut] ?? b.statut}
                       {b.logicielVersion && ` · v${b.logicielVersion}`}
                     </div>
                   </td>
