@@ -8,7 +8,7 @@ import { apiUrl } from "@/studio/lib/api";
 import { useLoadingClick } from "../hooks/useLoadingClick";
 import { ThumbSpinner } from "./ThumbSpinner";
 
-const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
 const resolveBackendUrl = (u: string) =>
   // Studio interne Kalifun : /editor-api/generate-image renvoie une data URL
   // → la laisser telle quelle (comme les URLs absolues http(s)).

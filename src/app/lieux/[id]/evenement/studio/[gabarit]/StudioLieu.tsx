@@ -25,7 +25,9 @@ function Chargeur({ lieuId, gabarit }: { lieuId: number; gabarit: GabaritEveneme
         if (e instanceof ErreurApi && e.status === 404) return null;
         throw e;
       }),
-    // Le studio garde son propre état : ne pas le remonter sur un rafraîchissement en arrière-plan
+    // Relu à chaque ouverture (« Modifier le cadre » doit rouvrir le dernier enregistré), jamais en
+    // arrière-plan pendant qu'on dessine : le studio garde son propre état
+    gcTime: 0,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });

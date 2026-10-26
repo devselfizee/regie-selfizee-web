@@ -73,7 +73,7 @@ export function loadGoogleFont(fontFamily: string): Promise<void> {
    ═══════════════════════════════════════════════════════════════ */
 export interface CustomFont { fileName: string; displayName: string; url: string }
 
-const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
 const resolveFontUrl = (u: string) =>
   /^https?:\/\//i.test(u) ? u : `${BACKEND_BASE}${u.startsWith("/") ? "" : "/"}${u}`;
 

@@ -186,11 +186,11 @@ interface BackgroundsResponseItem {
 
 // The /api/bibliotheques/backgrounds endpoint now returns absolute URLs
 // (resolved server-side from PUBLIC_API_URL or the request host), so the
-// client doesn't need to reconstruct them from NEXT_PUBLIC_API_URL —
+// client doesn't need to reconstruct them from NEXT_PUBLIC_STUDIO_BACKEND_URL —
 // which isn't reliably set at build time in every deployment. Keep a
 // trivial pass-through for legacy/relative payloads in case the backend
 // hasn't been updated yet.
-const BACKEND_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
+const BACKEND_BASE = (process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "").replace(/\/$/, "");
 
 function resolveBackgroundUrl(u: string | null): string | null {
   if (!u) return null;

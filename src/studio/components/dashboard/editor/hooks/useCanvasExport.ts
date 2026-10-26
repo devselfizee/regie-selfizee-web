@@ -706,7 +706,7 @@ export function useCanvasExport({
       };
       // Strip backend domain from URLs so the JSON stays portable.
       // At load time, restoreCanvasState prepends the backend domain.
-      const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+      const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
       const toRelativeUrl = (u: string) =>
         u.startsWith(BACKEND_BASE) ? u.slice(BACKEND_BASE.length) : u;
       const cleanAndUploadSrcs = async (list: any[]): Promise<void> => {

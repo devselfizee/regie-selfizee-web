@@ -567,7 +567,7 @@ export async function restoreCanvasState(
 
         // Resolve relative /uploads/... URLs to absolute backend URLs so
         // Fabric loads images from the correct server, not the frontend host.
-        const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+        const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
         const resolveRelativeUrls = (objects: any[]) => {
           if (!Array.isArray(objects)) return;
           for (const o of objects) {

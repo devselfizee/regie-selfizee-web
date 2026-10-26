@@ -5,7 +5,7 @@ import { toast } from "../../Toast";
 import { apiUrl, apiFetchOptions } from "@/studio/lib/api";
 import { logStudioError } from "@/studio/lib/studioLog";
 
-const BACKEND_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
 const resolveServedUrl = (u: string) =>
   /^https?:\/\//i.test(u) ? u : `${BACKEND_BASE}${u.startsWith("/") ? "" : "/"}${u}`;
 
