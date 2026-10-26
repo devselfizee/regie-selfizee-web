@@ -2,7 +2,7 @@
 
 import { useDeferredValue, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, ErreurApi, type Contrat, type ModeleCommission } from "@/lib/api";
+import { api, ErreurApi, type Contrat, type LieuFiche, type ModeleCommission } from "@/lib/api";
 import { depuisBp, depuisCents, versBp, versCents } from "@/lib/commissions";
 import { euros } from "@/lib/format";
 
@@ -14,7 +14,7 @@ const MODELES: { value: ModeleCommission; label: string; aide: string }[] = [
   { value: "FORFAIT", label: "Forfait", aide: "Montant fixe par période, éventuellement + %" },
 ];
 
-/** Premier jour du mois suivant (date d'effet proposée par défaut). */
+/** Premier jour du mois suivant (date d'effet proposée pour un avenant). */
 const moisProchain = () => {
   const d = new Date();
   return new Date(Date.UTC(d.getFullYear(), d.getMonth() + 1, 1)).toISOString().slice(0, 10);
@@ -22,12 +22,14 @@ const moisProchain = () => {
 
 export function FormContrat({ lieuId, actuel, onFini }: { lieuId: number; actuel?: Contrat; onFini: () => void }) {
   const client = useQueryClient();
+  // Premier contrat : la date d'installation du lieu (fiche déjà chargée) ; avenant : le 1er du mois prochain
+  const installation = actuel ? null : client.getQueryData<LieuFiche>(["lieu", lieuId])?.dateInstallation?.slice(0, 10);
   const [f, setF] = useState({
     modele: actuel?.modele ?? ("POURCENTAGE" as ModeleCommission),
     base: actuel?.base ?? "TTC",
     netRemboursements: actuel?.netRemboursements ?? true,
     periodicite: actuel?.periodicite ?? "MOIS",
-    dateEffet: moisProchain(),
+    dateEffet: installation ?? moisProchain(),
     taux: depuisBp(actuel?.tauxBp ?? null),
     seuil: depuisCents(actuel?.seuilCents ?? null),
     seuilMode: actuel?.seuilMode ?? "AU_DELA",
@@ -204,6 +206,9 @@ export function FormContrat({ lieuId, actuel, onFini }: { lieuId: number; actuel
       <div className="grid gap-3 sm:grid-cols-2">
         <Champ libelle="Date d'effet" erreur={erreurs.get("dateEffet")}>
           <input className="champ" type="date" required value={f.dateEffet} onChange={(e) => set({ dateEffet: e.target.value })} />
+          <span className="mt-1 block text-xs text-ink-muted">
+            N&apos;importe quel jour. Une première période incomplète a son forfait, son minimum et ses seuils au prorata des jours.
+          </span>
         </Champ>
         {actuel && (
           <Champ libelle="Motif de l'avenant">
