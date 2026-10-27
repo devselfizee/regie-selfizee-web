@@ -720,6 +720,33 @@ export interface Vente {
   borne: { id: number; identifiant: string };
   lieu: { id: number; enseigne: string } | null;
   typeModule: { libelle: string };
+  /** 4 derniers chiffres de la carte (avenant ventes n° 2) */
+  carteFin: string | null;
+  pikcloudUuid: string | null;
+  /** Adresse de la photo (null : pas de photo ou adresse des photos non réglée) */
+  photoUrl: string | null;
+}
+
+/** Récapitulatif d'une commande (GET /ventes/:id) */
+export interface RecapVente extends Vente {
+  montantHtCents: number;
+  tauxTvaBp: number;
+  referenceSequence: string | null;
+  motif: string | null;
+  produitCode: string;
+  produitLibelle: string | null;
+  nbTirages: number;
+  borne: { id: number; identifiant: string; parc: Parc; gamme: { libelle: string } };
+  lieu: { id: number; enseigne: string; ville: string | null } | null;
+  module: { numeroSerie: string | null; identifiantPrestataire: string | null } | null;
+  origine: { id: string; transactionIdModule: string } | null;
+  remboursements: { id: string; horodatage: string; montantTtcCents: number; motif: string | null }[];
+  seance: {
+    code: string;
+    paiements: { id: string; transactionIdModule: string; horodatage: string; statut: string; montantTtcCents: number; produitCode: string; produitLibelle: string | null; nbTirages: number; moyenPaiement: string }[];
+  };
+  parcours: { debut: string; fin: string; dureeS: number; issue: string; etapes: Record<string, string>; cadre: string | null; photos: number; tirages: number; evenement: string } | null;
+  photoUuid: string | null;
 }
 
 // Fiche événement d'un lieu (config de la borne, CDC page souvenir § 13). Montants en centimes.

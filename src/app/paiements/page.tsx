@@ -10,6 +10,7 @@ import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { Exporter } from "@/components/BoutonExport";
+import { RecapCommande } from "@/components/RecapCommande";
 
 export default function PagePaiements() {
   return (
@@ -56,6 +57,8 @@ function Paiements() {
   const [parc, setParc] = useState("SELFIZEE");
   const [page, setPage] = useState(1);
   const [rembourser, setRembourser] = useState<Vente | null>(null);
+  // Récapitulatif d'une commande : un clic sur la ligne
+  const [recap, setRecap] = useState<string | null>(null);
   // Tout changement de filtre revient à la première page
   const changer = <T,>(maj: (v: T) => void) => (v: T) => {
     maj(v);
@@ -80,13 +83,13 @@ function Paiements() {
     <>
       <EnTete
         titre="Paiements"
-        sousTitre="Tous les paiements remontés par les bornes. Une vente se rembourse ici : la borne ne rembourse jamais."
+        sousTitre="Tous les paiements remontés par les bornes. Cliquez sur une ligne pour le récapitulatif ; une vente se rembourse ici, la borne ne rembourse jamais."
         actions={<Exporter libelle="Exporter" chemin="/export/transactions" requete={qs({ du: du || undefined, au: au || undefined, lieuId: lieuId || undefined, parc: parc || undefined })} />}
       />
       <div className="carte mb-4 grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block sm:col-span-2">
           <span className="etiquette">Recherche</span>
-          <input id="paiements-recherche" className="champ" placeholder="S513-20261005-K7PX2M-1, n° d'autorisation 554821, pi_…" value={q} onChange={(e) => changer(setQ)(e.target.value)} />
+          <input id="paiements-recherche" className="champ" placeholder="S513-20261005-K7PX2M-1, n° d'autorisation, 4 derniers chiffres de la carte, pi_…" value={q} onChange={(e) => changer(setQ)(e.target.value)} />
         </label>
         <label className="block">
           <span className="etiquette">Du</span>
@@ -152,6 +155,7 @@ function Paiements() {
             <thead className="text-left text-xs text-ink-2">
               <tr>
                 <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-2 py-3 font-medium">Photo</th>
                 <th className="px-4 py-3 font-medium">Transaction</th>
                 <th className="px-4 py-3 font-medium">Borne · lieu</th>
                 <th className="px-4 py-3 font-medium">Paiement</th>
@@ -166,8 +170,23 @@ function Paiements() {
                 const vendue = (v.statut === "ACCEPTEE" && !v.gratuite && v.moyenPaiement !== "AUCUN" && v.montantTtcCents > 0) || v.statut === "REMBOURSEE";
                 const remboursable = v.statut === "ACCEPTEE" && v.montantTtcCents > v.rembourseCents && v.moyenPaiement !== "AUCUN";
                 return (
-                  <tr key={v.id} className="border-t border-line align-top">
+                  <tr
+                    key={v.id}
+                    className="cursor-pointer border-t border-line align-top hover:bg-surface-2"
+                    onClick={() => setRecap(v.id)}
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === "Enter" && setRecap(v.id)}
+                    aria-label={`Récapitulatif de ${v.transactionIdModule}`}
+                  >
                     <td className="px-4 py-3 whitespace-nowrap">{dateHeure(v.horodatage)}</td>
+                    <td className="px-2 py-2">
+                      {v.photoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- vignette externe (PikCloud)
+                        <img src={v.photoUrl} alt="" loading="lazy" className="h-12 w-12 rounded object-cover" />
+                      ) : (
+                        <span className="block h-12 w-12 rounded bg-surface-2" aria-hidden />
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <div className="font-mono text-xs">{v.transactionIdModule}</div>
                       {v.referenceMonetique && <div className="text-xs text-ink-muted">réf. {v.referenceMonetique}</div>}
@@ -178,7 +197,10 @@ function Paiements() {
                     </td>
                     <td className="px-4 py-3">
                       {MOYENS[v.moyenPaiement] ?? v.moyenPaiement}
-                      <div className="text-xs text-ink-muted">{v.typeModule.libelle}</div>
+                      <div className="text-xs text-ink-muted">
+                        {v.typeModule.libelle}
+                        {v.carteFin && <span className="font-mono"> · •••• {v.carteFin}</span>}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       {vendue ? (
@@ -201,7 +223,17 @@ function Paiements() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {remboursable && <button className="text-xs text-accent hover:underline" onClick={() => setRembourser(v)}>Rembourser</button>}
+                      {remboursable && (
+                        <button
+                          className="text-xs text-accent hover:underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRembourser(v);
+                          }}
+                        >
+                          Rembourser
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -217,6 +249,17 @@ function Paiements() {
           <button type="button" className="bouton-second !py-1" disabled={page >= pages} onClick={() => setPage(page + 1)}>Plus anciens →</button>
         </div>
       )}
+      <Modale titre="Commande" large ouverte={recap !== null} onFermer={() => setRecap(null)}>
+        {recap && (
+          <RecapCommande
+            id={recap}
+            onRembourser={(v) => {
+              setRecap(null);
+              setRembourser(v);
+            }}
+          />
+        )}
+      </Modale>
       <Modale titre="Rembourser une vente" ouverte={rembourser !== null} onFermer={() => setRembourser(null)}>
         {rembourser && <FormRemboursement vente={rembourser} onFini={() => setRembourser(null)} />}
       </Modale>
