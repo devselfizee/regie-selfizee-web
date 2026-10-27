@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type Vente } from "@/lib/api";
-import { dateHeure, euros, MOYENS } from "@/lib/format";
+import { dateHeure, euros, GRATUITES, MOYENS } from "@/lib/format";
 import { versCents } from "@/lib/commissions";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
@@ -22,8 +22,8 @@ const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "
   ACCEPTEE: { libelle: "Acceptée", ton: "ok" },
   REFUSEE: { libelle: "Refusée", ton: "crit" },
   ANNULEE: { libelle: "Annulée", ton: "neutre" },
-  EXPIREE: { libelle: "Expirée", ton: "warn" },
-  OFFERTE: { libelle: "Offerte (non débitée)", ton: "warn" },
+  EXPIREE: { libelle: "Sans réponse du terminal", ton: "warn" },
+  OFFERTE: { libelle: "Tirage offert (non débité)", ton: "warn" },
   REMBOURSEE: { libelle: "Remboursement", ton: "neutre" },
 };
 
@@ -121,8 +121,10 @@ function Ventes() {
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
                         <Badge ton={statut.ton}>{statut.libelle}</Badge>
-                        {v.encaissement === "INCERTAIN" && <Badge ton="warn">Encaissement incertain</Badge>}
-                        {v.gratuite && <Badge ton="neutre">Gratuit</Badge>}
+                        {v.encaissement === "INCERTAIN" && <Badge ton="warn">À rapprocher</Badge>}
+                        {(v.gratuite || (v.statut === "ACCEPTEE" && v.moyenPaiement === "AUCUN")) && (
+                          <Badge ton="neutre">Gratuit{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right">

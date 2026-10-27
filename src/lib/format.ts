@@ -28,12 +28,14 @@ export const JOURS_COURTS = ["", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"
 
 export const MOYENS: Record<string, string> = {
   CB: "CB · carte insérée",
-  SANS_CONTACT: "CB · sans contact",
+  // Le terminal ne distingue pas une carte d'un téléphone en sans contact (avenant ventes n° 2)
+  SANS_CONTACT: "CB · sans contact (carte ou téléphone)",
   ESPECES: "Espèces",
-  MOBILE: "Mobile",
-  WEB: "QR (paiement web)",
+  MOBILE: "Téléphone",
+  WEB: "Paiement en ligne (QR)",
   AUCUN: "Gratuit",
-  AUTRE: "Autre",
+  // Paiement par le terminal sans ticket rapproché : refus, annulation, expiration ou journal indisponible
+  AUTRE: "Ticket non retrouvé",
 };
 
 // Carte insérée et sans contact : le même paiement bancaire par le terminal (Hexapay) ; le détail est un sous-filtre
@@ -43,7 +45,8 @@ export const OPTIONS_MOYENS = [
   { value: "CB", label: "  · carte insérée" },
   { value: "SANS_CONTACT", label: "  · sans contact" },
   // Pas d'espèces : les bornes ne les gèrent pas (retour de Sébastien)
-  ...["MOBILE", "WEB", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
+  // Ni espèces (non gérées) ni téléphone (jamais envoyé : le terminal le voit comme du sans contact)
+  ...["WEB", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
 ];
 
 /** "il y a 3 h" — pour l'état des bornes */
@@ -57,3 +60,12 @@ export function depuis(iso: string | null | undefined): string {
   if (h < 48) return `il y a ${h} h`;
   return `il y a ${Math.round(h / 24)} j`;
 }
+
+/** Motif d'une séance à 0 € (champ gratuite des ventes) */
+export const GRATUITES: Record<string, string> = {
+  MODE_GRATUIT: "mode gratuit",
+  CODE_STAFF: "code staff",
+  DEGRADE: "terminal en panne",
+  REIMPRESSION: "réimpression",
+  SANS_TIRAGE: "sans tirage",
+};
