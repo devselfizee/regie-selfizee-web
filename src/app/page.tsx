@@ -8,7 +8,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type Granularite, type LieuListe, type StatsGlobales } from "@/lib/api";
 import { Exporter } from "@/components/BoutonExport";
 import { dateHeure, depuis, euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/format";
-import { Kpi } from "@/components/Kpi";
+import { KpiCouleur } from "@/components/KpiCouleur";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
@@ -204,41 +204,53 @@ function Contenu({
   granularite: Granularite;
   setGranularite: (g: Granularite) => void;
 }) {
-  const { courant: c, precedente: p, n1 } = data.kpis;
+  const { courant: c, precedente: p } = data.kpis;
   const montant = (k: { caTtcCents: number; caHtCents: number }) => (ht ? k.caHtCents : k.caTtcCents);
   const suffixe = ht ? "HT" : "TTC";
   const unJour = data.periode.du === data.periode.au;
+  // Journée en cours : la comparer à toute la journée d'hier n'a pas de sens (toujours en baisse le matin)
+  const enCours = unJour && data.periode.du === ymd(aujourdhui());
+  const comparer = (courant: number, precedente: number) => (enCours ? {} : { courant, precedente });
   const lieux = [...data.classement].sort((a, b) => montant(b) - montant(a));
 
   return (
     <div className="space-y-6">
-      {/* Bloc chiffres */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-        <Kpi
+      {/* Bloc chiffres, en couleur comme les autres tableaux de bord Konitys */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+        <KpiCouleur
+          teinte="vert"
+          icone="billet"
           libelle={`Encaissé ${suffixe}`}
           valeur={euros(montant(c))}
-          courant={montant(c)}
-          precedente={montant(p)}
-          n1={montant(n1)}
           detail={ht ? `TTC : ${euros(c.caTtcCents)}` : `HT : ${euros(c.caHtCents)} · TVA : ${euros(c.caTtcCents - c.caHtCents)}`}
+          {...comparer(montant(c), montant(p))}
         />
-        <Kpi libelle="Photos achetées" valeur={nombre(c.photosAchetees)} courant={c.photosAchetees} precedente={p.photosAchetees} n1={n1.photosAchetees} detail="séances payées" />
-        <Kpi libelle="Versions numériques" valeur={nombre(c.versionsNumeriques)} courant={c.versionsNumeriques} precedente={p.versionsNumeriques} detail="achetées" />
-        <Kpi libelle="Impressions payantes" valeur={nombre(c.impressionsPayantes)} courant={c.impressionsPayantes} precedente={p.impressionsPayantes} detail="tirages payés" />
-        <Kpi libelle="Photos prises" valeur={nombre(c.photosPrises)} courant={c.photosPrises} precedente={p.photosPrises} detail={c.sourcePhotosPrises === "parcours" ? "d'après le parcours des invités" : "arrivées au paiement"} />
-        <Kpi
+        <KpiCouleur teinte="bleu" icone="image" libelle="Photos achetées" valeur={nombre(c.photosAchetees)} detail="séances payées" {...comparer(c.photosAchetees, p.photosAchetees)} />
+        <KpiCouleur teinte="indigo" icone="numerique" libelle="Versions numériques" valeur={nombre(c.versionsNumeriques)} detail="achetées" {...comparer(c.versionsNumeriques, p.versionsNumeriques)} />
+        <KpiCouleur teinte="violet" icone="imprimante" libelle="Impressions payantes" valeur={nombre(c.impressionsPayantes)} detail="tirages payés" {...comparer(c.impressionsPayantes, p.impressionsPayantes)} />
+        <KpiCouleur
+          teinte="turquoise"
+          icone="appareil"
+          libelle="Photos prises"
+          valeur={nombre(c.photosPrises)}
+          detail={c.sourcePhotosPrises === "parcours" ? "d'après le parcours des invités" : "arrivées au paiement"}
+          {...comparer(c.photosPrises, p.photosPrises)}
+        />
+        <KpiCouleur
+          teinte="orange"
+          icone="pourcent"
           libelle="Taux de conversion"
           valeur={pct(c.tauxConversion)}
-          courant={c.tauxConversion}
-          precedente={p.tauxConversion}
           detail={`${nombre(c.photosAchetees)} / ${nombre(c.photosPrises)}`}
+          {...comparer(c.tauxConversion, p.tauxConversion)}
         />
-        <Kpi
+        <KpiCouleur
+          teinte="rose"
+          icone="sac"
           libelle={`Panier moyen ${suffixe}`}
           valeur={euros(ht ? c.panierPhotoHtCents : c.panierPhotoTtcCents)}
-          courant={ht ? c.panierPhotoHtCents : c.panierPhotoTtcCents}
-          precedente={ht ? p.panierPhotoHtCents : p.panierPhotoTtcCents}
           detail="par photo achetée"
+          {...comparer(ht ? c.panierPhotoHtCents : c.panierPhotoTtcCents, ht ? p.panierPhotoHtCents : p.panierPhotoTtcCents)}
         />
       </div>
 

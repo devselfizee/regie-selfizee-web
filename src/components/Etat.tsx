@@ -54,7 +54,7 @@ export function EnTete({ titre, sousTitre, actions }: { titre: string; sousTitre
   return (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-xl font-semibold">{titre}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{titre}</h1>
         {sousTitre && <p className="mt-1 text-sm text-ink-2">{sousTitre}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
