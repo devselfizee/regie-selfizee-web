@@ -275,6 +275,8 @@ export interface BorneListe {
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; type: { id: number; code: string; libelle: string } }[];
   lieuActuel: { id: number; enseigne: string; ville: string | null; parc: Parc } | null;
+  /** Ventes reçues sans lieu (borne pas encore affectée à leur date) */
+  ventesSansLieu: { nb: number; du: string; au: string } | null;
   affectationActuelle: { id: number; debut: string } | null;
   dernierHeartbeat: string | null;
   derniereVente: string | null;

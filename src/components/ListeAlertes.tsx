@@ -63,6 +63,9 @@ function LigneAlerte({ a, compacte }: { a: Alerte; compacte: boolean }) {
               <> · <Link className="text-accent hover:underline" href={`/lieux/${a.lieu.id}`}>{a.lieu.enseigne}</Link></>
             )}
             {a.borne && <> · {a.borne.identifiant}</>}
+            {a.type === "BORNE_NON_AFFECTEE" && a.borne && (
+              <> · <Link className="font-medium text-accent hover:underline" href={`/bornes?affecter=${a.borne.id}`}>Affecter la borne à son lieu</Link></>
+            )}
           </p>
           {a.commentaire && !edition && <p className="mt-1 rounded bg-surface-2 px-2 py-1 text-xs text-ink-2">Commentaire : {a.commentaire}</p>}
           {edition && (

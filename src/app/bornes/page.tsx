@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type BorneListe, type LieuListe } from "@/lib/api";
 import { dateHeure, depuis } from "@/lib/format";
@@ -24,7 +25,10 @@ const STATUTS: Record<string, string> = {
 export default function PageBornes() {
   return (
     <Reserve roles={["ADMIN", "TECHNICIEN"]}>
-      <Bornes />
+      {/* useSearchParams (lien depuis une alerte) demande une frontière Suspense */}
+      <Suspense fallback={<Chargement />}>
+        <Bornes />
+      </Suspense>
     </Reserve>
   );
 }
@@ -32,6 +36,15 @@ export default function PageBornes() {
 function Bornes() {
   const [action, setAction] = useState<Action | null>(null);
   const { data, error, isPending } = useQuery({ queryKey: ["bornes"], queryFn: () => api<BorneListe[]>("/bornes") });
+  // Lien depuis une alerte « borne non affectée » : ouvre la fenêtre d'affectation de cette borne
+  const parametres = useSearchParams();
+  const aAffecter = parametres.get("affecter");
+  const [lienTraite, setLienTraite] = useState<string | null>(null);
+  if (aAffecter && data && lienTraite !== aAffecter) {
+    const b = data.find((x) => String(x.id) === aAffecter);
+    setLienTraite(aAffecter);
+    if (b) setAction({ type: "affecter", borne: b });
+  }
   const fermer = () => setAction(null);
   // Recherche (borne ou lieu) et filtre par gamme (retour de Sébastien)
   const [recherche, setRecherche] = useState("");
@@ -265,13 +278,22 @@ function FormAffectation({ borne, onFini }: { borne: BorneListe; onFini: () => v
           ))}
         </select>
       </label>
+      {borne.ventesSansLieu && (
+        <div className="rounded-md bg-warn-bg p-3 text-sm text-warn-ink">
+          <strong>{borne.ventesSansLieu.nb} vente{borne.ventesSansLieu.nb > 1 ? "s" : ""} sans lieu</strong> du {dateHeure(borne.ventesSansLieu.du)} au{" "}
+          {dateHeure(borne.ventesSansLieu.au)}. Pour les rattacher à ce lieu, la borne doit y être arrivée avant la première.
+          <button type="button" className="mt-1 block font-medium underline" onClick={() => setDebut(localDe(borne.ventesSansLieu!.du, true))}>
+            Commencer le jour de la première vente
+          </button>
+        </div>
+      )}
       <label className="block">
         <span className="etiquette">À partir du *</span>
         <input className="champ" type="datetime-local" required value={debut} onChange={(e) => setDebut(e.target.value)} />
       </label>
       <p className="text-xs text-ink-2">
         {borne.lieuActuel && <>L&apos;affectation à <strong>{borne.lieuActuel.enseigne}</strong> sera clôturée à cette date. </>}
-        Les ventes déjà reçues après cette date seront rattachées au nouveau lieu.
+        Les ventes déjà reçues après cette date seront rattachées au nouveau lieu, avec les statistiques et les commissions.
       </p>
       <MessageErreur erreur={affecter.error} />
       <button className="bouton" disabled={affecter.isPending}>Valider</button>
@@ -323,4 +345,11 @@ function RegenererCle({ borne, onFini }: { borne: BorneListe; onFini: (cle: stri
       <button className="bouton" disabled={regenerer.isPending} onClick={() => regenerer.mutate()}>Générer une nouvelle clé</button>
     </div>
   );
+}
+
+/** Date ISO → valeur d'un champ datetime-local (heure locale) ; debutJour : à 00:00 */
+function localDe(iso: string, debutJour = false): string {
+  const d = new Date(iso);
+  const deux = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${debutJour ? "00:00" : `${deux(d.getHours())}:${deux(d.getMinutes())}`}`;
 }
