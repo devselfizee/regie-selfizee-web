@@ -91,6 +91,8 @@ export interface Kpis {
   lieuxAvecVentes: number;
   // Activité photo (séances) : prises = arrivées au paiement, achetées = avec une vraie vente
   photosPrises: number;
+  /** parcours : photos vraiment prises (parcours invité) ; paiement : séances arrivées au paiement */
+  sourcePhotosPrises?: "parcours" | "paiement";
   photosAchetees: number;
   impressionsPayantes: number;
   versionsNumeriques: number;

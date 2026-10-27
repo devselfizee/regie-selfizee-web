@@ -12,6 +12,7 @@ import { Kpi } from "@/components/Kpi";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
+import { SectionParcours } from "@/components/Entonnoir";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
 export default function Accueil() {
@@ -214,7 +215,7 @@ function Contenu({
         <Kpi libelle="Photos achetées" valeur={nombre(c.photosAchetees)} courant={c.photosAchetees} precedente={p.photosAchetees} n1={n1.photosAchetees} detail="séances payées" />
         <Kpi libelle="Versions numériques" valeur={nombre(c.versionsNumeriques)} courant={c.versionsNumeriques} precedente={p.versionsNumeriques} detail="achetées" />
         <Kpi libelle="Impressions payantes" valeur={nombre(c.impressionsPayantes)} courant={c.impressionsPayantes} precedente={p.impressionsPayantes} detail="tirages payés" />
-        <Kpi libelle="Photos prises" valeur={nombre(c.photosPrises)} courant={c.photosPrises} precedente={p.photosPrises} detail="arrivées au paiement" />
+        <Kpi libelle="Photos prises" valeur={nombre(c.photosPrises)} courant={c.photosPrises} precedente={p.photosPrises} detail={c.sourcePhotosPrises === "parcours" ? "d'après le parcours des invités" : "arrivées au paiement"} />
         <Kpi
           libelle="Taux de conversion"
           valeur={pct(c.tauxConversion)}
@@ -350,6 +351,8 @@ function Contenu({
           </div>
         </div>
       )}
+
+      <SectionParcours du={data.periode.du} au={data.periode.au} />
 
       <PrevisionGlobaleSection />
 

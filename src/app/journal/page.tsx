@@ -12,7 +12,7 @@ import { Reserve } from "@/lib/session";
 interface LotJournal {
   id: string;
   source: string;
-  type: "TRANSACTIONS" | "HEARTBEAT" | "RELEVE_MONETIQUE";
+  type: "TRANSACTIONS" | "HEARTBEAT" | "RELEVE_MONETIQUE" | "PARCOURS";
   borneIdentifiant: string | null;
   schemaVersion: string | null;
   recuLe: string;
@@ -44,7 +44,7 @@ interface SigneDeVie {
   borne: { id: number; identifiant: string };
 }
 
-const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique" };
+const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité" };
 const STATUTS: Record<LotJournal["statut"], { ton: "ok" | "warn" | "crit"; libelle: string }> = {
   OK: { ton: "ok", libelle: "Accepté" },
   PARTIEL: { ton: "warn", libelle: "En partie refusé" },
@@ -107,6 +107,7 @@ function Journal() {
               <select id="journal-type" className="champ" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
                 <option value="">Tous</option>
                 <option value="TRANSACTIONS">Ventes</option>
+                <option value="PARCOURS">Parcours invité</option>
                 <option value="HEARTBEAT">Signes de vie refusés</option>
               </select>
             </label>
@@ -164,14 +165,14 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {l.type === "TRANSACTIONS" && l.borne && l.statut !== "OK" && <Rejouer id={l.id} />}
+                {(l.type === "TRANSACTIONS" || l.type === "PARCOURS") && l.borne && l.statut !== "OK" && <Rejouer id={l.id} />}
                 <button type="button" className="bouton-second !px-2 !py-1 text-xs" onClick={() => setOuvert(ouvert === l.id ? null : l.id)}>
                   {ouvert === l.id ? "Masquer" : "Voir le contenu"}
                 </button>
               </div>
             </div>
             <p className="mt-1 text-xs text-ink-2 tabular">
-              {l.type === "TRANSACTIONS" && l.statut !== "REJETE"
+              {(l.type === "TRANSACTIONS" || l.type === "PARCOURS") && l.statut !== "REJETE"
                 ? `${l.nbRecues} reçue(s) : ${l.nbCreees} nouvelle(s), ${l.nbDoublons} déjà reçue(s), ${l.nbRejetees} refusée(s)`
                 : l.erreurs.map((e) => e.code).join(", ")}
               {!l.borne && l.statut === "REJETE" && " · borne inconnue de la Régie ou clé refusée"}
@@ -195,12 +196,12 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
 function Rejouer({ id }: { id: string }) {
   const client = useQueryClient();
   const rejouer = useMutation({
-    mutationFn: () => api<{ recues: number; creees: number; doublons: number; rejetees: number }>(`/imports/journal/${id}/rejouer`, { method: "POST" }),
+    mutationFn: () => api<{ recues: number; creees?: number; crees?: number; doublons: number; rejetees: number }>(`/imports/journal/${id}/rejouer`, { method: "POST" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["journal"] }),
   });
   if (rejouer.data) {
     const r = rejouer.data;
-    return <span className="self-center text-xs text-ink-2">Rejoué : {r.creees} nouvelle(s), {r.doublons} déjà reçue(s), {r.rejetees} refusée(s)</span>;
+    return <span className="self-center text-xs text-ink-2">Rejoué : {r.creees ?? r.crees ?? 0} nouveau(x), {r.doublons} déjà reçue(s), {r.rejetees} refusée(s)</span>;
   }
   return (
     <>

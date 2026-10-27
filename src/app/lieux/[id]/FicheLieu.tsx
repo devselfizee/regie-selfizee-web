@@ -17,6 +17,7 @@ import { PrevisionLieuSection } from "@/components/SectionPrevision";
 import { SectionPotentiel } from "@/components/Prospect";
 import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
 import { ListeAlertes } from "@/components/ListeAlertes";
+import { SectionParcours } from "@/components/Entonnoir";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id }: { id: number }) {
@@ -93,6 +94,12 @@ export function FicheLieu({ id }: { id: number }) {
       {voitVentes && (
         <div className="mt-6">
           <SectionContexte lieuId={id} />
+        </div>
+      )}
+
+      {voitVentes && (
+        <div className="mt-6">
+          <SectionParcours lieuId={id} du={filtres.du} au={filtres.au} />
         </div>
       )}
 
