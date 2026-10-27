@@ -311,7 +311,7 @@ function Contenu({
         </Section>
 
         {/* Dernières ventes */}
-        <Section titre="Dernières ventes" actions={<Link className="text-sm text-accent hover:underline" href="/ventes">Toutes les ventes</Link>}>
+        <Section titre="Dernières ventes" actions={<Link className="text-sm text-accent hover:underline" href="/paiements">Tous les paiements</Link>}>
           {data.dernieresVentes.length ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
