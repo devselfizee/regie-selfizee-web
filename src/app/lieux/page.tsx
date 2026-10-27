@@ -27,6 +27,7 @@ export default function ListeLieux() {
   const [departement, setDepartement] = useState("");
   const [antenneId, setAntenneId] = useState("");
   const [gammeId, setGammeId] = useState("");
+  const [parc, setParc] = useState("");
   const q = useDeferredValue(recherche);
   const { data: ref } = useReferentiel();
   const query = qs({ q, typeLieuId, statut });
@@ -41,9 +42,10 @@ export default function ListeLieux() {
     (l) =>
       (!departement || l.departement === departement) &&
       (!antenneId || (antenneId === "aucune" ? !l.antenne : String(l.antenne?.id) === antenneId)) &&
-      (!gammeId || l.bornes.some((b) => String(b.gamme.id) === gammeId))
+      (!gammeId || l.bornes.some((b) => String(b.gamme.id) === gammeId)) &&
+      (!parc || l.parc === parc)
   );
-  const filtresActifs = departement || antenneId || gammeId;
+  const filtresActifs = departement || antenneId || gammeId || parc;
 
   return (
     <>
@@ -54,7 +56,7 @@ export default function ListeLieux() {
       />
       <OngletsLieux actif="liste" />
 
-      <div className="carte mb-4 grid gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="carte mb-4 grid gap-2 p-3 sm:grid-cols-3 lg:grid-cols-7">
         <label className="sm:col-span-3 lg:col-span-2">
           <span className="etiquette">Recherche</span>
           <input id="lieux-recherche" className="champ" placeholder="Enseigne, raison sociale, ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
@@ -82,6 +84,14 @@ export default function ListeLieux() {
           </select>
         </label>
         <label>
+          <span className="etiquette">Parc</span>
+          <select id="lieux-parc" className="champ" value={parc} onChange={(e) => setParc(e.target.value)}>
+            <option value="">Tous</option>
+            <option value="SELFIZEE">Parc Selfizee</option>
+            <option value="CLIENT">Parc client</option>
+          </select>
+        </label>
+        <label>
           <span className="etiquette">Type de lieu</span>
           <select id="lieux-type" className="champ" value={typeLieuId} onChange={(e) => setTypeLieuId(e.target.value)}>
             <option value="">Tous</option>
@@ -90,7 +100,7 @@ export default function ListeLieux() {
             ))}
           </select>
         </label>
-        <label className="lg:col-start-6 lg:row-start-1">
+        <label className="lg:col-start-7 lg:row-start-1">
           <span className="etiquette">Statut</span>
           <select id="lieux-statut" className="champ" value={statut} onChange={(e) => setStatut(e.target.value)}>
             <option value="">Clients (hors prospects)</option>
@@ -130,6 +140,7 @@ export default function ListeLieux() {
                   <td className="px-4 py-3">
                     <Link href={`/lieux/${l.id}`} className="font-medium hover:underline">{l.enseigne}</Link>
                     <div className="text-xs text-ink-muted">{l.raisonSociale}</div>
+                    {l.parc === "CLIENT" && <Badge ton="neutre">Parc client</Badge>}
                   </td>
                   <td className="px-4 py-3">
                     {l.ville ?? <span className="text-ink-muted">—</span>}

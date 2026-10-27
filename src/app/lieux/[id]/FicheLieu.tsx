@@ -25,7 +25,8 @@ export function FicheLieu({ id }: { id: number }) {
   const voitVentesRole = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
-  const query = qs({ ...filtres });
+  // Le lieu est déjà choisi : pas de filtre de parc
+  const query = qs({ ...filtres, parc: undefined });
   const stats = useQuery({
     queryKey: ["stats-lieu", id, query],
     queryFn: () => api<StatsLieu>(`/stats/lieux/${id}${query}`),
@@ -119,6 +120,7 @@ export function FicheLieu({ id }: { id: number }) {
             <Info l="Raison sociale">{l.raisonSociale}{l.siret && <span className="text-ink-muted"> · {l.siret}</span>}</Info>
             <Info l="Adresse">{[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ") || "—"}</Info>
             <Info l="Antenne Selfizee">{l.antenne?.libelle ?? "—"}</Info>
+            <Info l="Parc">{l.parc === "CLIENT" ? "Parc client (location financière)" : "Parc Selfizee"}</Info>
             <Info l="Standing">{l.standing?.libelle ?? "—"}</Info>
             <Info l="Clientèle">{l.clienteles.map((c) => c.libelle).join(", ") || "—"}</Info>
             <Info l="Capacité">{l.capaciteAccueil ? nombre(l.capaciteAccueil) : "—"}</Info>

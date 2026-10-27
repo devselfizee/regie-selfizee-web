@@ -36,11 +36,13 @@ function Bornes() {
   // Recherche (borne ou lieu) et filtre par gamme (retour de Sébastien)
   const [recherche, setRecherche] = useState("");
   const [gammeId, setGammeId] = useState("");
+  const [parc, setParc] = useState("");
   const { data: ref } = useReferentiel();
   const q = recherche.trim().toLowerCase();
   const visibles = (data ?? []).filter(
     (b) =>
       (!gammeId || String(b.gamme.id) === gammeId) &&
+      (!parc || b.parc === parc) &&
       (!q || b.identifiant.toLowerCase().includes(q) || (b.lieuActuel ? `${b.lieuActuel.enseigne} ${b.lieuActuel.ville ?? ""}`.toLowerCase().includes(q) : false))
   );
 
@@ -56,7 +58,7 @@ function Bornes() {
       {isPending && !error && <Chargement />}
       {data && !data.length && <Vide>Aucune borne enregistrée.</Vide>}
       {data && data.length > 0 && (
-        <div className="carte mb-4 grid gap-3 p-3 sm:grid-cols-[2fr_1fr]">
+        <div className="carte mb-4 grid gap-3 p-3 sm:grid-cols-[2fr_1fr_1fr]">
           <label className="block">
             <span className="etiquette">Recherche</span>
             <input id="bornes-recherche" className="champ" placeholder="N° de borne (S220), lieu, ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
@@ -66,6 +68,14 @@ function Bornes() {
             <select id="bornes-gamme" className="champ" value={gammeId} onChange={(e) => setGammeId(e.target.value)}>
               <option value="">Toutes</option>
               {ref?.gammes.map((g) => <option key={g.id} value={g.id}>{g.libelle}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="etiquette">Parc</span>
+            <select id="bornes-parc" className="champ" value={parc} onChange={(e) => setParc(e.target.value)}>
+              <option value="">Tous</option>
+              <option value="SELFIZEE">Parc Selfizee</option>
+              <option value="CLIENT">Parc client</option>
             </select>
           </label>
         </div>
@@ -101,6 +111,7 @@ function Bornes() {
                     <Link className="font-medium hover:underline" href={`/bornes/${b.id}`}>{b.identifiant}</Link>
                     <div className="text-xs text-ink-muted">
                       {b.gamme.libelle} · {STATUTS[b.statut] ?? b.statut}
+                      {b.parc === "CLIENT" && " · parc client"}
                       {b.logicielVersion && ` · v${b.logicielVersion}`}
                     </div>
                   </td>
@@ -171,13 +182,14 @@ function MessageErreur({ erreur }: { erreur: Error | null }) {
 function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => void }) {
   const client = useQueryClient();
   const { data: ref } = useReferentiel();
-  const [f, setF] = useState({ identifiant: "", gammeId: "", moduleTypeId: "", moduleSerie: "", moduleTid: "" });
+  const [f, setF] = useState({ identifiant: "", parc: "SELFIZEE", gammeId: "", moduleTypeId: "", moduleSerie: "", moduleTid: "" });
   const creer = useMutation({
     mutationFn: () =>
       api<{ identifiant: string; cleApi: string }>("/bornes", {
         method: "POST",
         json: {
           identifiant: f.identifiant,
+          parc: f.parc,
           gammeId: Number(f.gammeId),
           module: f.moduleTypeId
             ? { typeId: Number(f.moduleTypeId), numeroSerie: f.moduleSerie || undefined, identifiantPrestataire: f.moduleTid || undefined }
@@ -196,6 +208,13 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
         <span className="etiquette">Identifiant de la borne *</span>
         <input className="champ" required placeholder="S220" value={f.identifiant} onChange={(e) => setF({ ...f, identifiant: e.target.value.toUpperCase() })} />
         <span className="mt-1 block text-xs text-ink-muted">Celui que la borne envoie avec ses ventes (borne_id), par exemple S220.</span>
+      </label>
+      <label className="block">
+        <span className="etiquette">Parc</span>
+        <select className="champ" value={f.parc} onChange={(e) => setF({ ...f, parc: e.target.value })}>
+          <option value="SELFIZEE">Parc Selfizee</option>
+          <option value="CLIENT">Parc client (location financière)</option>
+        </select>
       </label>
       <label className="block">
         <span className="etiquette">Gamme *</span>

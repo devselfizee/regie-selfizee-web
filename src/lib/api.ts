@@ -201,6 +201,7 @@ export interface LieuListe {
   /** Calculé depuis le code postal : 22, 2A, 974… */
   departement: string | null;
   statut: string;
+  parc: Parc;
   saisonnalite: string;
   typeLieu: { libelle: string };
   antenne: { id: number; libelle: string } | null;
@@ -213,6 +214,7 @@ export interface LieuListe {
 export interface LieuFiche {
   id: number;
   statut: string;
+  parc: Parc;
   raisonSociale: string;
   enseigne: string;
   siret: string | null;
@@ -270,6 +272,7 @@ export interface BorneListe {
   id: number;
   identifiant: string;
   statut: string;
+  parc: Parc;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; type: { id: number; code: string; libelle: string } }[];
   lieuActuel: { id: number; enseigne: string; ville: string | null } | null;
@@ -280,6 +283,9 @@ export interface BorneListe {
   enLigne: boolean;
   cleConfiguree: boolean;
 }
+
+/** Parc Selfizee, ou parc d'un client en location financière */
+export type Parc = "SELFIZEE" | "CLIENT";
 
 export interface ErreurImport {
   id: string;
@@ -467,6 +473,7 @@ export interface BorneDetail {
   id: number;
   identifiant: string;
   statut: string;
+  parc: Parc;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; identifiantPrestataire: string | null; installeLe: string | null; retireLe: string | null; type: { id: number; libelle: string } }[];
   affectations: { id: number; debut: string; fin: string | null; lieu: { id: number; enseigne: string; ville: string | null; dateInstallation: string | null } }[];

@@ -69,3 +69,6 @@ export const GRATUITES: Record<string, string> = {
   REIMPRESSION: "réimpression",
   SANS_TIRAGE: "sans tirage",
 };
+
+/** Parc d'un lieu ou d'une borne (les stats montrent le parc Selfizee par défaut) */
+export const PARCS: Record<string, string> = { SELFIZEE: "Parc Selfizee", CLIENT: "Parc client" };

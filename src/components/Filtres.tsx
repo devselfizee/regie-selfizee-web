@@ -19,6 +19,8 @@ export interface ValeursFiltres {
   interieurExterieur?: string;
   clienteleId?: string;
   antenneId?: string;
+  /** SELFIZEE par défaut ; vide = tout */
+  parc?: string;
 }
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -48,7 +50,7 @@ export const PRESETS: { cle: string; libelle: string; calcul: () => { du: string
   },
 ];
 
-export const filtresParDefaut = (): ValeursFiltres => PRESETS[1].calcul();
+export const filtresParDefaut = (): ValeursFiltres => ({ ...PRESETS[1].calcul(), parc: "SELFIZEE" });
 
 export function useReferentiel() {
   return useQuery({ queryKey: ["referentiel"], queryFn: () => api<Referentiel>("/referentiel"), staleTime: 5 * 60_000 });
@@ -101,6 +103,16 @@ export function Filtres({
           <span className="etiquette">Au</span>
           <input type="date" className="champ" value={valeurs.au} min={valeurs.du} onChange={(e) => e.target.value && set({ au: e.target.value })} />
         </label>
+        {filtresLieu && (
+          <label>
+            <span className="etiquette">Parc</span>
+            <select className="champ" value={valeurs.parc ?? ""} onChange={(e) => set({ parc: e.target.value || undefined })}>
+              <option value="SELFIZEE">Parc Selfizee</option>
+              <option value="CLIENT">Parc client</option>
+              <option value="">Tout</option>
+            </select>
+          </label>
+        )}
         <label>
           <span className="etiquette">Par</span>
           <select className="champ" value={valeurs.granularite} onChange={(e) => set({ granularite: e.target.value as Granularite })}>

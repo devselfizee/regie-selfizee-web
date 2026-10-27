@@ -87,6 +87,8 @@ function VueGlobale() {
   const [cle, setCle] = useState("jour");
   const [perso, setPerso] = useState(() => ({ du: ymd(plusJours(aujourdhui(), -29)), au: ymd(aujourdhui()) }));
   const [lieuId, setLieuId] = useState("");
+  // Parc Selfizee par défaut : les clients en location financière à part (demande de Sébastien)
+  const [parc, setParc] = useState("SELFIZEE");
   const [ht, setHtEtat] = useState(lireHt);
   const [granularite, setGranularite] = useState<Granularite | null>(null);
   const setHt = (v: boolean) => {
@@ -101,7 +103,7 @@ function VueGlobale() {
   const choisie = PERIODES.find((p) => p.cle === cle);
   const { du, au } = choisie?.calcul ? (({ du, au }) => ({ du: ymd(du), au: ymd(au) }))(choisie.calcul()) : perso;
   const gran = granularite ?? granulariteAuto(du, au);
-  const query = qs({ du, au, granularite: gran, lieuId: lieuId || undefined });
+  const query = qs({ du, au, granularite: gran, lieuId: lieuId || undefined, parc: lieuId ? undefined : parc || undefined });
 
   const lieux = useQuery({ queryKey: ["lieux", "tdb"], queryFn: () => api<LieuListe[]>("/lieux"), staleTime: 5 * 60_000 });
   const { data, error, isPending, isFetching } = useQuery({
@@ -139,12 +141,20 @@ function VueGlobale() {
             </button>
           ))}
         </div>
+        <label>
+          <span className="etiquette">Parc</span>
+          <select id="tdb-parc" className="champ" value={parc} onChange={(e) => setParc(e.target.value)} disabled={!!lieuId}>
+            <option value="SELFIZEE">Parc Selfizee</option>
+            <option value="CLIENT">Parc client</option>
+            <option value="">Tout</option>
+          </select>
+        </label>
         <label className="min-w-48">
           <span className="etiquette">Lieu</span>
           <select id="tdb-lieu" className="champ" value={lieuId} onChange={(e) => setLieuId(e.target.value)}>
             <option value="">Tous les lieux</option>
             {lieux.data
-              ?.filter((l) => l.statut === "ACTIF")
+              ?.filter((l) => l.statut === "ACTIF" && (!parc || l.parc === parc))
               .map((l) => <option key={l.id} value={l.id}>{l.enseigne}{l.ville ? ` · ${l.ville}` : ""}</option>)}
           </select>
         </label>
