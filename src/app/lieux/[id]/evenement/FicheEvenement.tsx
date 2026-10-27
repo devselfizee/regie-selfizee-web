@@ -55,6 +55,13 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
   };
   const telechargerConfig = (publiee: boolean) =>
     telecharger(`/lieux/${lieuId}/evenement/config.json${publiee ? "?publiee=1" : ""}`).catch(setErreurTelechargement);
+  // Le zip (config.json, cadres du studio assemblés, éléments du kit) est refait à chaque fois côté API
+  const [zipEnCours, setZipEnCours] = useState(false);
+  const telechargerZip = () => {
+    setZipEnCours(true);
+    setErreurTelechargement(null);
+    telecharger(`/lieux/${lieuId}/evenement/zip`).catch(setErreurTelechargement).finally(() => setZipEnCours(false));
+  };
 
   const erreurs = fiche.controles.filter((c) => c.niveau === "erreur");
   const avertissements = fiche.controles.filter((c) => c.niveau === "avertissement");
@@ -147,6 +154,9 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
                 <button type="button" className="bouton-second" disabled={!fiche.enregistre} onClick={() => telechargerConfig(false)}>
                   Télécharger le config.json
                 </button>
+                <button type="button" className="bouton-second" disabled={!fiche.enregistre || zipEnCours} onClick={telechargerZip}>
+                  {zipEnCours ? "Préparation du zip…" : "Télécharger le zip de l'événement"}
+                </button>
                 {fiche.version > 0 && (
                   <button type="button" className="text-xs text-accent hover:underline" onClick={() => telechargerConfig(true)}>
                     Télécharger la version publiée ({fiche.version})
@@ -156,7 +166,8 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
               {publier.error && <Erreur erreur={publier.error} />}
               {erreurTelechargement !== null && <Erreur erreur={erreurTelechargement} />}
               <p className="text-xs text-ink-muted">
-                Les cadres se dessinent au studio, depuis l&apos;écran Gabarits. Le zip de l&apos;événement (cadres, fonds) reste à générer.
+                Les cadres se dessinent au studio, depuis l&apos;écran Gabarits. Le config.json et le zip suivent les cadres enregistrés : sans
+                cadre, un gabarit garde celui du kit.
               </p>
             </div>
           </Section>
