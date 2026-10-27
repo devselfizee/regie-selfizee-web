@@ -37,7 +37,26 @@ const moisFmt = new Intl.DateTimeFormat("fr-FR", { month: "short", year: "2-digi
 export function libellePeriode(p: string, g: Granularite): string {
   const [a, m, j] = p.split("-");
   if (g === "jour") return `${j}/${m}`;
-  if (g === "semaine") return `sem. ${j}/${m}`;
+  // Semaine du lundi au dimanche : « 19/10–25/10 »
+  if (g === "semaine") {
+    const fin = new Date(new Date(`${p}T00:00:00Z`).getTime() + 6 * 86_400_000);
+    return `${j}/${m}–${String(fin.getUTCDate()).padStart(2, "0")}/${String(fin.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
   if (g === "mois") return moisFmt.format(new Date(`${p}T00:00:00Z`));
   return a;
+}
+
+const jourSemaineFmt = new Intl.DateTimeFormat("fr-FR", { weekday: "long", timeZone: "UTC" });
+
+/** Titre de l'infobulle : « 24/10 » et « vendredi » (jour), « Semaine du 19/10 au 25/10 »… */
+export function titrePeriode(p: string, g: Granularite): { titre: string; droite?: string } {
+  if (g === "jour") {
+    const nom = jourSemaineFmt.format(new Date(`${p}T00:00:00Z`));
+    return { titre: libellePeriode(p, g), droite: nom.charAt(0).toUpperCase() + nom.slice(1) };
+  }
+  if (g === "semaine") {
+    const [debut, fin] = libellePeriode(p, g).split("–");
+    return { titre: `Semaine du ${debut} au ${fin}` };
+  }
+  return { titre: libellePeriode(p, g) };
 }

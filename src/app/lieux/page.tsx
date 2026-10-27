@@ -56,7 +56,7 @@ export default function ListeLieux() {
       />
       <OngletsLieux actif="liste" />
 
-      <div className="carte mb-4 grid gap-2 p-3 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="mb-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
         <label className="sm:col-span-3 lg:col-span-2">
           <span className="etiquette">Recherche</span>
           <input id="lieux-recherche" className="champ" placeholder="Enseigne, raison sociale, ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />

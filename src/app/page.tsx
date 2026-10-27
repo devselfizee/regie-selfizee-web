@@ -6,8 +6,13 @@ import { useRouter } from "next/navigation";
 import { useMoi } from "@/lib/session";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type Granularite, type LieuListe, type StatsGlobales } from "@/lib/api";
-import { Exporter } from "@/components/BoutonExport";
-import { dateHeure, depuis, euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/format";
+import { MenuExport } from "@/components/BoutonExport";
+import { ChoixLieu } from "@/components/ChoixLieu";
+import { depuis, euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/format";
+
+// « 25/10 22:48 » : l'année se devine
+const jourHeureCourtFmt = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+const jourHeureCourt = (iso: string) => jourHeureCourtFmt.format(new Date(iso)).replace(",", "");
 import { KpiCouleur } from "@/components/KpiCouleur";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
@@ -120,71 +125,60 @@ function VueGlobale() {
         titre="Tableau de bord"
         sousTitre={`${du === au ? `Le ${jour(du)}` : `Du ${jour(du)} au ${jour(au)}`}${isFetching ? " · mise à jour…" : ""}`}
         actions={
-          <>
-            <Exporter libelle="Ventes" chemin="/export/transactions" requete={query} />
-            <Exporter libelle="Classement" chemin="/export/classement" requete={query} />
-          </>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex rounded-md border border-line-strong bg-surface p-0.5" role="group" aria-label="Montants">
+              {[false, true].map((v) => (
+                <button
+                  key={String(v)}
+                  type="button"
+                  aria-pressed={ht === v}
+                  onClick={() => setHt(v)}
+                  className={`rounded px-3 py-1.5 text-sm font-medium ${ht === v ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+                >
+                  {v ? "HT" : "TTC"}
+                </button>
+              ))}
+            </div>
+            <select id="tdb-parc" aria-label="Parc" className="champ !w-auto" value={parc} onChange={(e) => setParc(e.target.value)} disabled={!!lieuId}>
+              <option value="SELFIZEE">Parc Selfizee</option>
+              <option value="CLIENT">Parc client</option>
+              <option value="">Tous les parcs</option>
+            </select>
+            <div className="w-72 max-w-full">
+              <ChoixLieu
+                id="tdb-lieu"
+                lieux={(lieux.data ?? []).filter((l) => l.statut === "ACTIF" && (!parc || l.parc === parc))}
+                valeur={lieuId}
+                onChange={setLieuId}
+              />
+            </div>
+            <select
+              id="tdb-periode"
+              aria-label="Période"
+              className="champ !w-auto"
+              value={cle}
+              onChange={(e) => {
+                setCle(e.target.value);
+                setGranularite(null);
+              }}
+            >
+              {PERIODES.map((p) => <option key={p.cle} value={p.cle}>{p.libelle}</option>)}
+            </select>
+            {cle === "perso" && (
+              <>
+                <input id="tdb-du" aria-label="Du" type="date" className="champ !w-auto" value={perso.du} max={perso.au} onChange={(e) => e.target.value && setPerso({ ...perso, du: e.target.value })} />
+                <input id="tdb-au" aria-label="Au" type="date" className="champ !w-auto" value={perso.au} min={perso.du} onChange={(e) => e.target.value && setPerso({ ...perso, au: e.target.value })} />
+              </>
+            )}
+            <MenuExport
+              exports={[
+                { libelle: "Ventes", chemin: "/export/transactions", requete: query },
+                { libelle: "Classement des lieux", chemin: "/export/classement", requete: query },
+              ]}
+            />
+          </div>
         }
       />
-
-      <div className="carte mb-6 flex flex-wrap items-end gap-3 p-3">
-        <div className="flex rounded-md bg-surface-2 p-1" role="group" aria-label="Montants">
-          {[false, true].map((v) => (
-            <button
-              key={String(v)}
-              type="button"
-              aria-pressed={ht === v}
-              onClick={() => setHt(v)}
-              className={`rounded px-3 py-1.5 text-sm font-medium ${ht === v ? "bg-surface text-ink shadow-sm" : "text-ink-2 hover:text-ink"}`}
-            >
-              {v ? "HT" : "TTC"}
-            </button>
-          ))}
-        </div>
-        <label>
-          <span className="etiquette">Parc</span>
-          <select id="tdb-parc" className="champ" value={parc} onChange={(e) => setParc(e.target.value)} disabled={!!lieuId}>
-            <option value="SELFIZEE">Parc Selfizee</option>
-            <option value="CLIENT">Parc client</option>
-            <option value="">Tout</option>
-          </select>
-        </label>
-        <label className="min-w-48">
-          <span className="etiquette">Lieu</span>
-          <select id="tdb-lieu" className="champ" value={lieuId} onChange={(e) => setLieuId(e.target.value)}>
-            <option value="">Tous les lieux</option>
-            {lieux.data
-              ?.filter((l) => l.statut === "ACTIF" && (!parc || l.parc === parc))
-              .map((l) => <option key={l.id} value={l.id}>{l.enseigne}{l.ville ? ` · ${l.ville}` : ""}</option>)}
-          </select>
-        </label>
-        <label className="min-w-48">
-          <span className="etiquette">Période</span>
-          <select
-            id="tdb-periode"
-            className="champ"
-            value={cle}
-            onChange={(e) => {
-              setCle(e.target.value);
-              setGranularite(null);
-            }}
-          >
-            {PERIODES.map((p) => <option key={p.cle} value={p.cle}>{p.libelle}</option>)}
-          </select>
-        </label>
-        {cle === "perso" && (
-          <>
-            <label>
-              <span className="etiquette">Du</span>
-              <input id="tdb-du" type="date" className="champ" value={perso.du} max={perso.au} onChange={(e) => e.target.value && setPerso({ ...perso, du: e.target.value })} />
-            </label>
-            <label>
-              <span className="etiquette">Au</span>
-              <input id="tdb-au" type="date" className="champ" value={perso.au} min={perso.du} onChange={(e) => e.target.value && setPerso({ ...perso, au: e.target.value })} />
-            </label>
-          </>
-        )}
-      </div>
 
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
@@ -211,7 +205,8 @@ function Contenu({
   // Journée en cours : la comparer à toute la journée d'hier n'a pas de sens (toujours en baisse le matin)
   const enCours = unJour && data.periode.du === ymd(aujourdhui());
   const comparer = (courant: number, precedente: number) => (enCours ? {} : { courant, precedente });
-  const lieux = [...data.classement].sort((a, b) => montant(b) - montant(a));
+  // Des centaines de lieux : seulement ceux qui ont vendu sur la période (retour de Sébastien)
+  const lieux = data.classement.filter((l) => l.caTtcCents > 0 || l.nbVentes > 0).sort((a, b) => montant(b) - montant(a));
 
   return (
     <div className="space-y-6">
@@ -222,7 +217,7 @@ function Contenu({
           icone="billet"
           libelle={`Encaissé ${suffixe}`}
           valeur={euros(montant(c))}
-          detail={ht ? `TTC : ${euros(c.caTtcCents)}` : `HT : ${euros(c.caHtCents)} · TVA : ${euros(c.caTtcCents - c.caHtCents)}`}
+          detail={ht ? `TTC : ${euros(c.caTtcCents)}` : `HT : ${euros(c.caHtCents)}`}
           {...comparer(montant(c), montant(p))}
         />
         <KpiCouleur teinte="bleu" icone="image" libelle="Photos achetées" valeur={nombre(c.photosAchetees)} detail="séances payées" {...comparer(c.photosAchetees, p.photosAchetees)} />
@@ -308,7 +303,7 @@ function Contenu({
                       <td className="py-2 pr-3 text-ink-muted">{i + 1}</td>
                       <td className="py-2 pr-3">
                         <Link className="font-medium hover:underline" href={`/lieux/${l.lieuId}`}>{l.enseigne}</Link>
-                        <div className="text-xs text-ink-muted">{[l.typeLieu, l.ville].filter(Boolean).join(" · ")}</div>
+                        {l.ville && <div className="text-xs text-ink-muted">{l.ville}</div>}
                       </td>
                       <td className="py-2 pr-3 text-right">{euros(montant(l))}</td>
                       <td className="py-2 text-right text-ink-2">{nombre(l.nbVentes)}</td>
@@ -318,7 +313,7 @@ function Contenu({
               </table>
             </div>
           ) : (
-            <Vide>Aucun lieu actif.</Vide>
+            <Vide>Aucune vente sur la période.</Vide>
           )}
         </Section>
 
@@ -338,14 +333,14 @@ function Contenu({
                 <tbody className="tabular">
                   {data.dernieresVentes.map((v) => (
                     <tr key={v.id} className="border-t border-line">
-                      <td className="py-2 pr-3 whitespace-nowrap text-ink-2">{dateHeure(v.horodatage)}</td>
+                      <td className="py-2 pr-3 whitespace-nowrap text-ink-2">{jourHeureCourt(v.horodatage)}</td>
                       <td className="py-2 pr-3">
                         <Link className="hover:underline" href={`/lieux/${v.lieuId}`}>{v.lieu}</Link>
                         <span className="text-ink-muted"> · {v.borne}</span>
                       </td>
                       <td className="py-2 pr-3 text-ink-2">
                         {v.produitLibelle ?? v.produitCode}
-                        {v.nbTirages > 0 && ` · ${v.nbTirages} tirage${v.nbTirages > 1 ? "s" : ""}`}
+                        {v.nbTirages > 0 && !/tirage/i.test(v.produitLibelle ?? "") && ` · ${v.nbTirages} tirage${v.nbTirages > 1 ? "s" : ""}`}
                         <div className="text-xs text-ink-muted">{MOYENS[v.moyenPaiement] ?? v.moyenPaiement}</div>
                       </td>
                       <td className="py-2 text-right">{euros(ht ? v.montantHtCents : v.montantTtcCents)}</td>

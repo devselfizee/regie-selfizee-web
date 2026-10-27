@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import type { Granularite, PointSerie } from "@/lib/api";
 import { euros, eurosRond, nombre } from "@/lib/format";
-import { completer, libellePeriode, periodesDe } from "@/lib/periodes";
+import { completer, libellePeriode, periodesDe, titrePeriode } from "@/lib/periodes";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "./Graphique";
 
 /** Évolution du CA sur la période, avec la même période N-1 en comparaison. */
@@ -49,11 +49,13 @@ export function GraphiqueCA({
             const i = items[0].dataIndex;
             const lignes = items.map((it) => {
               const p = it.seriesName === "N-1" ? n1![i] : courant[i];
-              return `${it.marker} ${it.seriesName} : <b>${euros(p.caTtcCents)}</b> · ${nombre(p.nbVentes)} ventes`;
+              // Une seule courbe : pas de nom de série (« Période : » n'apporte rien)
+              return `${it.marker} ${avecN1 ? `${it.seriesName} : ` : ""}<b>${euros(p.caTtcCents)}</b> · ${nombre(p.nbVentes)} vente${p.nbVentes > 1 ? "s" : ""}`;
             });
             const info = granularite === "jour" ? infosJour?.[periodes[i]] : undefined;
             if (info) lignes.push(`<span style="color:${j.ink2}">${info}</span>`);
-            return `<div style="font-weight:600;margin-bottom:4px">${libellePeriode(periodes[i], granularite)}</div>${lignes.join("<br>")}`;
+            const { titre, droite } = titrePeriode(periodes[i], granularite);
+            return `<div style="display:flex;justify-content:space-between;gap:16px;font-weight:600;margin-bottom:4px"><span>${titre}</span>${droite ? `<span style="color:${j.ink2};font-weight:500">${droite}</span>` : ""}</div>${lignes.join("<br>")}`;
           },
         },
         xAxis: axeCategorie(j, periodes.map((p) => libellePeriode(p, granularite))),

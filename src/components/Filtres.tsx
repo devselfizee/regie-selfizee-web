@@ -81,15 +81,15 @@ export function Filtres({
   const liste = (cat: string) => (ref?.listes[cat] ?? []).filter((v) => v.actif).map((v) => ({ value: v.id, label: v.libelle }));
 
   return (
-    <div className="carte mb-6 space-y-3 p-3">
-      <div className="flex flex-wrap items-end gap-2">
+    <div className="mb-6 space-y-3">
+      <div className="flex flex-wrap items-end justify-end gap-2">
         <div className="flex flex-wrap gap-1" role="group" aria-label="Période">
           {PRESETS.map((p) => (
             <button
               key={p.cle}
               type="button"
               onClick={() => set(p.calcul())}
-              className={`rounded-md px-3 py-2 text-sm ${presetActif === p.cle ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink-2 hover:text-ink"}`}
+              className={`rounded-md px-3 py-2 text-sm ${presetActif === p.cle ? "border border-accent bg-accent text-accent-ink" : "border border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
             >
               {p.libelle}
             </button>
@@ -133,7 +133,7 @@ export function Filtres({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6" hidden={!ouverts}>
+      <div className="carte grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6" hidden={!ouverts}>
         <Select nom="gammeId" valeurs={valeurs} set={set} libelle="Gamme" options={(ref?.gammes ?? []).filter((g) => g.actif).map((g) => ({ value: g.id, label: g.libelle }))} />
         <Select nom="typeModuleId" valeurs={valeurs} set={set} libelle="Module de paiement" options={(ref?.typesModule ?? []).filter((t) => t.actif).map((t) => ({ value: t.id, label: t.libelle }))} />
         <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={OPTIONS_MOYENS} />

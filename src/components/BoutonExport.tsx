@@ -65,3 +65,50 @@ function BoutonExportCompact({ chemin, children }: { chemin: string; children: R
     </button>
   );
 }
+
+/**
+ * Un seul bouton « Exporter » qui ouvre la liste des exports (retour de Sébastien) :
+ * chaque export en CSV et en Excel.
+ */
+export function MenuExport({ exports }: { exports: { libelle: string; chemin: string; requete?: string }[] }) {
+  const [enCours, setEnCours] = useState<string | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const lancer = async (chemin: string, details: HTMLDetailsElement | null) => {
+    setEnCours(chemin);
+    setErreur(null);
+    try {
+      await telecharger(chemin);
+      if (details) details.open = false;
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEnCours(null);
+    }
+  };
+  return (
+    <details className="relative">
+      <summary className="bouton-second cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        {enCours ? "Export…" : "Exporter"} <span aria-hidden>▾</span>
+      </summary>
+      <div className="absolute right-0 z-20 mt-1 w-56 rounded-md border border-line bg-surface py-1 shadow-lg">
+        {exports.flatMap((x) =>
+          (["csv", "xlsx"] as const).map((format) => {
+            const chemin = `${x.chemin}.${format}${x.requete ?? ""}`;
+            return (
+              <button
+                key={chemin}
+                type="button"
+                className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-2 disabled:opacity-50"
+                disabled={enCours !== null}
+                onClick={(e) => lancer(chemin, e.currentTarget.closest("details"))}
+              >
+                {x.libelle} <span className="text-ink-muted">· {format === "csv" ? "CSV" : "Excel"}</span>
+              </button>
+            );
+          })
+        )}
+        {erreur && <p className="px-3 py-1.5 text-xs text-crit-ink">Échec : {erreur}</p>}
+      </div>
+    </details>
+  );
+}

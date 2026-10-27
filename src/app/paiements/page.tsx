@@ -9,7 +9,7 @@ import { versCents } from "@/lib/commissions";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
-import { Exporter } from "@/components/BoutonExport";
+import { MenuExport } from "@/components/BoutonExport";
 import { RecapCommande } from "@/components/RecapCommande";
 
 export default function PagePaiements() {
@@ -84,9 +84,9 @@ function Paiements() {
       <EnTete
         titre="Paiements"
         sousTitre="Tous les paiements remontés par les bornes. Cliquez sur une ligne pour le récapitulatif ; une vente se rembourse ici, la borne ne rembourse jamais."
-        actions={<Exporter libelle="Exporter" chemin="/export/transactions" requete={qs({ du: du || undefined, au: au || undefined, lieuId: lieuId || undefined, parc: parc || undefined })} />}
+        actions={<MenuExport exports={[{ libelle: "Ventes", chemin: "/export/transactions", requete: qs({ du: du || undefined, au: au || undefined, lieuId: lieuId || undefined, parc: parc || undefined }) }]} />}
       />
-      <div className="carte mb-4 grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block sm:col-span-2">
           <span className="etiquette">Recherche</span>
           <input id="paiements-recherche" className="champ" placeholder="S513-20261005-K7PX2M-1, n° d'autorisation, 4 derniers chiffres de la carte, pi_…" value={q} onChange={(e) => changer(setQ)(e.target.value)} />

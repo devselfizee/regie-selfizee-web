@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
-import { Exporter } from "@/components/BoutonExport";
+import { MenuExport } from "@/components/BoutonExport";
 import { peut, useMoi } from "@/lib/session";
 import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, jour, nombre, pct } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
-import { Kpi } from "@/components/Kpi";
+import { KpiCouleur } from "@/components/KpiCouleur";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/GraphiquesLieu";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
@@ -55,7 +55,7 @@ export function FicheLieu({ id }: { id: number }) {
         actions={
           <>
             {voitVentes && (
-              <Exporter libelle="Ventes" chemin="/export/transactions" requete={qs({ ...filtres, lieuId: id })} />
+              <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ ...filtres, parc: undefined, lieuId: id }) }]} />
             )}
             {peut.administrer(moi.role) && <Link href={`/lieux/${id}/evenement`} className="bouton-second">Fiche événement (borne)</Link>}
             {peut.gererLieux(moi.role) && <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>}
@@ -237,7 +237,7 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
 }
 
 function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
-  const { courant: c, precedente: p, n1 } = s.kpis;
+  const { courant: c, precedente: p } = s.kpis;
   const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);
   const evenements = useEvenements(lieuId);
   const sup = superpositions(contexte.data, evenements.data);
@@ -251,10 +251,10 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi libelle="CA TTC" valeur={eurosRond(c.caTtcCents)} courant={c.caTtcCents} precedente={p.caTtcCents} n1={n1.caTtcCents} />
-        <Kpi libelle="Ventes" valeur={nombre(c.nbVentes)} courant={c.nbVentes} precedente={p.nbVentes} n1={n1.nbVentes} />
-        <Kpi libelle="Panier moyen" valeur={euros(c.panierMoyenCents)} courant={c.panierMoyenCents} precedente={p.panierMoyenCents} n1={n1.panierMoyenCents} />
-        <Kpi libelle="Refus / annulations" valeur={`${pct(c.tauxRefus)} · ${nombre(c.nbAnnulees)} annul.`} courant={c.tauxRefus} precedente={p.tauxRefus} inverse />
+        <KpiCouleur teinte="vert" icone="billet" libelle="CA TTC" valeur={eurosRond(c.caTtcCents)} detail={`HT : ${eurosRond(c.caHtCents)}`} courant={c.caTtcCents} precedente={p.caTtcCents} />
+        <KpiCouleur teinte="bleu" icone="image" libelle="Ventes" valeur={nombre(c.nbVentes)} detail={`${nombre(c.photosAchetees)} photos achetées`} courant={c.nbVentes} precedente={p.nbVentes} />
+        <KpiCouleur teinte="rose" icone="sac" libelle="Panier moyen" valeur={euros(c.panierMoyenCents)} detail="TTC par vente" courant={c.panierMoyenCents} precedente={p.panierMoyenCents} />
+        <KpiCouleur teinte="orange" icone="pourcent" libelle="Refus / annulations" valeur={pct(c.tauxRefus)} detail={`${nombre(c.nbRefusees)} refus · ${nombre(c.nbAnnulees)} annulation${c.nbAnnulees > 1 ? "s" : ""}`} />
       </div>
 
       <ActiviteNonFacturee k={c} />
