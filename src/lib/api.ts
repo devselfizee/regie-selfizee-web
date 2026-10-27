@@ -195,11 +195,15 @@ export interface LieuListe {
   enseigne: string;
   raisonSociale: string;
   ville: string | null;
+  codePostal: string | null;
+  /** Calculé depuis le code postal : 22, 2A, 974… */
+  departement: string | null;
   statut: string;
   saisonnalite: string;
   typeLieu: { libelle: string };
+  antenne: { id: number; libelle: string } | null;
   commercial: { nom: string; prenom: string } | null;
-  bornes: { id: number; identifiant: string; dernierHeartbeat: string | null; derniereVente: string | null }[];
+  bornes: { id: number; identifiant: string; dernierHeartbeat: string | null; derniereVente: string | null; gamme: { id: number; libelle: string } }[];
   ca30jCents: number | null; // null : rôle sans accès au CA
   ventes30j: number | null;
 }
@@ -218,6 +222,7 @@ export interface LieuFiche {
   typeLieuId: number;
   sousTypeId: number | null;
   standingId: number | null;
+  antenneId: number | null;
   saisonnalite: "ANNUEL" | "SAISONNIER";
   capaciteAccueil: number | null;
   frequentationJour: number | null;
@@ -239,6 +244,7 @@ export interface LieuFiche {
   typeLieu: RefValeur;
   sousType: RefValeur | null;
   standing: RefValeur | null;
+  antenne: RefValeur | null;
   zoneGeo: RefValeur | null;
   tailleCommune: RefValeur | null;
   emplacementZone: RefValeur | null;

@@ -111,6 +111,7 @@ export function FicheLieu({ id }: { id: number }) {
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <Info l="Raison sociale">{l.raisonSociale}{l.siret && <span className="text-ink-muted"> · {l.siret}</span>}</Info>
             <Info l="Adresse">{[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ") || "—"}</Info>
+            <Info l="Antenne Selfizee">{l.antenne?.libelle ?? "—"}</Info>
             <Info l="Standing">{l.standing?.libelle ?? "—"}</Info>
             <Info l="Clientèle">{l.clienteles.map((c) => c.libelle).join(", ") || "—"}</Info>
             <Info l="Capacité">{l.capaciteAccueil ? nombre(l.capaciteAccueil) : "—"}</Info>

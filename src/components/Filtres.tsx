@@ -18,6 +18,7 @@ export interface ValeursFiltres {
   saisonnalite?: string;
   interieurExterieur?: string;
   clienteleId?: string;
+  antenneId?: string;
 }
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -71,7 +72,7 @@ export function Filtres({
   })?.cle;
 
   // Filtres secondaires repliés par défaut (retour de Sébastien : trop de filtres d'un coup) ; ouverts si l'un est actif
-  const SECONDAIRES: (keyof ValeursFiltres)[] = ["gammeId", "typeModuleId", "moyenPaiement", "typeLieuId", "zoneGeoId", "standingId", "clienteleId", "saisonnalite", "interieurExterieur"];
+  const SECONDAIRES: (keyof ValeursFiltres)[] = ["gammeId", "typeModuleId", "moyenPaiement", "typeLieuId", "zoneGeoId", "standingId", "clienteleId", "saisonnalite", "interieurExterieur", "antenneId"];
   const nbActifs = SECONDAIRES.filter((k) => valeurs[k]).length;
   const [ouverts, setOuverts] = useState(nbActifs > 0);
 
@@ -126,6 +127,7 @@ export function Filtres({
         <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={OPTIONS_MOYENS} />
         {filtresLieu && (
           <>
+            <Select nom="antenneId" valeurs={valeurs} set={set} libelle="Antenne Selfizee" options={liste("ANTENNE")} />
             <Select nom="typeLieuId" valeurs={valeurs} set={set} libelle="Type de lieu" options={liste("TYPE_LIEU")} />
             <Select nom="zoneGeoId" valeurs={valeurs} set={set} libelle="Zone" options={liste("ZONE_GEO")} />
             <Select nom="standingId" valeurs={valeurs} set={set} libelle="Standing" options={liste("STANDING")} />

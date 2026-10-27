@@ -26,7 +26,7 @@ interface Etat {
   zoneGeoId: string; tailleCommuneId: string; concurrencePhoto: string; concurrencePhotoNotes: string;
   interieurExterieur: string; emplacementZoneId: string; visibilite: string; eclairageId: string;
   dateSignature: string; dateInstallation: string; dureeContratMois: string;
-  commercialId: string; origineLeadId: string; notes: string;
+  commercialId: string; antenneId: string; origineLeadId: string; notes: string;
   horaires: Horaire[];
   saisons: Periode[];
   fermetures: Periode[];
@@ -52,7 +52,7 @@ function depuisFiche(l?: LieuFiche, statut = "ACTIF"): Etat {
     interieurExterieur: s(l?.interieurExterieur), emplacementZoneId: s(l?.emplacementZoneId),
     visibilite: s(l?.visibilite), eclairageId: s(l?.eclairageId),
     dateSignature: jourIso(l?.dateSignature ?? null), dateInstallation: jourIso(l?.dateInstallation ?? null),
-    dureeContratMois: s(l?.dureeContratMois), commercialId: s(l?.commercialId), origineLeadId: s(l?.origineLeadId),
+    dureeContratMois: s(l?.dureeContratMois), commercialId: s(l?.commercialId), antenneId: s(l?.antenneId), origineLeadId: s(l?.origineLeadId),
     notes: s(l?.notes),
     horaires: l?.horaires.map(({ jourSemaine, ouverture, fermeture }) => ({ jourSemaine, ouverture, fermeture })) ?? [],
     saisons: l?.saisons.map((x) => ({ libelle: s(x.libelle), debut: jourIso(x.debut), fin: jourIso(x.fin) })) ?? [],
@@ -80,7 +80,7 @@ function versApi(e: Etat) {
     interieurExterieur: txt(e.interieurExterieur), emplacementZoneId: num(e.emplacementZoneId),
     visibilite: num(e.visibilite), eclairageId: num(e.eclairageId),
     dateSignature: txt(e.dateSignature), dateInstallation: txt(e.dateInstallation), dureeContratMois: num(e.dureeContratMois),
-    commercialId: num(e.commercialId), origineLeadId: num(e.origineLeadId), notes: txt(e.notes),
+    commercialId: num(e.commercialId), antenneId: num(e.antenneId), origineLeadId: num(e.origineLeadId), notes: txt(e.notes),
     horaires: e.horaires,
     saisons: e.saisons.map((x) => ({ libelle: txt(x.libelle ?? ""), debut: x.debut, fin: x.fin })),
     fermetures: e.fermetures.map((x) => ({ motif: txt(x.motif ?? ""), debut: x.debut, fin: x.fin })),
@@ -247,6 +247,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {champ("dureeContratMois", "Durée du contrat (mois)", { type: "number" })}
         {moi.role !== "COMMERCIAL" &&
           select("commercialId", "Commercial responsable", refs.commerciaux.map((c) => ({ value: String(c.id), label: `${c.prenom} ${c.nom}` })))}
+        {select("antenneId", "Antenne Selfizee", options("ANTENNE"))}
         {select("origineLeadId", "Origine du lead", options("ORIGINE_LEAD"))}
       </Bloc>
 

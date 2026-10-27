@@ -17,7 +17,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     libelle: "Pilotage",
     liens: [
       { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/carte", libelle: "Carte", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
+      { href: "/lieux/carte", libelle: "Carte des lieux", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
