@@ -11,6 +11,8 @@ export const nomLieu = (l: Pick<LieuListe, "enseigne" | "ville" | "departement">
 
 // Recherche sans tenir compte des accents ni des majuscules
 const sansAccents = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+// Lieux montrés à la fois : la recherche sert à trouver les autres
+const MAX_AFFICHES = 15;
 
 /**
  * Choix d'un lieu façon select2 : un bouton, puis une recherche au fil de la frappe dans la liste
@@ -38,13 +40,13 @@ export function ChoixLieu({
   const idListe = useId();
 
   const choisi = lieux.find((l) => String(l.id) === valeur);
-  const options = useMemo(() => {
+  const { options, autres } = useMemo(() => {
     const q = sansAccents(recherche.trim());
     const trouves = lieux
       .map((l) => ({ id: String(l.id), libelle: nomLieu(l) }))
       .filter((o) => !q || sansAccents(o.libelle).includes(q))
       .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
-    return [{ id: "", libelle: tous }, ...trouves];
+    return { options: [{ id: "", libelle: tous }, ...trouves.slice(0, MAX_AFFICHES)], autres: Math.max(0, trouves.length - MAX_AFFICHES) };
   }, [lieux, recherche, tous]);
 
   // Fermeture au clic en dehors
@@ -154,6 +156,11 @@ export function ChoixLieu({
               </li>
             ))}
             {options.length === 1 && <li className="px-3 py-1.5 text-sm text-ink-muted">Aucun lieu ne correspond.</li>}
+            {autres > 0 && (
+              <li className="border-t border-line px-3 py-1.5 text-xs text-ink-muted">
+                {autres} autre{autres > 1 ? "s" : ""} lieu{autres > 1 ? "x" : ""} : tapez quelques lettres pour les trouver.
+              </li>
+            )}
           </ul>
         </div>
       )}
