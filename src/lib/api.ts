@@ -794,6 +794,8 @@ export interface CadreEvenement {
 export interface FicheEvenementLieu {
   enregistre: boolean;
   code: string | null;
+  /** Mot de passe du tableau de bord de la borne (customerDashboardPassword du config.json) */
+  motDePasseTableau: string | null;
   version: number;
   publieeLe: string | null;
   modifieDepuisPublication: boolean;

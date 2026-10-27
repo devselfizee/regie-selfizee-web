@@ -73,6 +73,11 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
         sousTitre={
           <span className="flex flex-wrap items-center gap-2">
             {fiche.code ? <span>Code d&apos;événement <strong className="font-mono">{fiche.code}</strong></span> : <span>Code attribué au premier enregistrement</span>}
+            {fiche.motDePasseTableau && (
+              <span title="À donner à l'exploitant : il ouvre le tableau de bord de la borne">
+                Mot de passe du tableau de bord <strong className="font-mono">{fiche.motDePasseTableau}</strong>
+              </span>
+            )}
             {fiche.version > 0 ? (
               <Badge ton="ok">Version {fiche.version} publiée le {dateHeure(fiche.publieeLe)}</Badge>
             ) : (
