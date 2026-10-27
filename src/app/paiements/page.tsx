@@ -11,6 +11,7 @@ import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { MenuExport } from "@/components/BoutonExport";
 import { RecapCommande } from "@/components/RecapCommande";
+import { ChoixLieu } from "@/components/ChoixLieu";
 
 export default function PagePaiements() {
   return (
@@ -105,13 +106,10 @@ function Paiements() {
             {TYPES.map((x) => <option key={x.cle} value={x.cle}>{x.libelle}</option>)}
           </select>
         </label>
-        <label className="block">
+        <div className="block">
           <span className="etiquette">Lieu</span>
-          <select id="paiements-lieu" className="champ" value={lieuId} onChange={(e) => changer(setLieuId)(e.target.value)}>
-            <option value="">Tous</option>
-            {lieux.data?.map((l) => <option key={l.id} value={l.id}>{l.enseigne}{l.ville ? ` · ${l.ville}` : ""}</option>)}
-          </select>
-        </label>
+          <ChoixLieu id="paiements-lieu" lieux={lieux.data ?? []} valeur={lieuId} onChange={changer(setLieuId)} tous="Tous" />
+        </div>
         <label className="block">
           <span className="etiquette">Borne</span>
           <select id="paiements-borne" className="champ" value={borneId} onChange={(e) => changer(setBorneId)(e.target.value)}>
