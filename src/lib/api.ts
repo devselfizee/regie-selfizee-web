@@ -167,7 +167,7 @@ export interface StatsLieu {
   meilleuresDates: { jour: string; caTtcCents: number; nbVentes: number }[];
   moyensPaiement: { moyen: string; caTtcCents: number; nbVentes: number; nbRefusees: number }[];
   modulesPaiement: { libelle: string; caTtcCents: number; nbVentes: number; nbRefusees: number }[];
-  formules: { code: string; libelle: string | null; nbVentes: number; caTtcCents: number }[];
+  formules: { code: string; nbTirages?: number; libelle: string | null; nbVentes: number; caTtcCents: number }[];
   montants: { montantCents: number; nbVentes: number }[];
   bornes: {
     borneId: number;
