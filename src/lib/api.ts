@@ -89,6 +89,14 @@ export interface Kpis {
   nbIncertaines?: number;
   caIncertainTtcCents?: number;
   lieuxAvecVentes: number;
+  // Activité photo (séances) : prises = arrivées au paiement, achetées = avec une vraie vente
+  photosPrises: number;
+  photosAchetees: number;
+  impressionsPayantes: number;
+  versionsNumeriques: number;
+  tauxConversion: number;
+  panierPhotoTtcCents: number;
+  panierPhotoHtCents: number;
 }
 
 export interface Comparaisons {
@@ -100,6 +108,7 @@ export interface Comparaisons {
 export interface PointSerie {
   periode: string;
   caTtcCents: number;
+  caHtCents?: number;
   nbVentes: number;
 }
 
@@ -115,9 +124,25 @@ export interface StatsGlobales {
     ville: string | null;
     typeLieu: string;
     caTtcCents: number;
+    caHtCents: number;
     nbVentes: number;
     joursAvecVente: number;
     caParJourVenteCents: number;
+  }[];
+  /** CA par heure de la journée sur la période */
+  parHeure: { heure: number; caTtcCents: number; caHtCents: number; nbVentes: number }[];
+  dernieresVentes: {
+    id: string;
+    horodatage: string;
+    montantTtcCents: number;
+    montantHtCents: number;
+    produitCode: string;
+    produitLibelle: string | null;
+    nbTirages: number;
+    moyenPaiement: string;
+    lieuId: number;
+    lieu: string;
+    borne: string;
   }[];
   /** Réservé admin : commissions des périodes calculées comprises dans la période */
   commissions: { montantCents: number; nbPeriodes: number; nbAValider: number } | null;

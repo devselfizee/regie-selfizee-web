@@ -16,6 +16,7 @@ export function GraphiqueCA({
   reperes = [],
   bandes = [],
   infosJour,
+  ht = false,
 }: {
   du: string;
   au: string;
@@ -28,12 +29,15 @@ export function GraphiqueCA({
   bandes?: { du: string; au: string; libelle: string }[];
   /** Ligne ajoutée à l'infobulle d'un jour (météo, férié…), en granularité jour */
   infosJour?: Record<string, string>;
+  /** Montants HT (sinon TTC) : la série doit porter caHtCents */
+  ht?: boolean;
 }) {
   const option = useCallback(
     (j: Jetons) => {
       const periodes = periodesDe(du, au, granularite);
-      const courant = completer(periodes, serie);
-      const n1 = serieN1 ? completer(periodes, serieN1) : null;
+      const montant = (s: PointSerie[]) => (ht ? s.map((p) => ({ ...p, caTtcCents: p.caHtCents ?? Math.round(p.caTtcCents / 1.2) })) : s);
+      const courant = completer(periodes, montant(serie));
+      const n1 = serieN1 ? completer(periodes, montant(serieN1)) : null;
       const avecN1 = n1?.some((p) => p.nbVentes > 0);
 
       return {
@@ -108,8 +112,8 @@ export function GraphiqueCA({
         ],
       };
     },
-    [du, au, granularite, serie, serieN1, reperes, bandes, infosJour]
+    [du, au, granularite, serie, serieN1, reperes, bandes, infosJour, ht]
   );
 
-  return <Graphique option={option} description={`Chiffre d'affaires TTC par ${granularite} du ${du} au ${au}`} />;
+  return <Graphique option={option} description={`Chiffre d'affaires ${ht ? "HT" : "TTC"} par ${granularite} du ${du} au ${au}`} />;
 }

@@ -16,7 +16,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
   {
     libelle: "Pilotage",
     liens: [
-      { href: "/", libelle: "Vue globale", icone: "LayoutDashboard", roles: ["ADMIN", "COMMERCIAL"] },
+      { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/carte", libelle: "Carte", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] },
