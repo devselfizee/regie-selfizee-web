@@ -136,14 +136,14 @@ function Carte() {
       />
       <Filtres valeurs={filtres} onChange={setFiltres} />
 
-      <div className="mb-3 flex flex-wrap items-center gap-1" role="group" aria-label="Couleur selon">
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-1" role="group" aria-label="Couleur selon">
         <span className="mr-2 text-sm text-ink-2">Couleur selon :</span>
         {MESURES.map((m) => (
           <button
             key={m.cle}
             title={m.aide}
             onClick={() => setMesure(m.cle)}
-            className={`rounded-md px-3 py-2 text-sm ${mesure === m.cle ? "bg-accent text-accent-ink" : "bg-surface-2 text-ink-2"}`}
+            className={`rounded-md px-3 py-2 text-sm ${mesure === m.cle ? "border border-accent bg-accent text-accent-ink" : "border border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
           >
             {m.libelle}
           </button>
