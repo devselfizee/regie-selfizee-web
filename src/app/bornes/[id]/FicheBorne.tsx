@@ -61,6 +61,8 @@ function Fiche({ id }: { id: number }) {
         <Info libelle="Dernière vente">{depuis(b.derniereVente)}</Info>
       </div>
 
+      {b.ventesSansLieu && <VentesSansLieu borne={b} />}
+
       <div className="space-y-6">
         {moi.role === "ADMIN" && <SectionRentabilite id={id} />}
         <SectionModule borne={b} />
@@ -598,5 +600,43 @@ function FormDatesAffectation({ borneId, affectation, onFini }: { borneId: numbe
       {enregistrer.error && <Erreur erreur={enregistrer.error} />}
       <button className="bouton" disabled={enregistrer.isPending}>Enregistrer</button>
     </form>
+  );
+}
+
+/**
+ * Ventes reçues alors que la borne n'avait pas de lieu (remontées avant son affectation) :
+ * les réintégrer en faisant commencer la présence dans le lieu le jour de la première.
+ */
+function VentesSansLieu({ borne }: { borne: BorneDetail }) {
+  const client = useQueryClient();
+  const v = borne.ventesSansLieu!;
+  const actuelle = borne.affectations.find((a) => !a.fin);
+  // Début du jour (heure locale) de la première vente sans lieu
+  const premiere = new Date(v.du);
+  const debutJour = new Date(premiere.getFullYear(), premiere.getMonth(), premiere.getDate());
+  const avancer = useMutation({
+    mutationFn: () => api(`/affectations/${actuelle!.id}`, { method: "PATCH", json: { debut: debutJour.toISOString() } }),
+    onSuccess: () => client.invalidateQueries(),
+  });
+  const avant = actuelle && new Date(actuelle.debut) > premiere;
+  return (
+    <div className="mb-6 rounded-lg bg-warn-bg p-4 text-sm text-warn-ink">
+      <p>
+        <strong>{v.nb} vente{v.nb > 1 ? "s" : ""} sans lieu</strong> du {dateHeure(v.du)} au {dateHeure(v.au)} : elles ne comptent dans aucun lieu
+        (ni CA, ni commissions) tant qu&apos;elles ne sont pas rattachées.
+      </p>
+      {actuelle && avant ? (
+        <>
+          <button type="button" className="bouton mt-2" disabled={avancer.isPending} onClick={() => avancer.mutate()}>
+            {avancer.isPending ? "Rattachement…" : `Rattacher à ${actuelle.lieu.enseigne} (arrivée le ${debutJour.toLocaleDateString("fr-FR")})`}
+          </button>
+          {avancer.error && <div className="mt-2"><Erreur erreur={avancer.error} /></div>}
+        </>
+      ) : actuelle ? (
+        <p className="mt-1">Elles sont postérieures à l&apos;arrivée dans le lieu actuel : vérifiez la date de départ du lieu précédent dans l&apos;historique ci-dessous.</p>
+      ) : (
+        <Link className="bouton mt-2 inline-flex" href={`/bornes?affecter=${borne.id}`}>Affecter la borne à son lieu</Link>
+      )}
+    </div>
   );
 }

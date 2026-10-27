@@ -482,6 +482,7 @@ export interface BorneDetail {
   logicielVersion: string | null;
   cleConfiguree: boolean;
   nonAffectees: number;
+  ventesSansLieu: { nb: number; du: string; au: string } | null;
 }
 
 // ─── Rapprochement monétique ───
