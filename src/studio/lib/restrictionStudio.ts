@@ -27,6 +27,11 @@ export function filtrerFormats(formats: Format[]): Format[] {
   });
 }
 
+/** Le studio peut-il passer à ce format (bascule automatique selon le nombre de poses) ? */
+export function formatPermis(formatId: string): boolean {
+  return !courante || courante.formats.some((r) => r.id === formatId);
+}
+
 /** Un modèle du catalogue (format booth + nombre de poses) est-il permis ? */
 export function modelePermis(formatBoothId: number, poses: number): boolean {
   if (!courante) return true;

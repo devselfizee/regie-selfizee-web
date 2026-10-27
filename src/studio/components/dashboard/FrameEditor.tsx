@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { type Format, type Gabarit, getAutoSwitchFormat } from "@/studio/lib/gabarits";
+import { formatPermis } from "@/studio/lib/restrictionStudio";
 import { ToastContainer, toast } from "./Toast";
 import { makeEraserCursor, CURSOR_WAND, setEditingGroupObjsRef } from "./editor";
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -498,7 +499,9 @@ export default function FrameEditor({ eventId, catalogMode, format, gabarit, onS
         const count = canvas.getObjects().filter((o: any) => o._isShootZone).length;
         console.log("[AUTO-SWITCH] shoots:", count, "currentFormat:", formatIdRef.current);
         const newFormat = getAutoSwitchFormat(formatIdRef.current, count);
-        if (newFormat && onFormatAutoSwitchRef.current) {
+        // Régie : jamais hors des formats du gabarit du kit (le chargement d'un modèle du
+        // catalogue vide un instant le canvas, 0 pose → la bascule visait le format une pose)
+        if (newFormat && formatPermis(newFormat.id) && onFormatAutoSwitchRef.current) {
           console.log("[AUTO-SWITCH] switching to:", newFormat.id);
           const matchingGab = newFormat.gabarits.find((g) => g.photoZones.length === count) || newFormat.gabarits[0];
           onFormatAutoSwitchRef.current(newFormat, matchingGab);

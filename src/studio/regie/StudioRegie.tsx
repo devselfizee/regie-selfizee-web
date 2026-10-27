@@ -39,6 +39,9 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
   const [depuisCatalogue, setDepuisCatalogue] = useState(false);
   const [format, setFormat] = useState<Format | null>(null);
   const [gab, setGab] = useState<Gabarit | null>(null);
+  // Format/gabarit effectifs : la bascule automatique de l'éditeur (selon le nombre de poses) les
+  // change sans remonter l'éditeur, sinon le dessin en cours serait perdu (comme dans Kalifun)
+  const [effectif, setEffectif] = useState<{ format: Format; gabarit: Gabarit } | null>(null);
   const [canvasInitial, setCanvasInitial] = useState<string | undefined>(cadre?.canvas);
   const [enregistre, setEnregistre] = useState(Boolean(cadre));
   const [choixApresEnregistrement, setChoixApresEnregistrement] = useState(false);
@@ -57,6 +60,7 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
   const versFiche = () => router.push(`/lieux/${lieuId}/evenement?ecran=gabarits`);
 
   const choisirFormat = (f: Format) => {
+    setEffectif(null);
     setFormat(f);
     if (f.gabarits.length === 1) {
       setGab(f.gabarits[0]);
@@ -75,6 +79,7 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
     const f = formats.find((x) => x.formatBoothId != null && Number(x.formatBoothId) === Number(item.format_id)) ?? formats[0];
     if (!f) return;
     setPendingAutoModel(item);
+    setEffectif(null);
     setFormat(f);
     setGab(f.gabarits[0] ?? { id: "vierge", name: "Page blanche", photoZones: [], textZones: [] });
     setCanvasInitial(undefined);
@@ -172,8 +177,8 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
             <FrameEditor
               key={`${fmt.id}-${gb.id}`}
               catalogMode
-              format={fmt}
-              gabarit={gb}
+              format={effectif?.format ?? fmt}
+              gabarit={effectif?.gabarit ?? gb}
               frameId={enregistre ? gabarit : undefined}
               initialCanvasState={canvasInitial}
               typeSlug="cadres"
@@ -187,14 +192,12 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
               }}
               onClose={retour}
               onChangeGabarit={(f, g) => {
+                setEffectif(null);
                 setFormat(f);
                 setGab(g);
                 setCanvasInitial(undefined);
               }}
-              onFormatAutoSwitch={(f, g) => {
-                setFormat(f);
-                setGab(g);
-              }}
+              onFormatAutoSwitch={(f, g) => setEffectif({ format: f, gabarit: g })}
             />
           </div>
         )}
