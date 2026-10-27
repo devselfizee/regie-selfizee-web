@@ -7,7 +7,6 @@ import { api, qs, type LieuListe } from "@/lib/api";
 import { depuis, euros, nombre } from "@/lib/format";
 import { DEPARTEMENTS, libelleDepartement } from "@/lib/departements";
 import { useReferentiel } from "@/components/Filtres";
-import { OngletsLieux } from "@/components/OngletsLieux";
 import { peut, useMoi } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 
@@ -54,7 +53,6 @@ export default function ListeLieux() {
         sousTitre={data ? `${lieux.length} lieu${lieux.length > 1 ? "x" : ""}${filtresActifs ? ` sur ${data.length}` : ""}` : undefined}
         actions={peut.gererLieux(moi.role) ? <Link href="/lieux/nouveau" className="bouton">Nouveau lieu</Link> : undefined}
       />
-      <OngletsLieux actif="liste" />
 
       <div className="mb-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
         <label className="sm:col-span-3 lg:col-span-2">

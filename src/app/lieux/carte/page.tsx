@@ -10,7 +10,6 @@ import { Reserve, useMoi } from "@/lib/session";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { CarteLieux, type PointCarte } from "@/components/CarteLieux";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
-import { OngletsLieux } from "@/components/OngletsLieux";
 
 interface LieuCarte {
   lieuId: number;
@@ -132,10 +131,9 @@ function Carte() {
   return (
     <>
       <EnTete
-        titre="Lieux"
+        titre="Carte des lieux"
         sousTitre={data ? `Du ${jour(data.periode.du)} au ${jour(data.periode.au)} · cliquez sur un lieu pour ouvrir sa fiche` : undefined}
       />
-      <OngletsLieux actif="carte" />
       <Filtres valeurs={filtres} onChange={setFiltres} />
 
       <div className="mb-3 flex flex-wrap items-center gap-1" role="group" aria-label="Couleur selon">
