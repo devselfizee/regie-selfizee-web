@@ -250,7 +250,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {select("antenneId", "Antenne Selfizee", options("ANTENNE"))}
         {select("parc", "Parc", [
           { value: "SELFIZEE", label: "Parc Selfizee" },
-          { value: "CLIENT", label: "Parc client (location financière)" },
+          { value: "CLIENT", label: "Parc client (location financière) : ses bornes et ses ventes sortent des stats Selfizee" },
         ], true)}
         {select("origineLeadId", "Origine du lead", options("ORIGINE_LEAD"))}
       </Bloc>

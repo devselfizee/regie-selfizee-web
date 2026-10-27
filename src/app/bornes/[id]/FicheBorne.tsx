@@ -42,7 +42,7 @@ function Fiche({ id }: { id: number }) {
     <>
       <EnTete
         titre={b.identifiant}
-        sousTitre={[b.parc === "CLIENT" && "Parc client", b.gamme.libelle, moduleActuel && `${moduleActuel.type.libelle}${moduleActuel.numeroSerie ? ` ${moduleActuel.numeroSerie}` : ""}`, b.logicielVersion && `v${b.logicielVersion}`]
+        sousTitre={[b.gamme.libelle, moduleActuel && `${moduleActuel.type.libelle}${moduleActuel.numeroSerie ? ` ${moduleActuel.numeroSerie}` : ""}`, b.logicielVersion && `v${b.logicielVersion}`]
           .filter(Boolean)
           .join(" · ")}
         actions={
@@ -505,14 +505,13 @@ const STATUTS_BORNE: Record<string, string> = {
 function FormEditionBorne({ borne, onFini }: { borne: BorneDetail; onFini: () => void }) {
   const client = useQueryClient();
   const { data: ref } = useReferentiel();
-  const [f, setF] = useState({ identifiant: borne.identifiant, parc: borne.parc as string, gammeId: String(borne.gamme.id), statut: borne.statut });
+  const [f, setF] = useState({ identifiant: borne.identifiant, gammeId: String(borne.gamme.id), statut: borne.statut });
   const enregistrer = useMutation({
     mutationFn: () =>
       api(`/bornes/${borne.id}`, {
         method: "PUT",
         json: {
           identifiant: f.identifiant,
-          parc: f.parc,
           gammeId: Number(f.gammeId),
           statut: f.statut,
         },
@@ -547,13 +546,7 @@ function FormEditionBorne({ borne, onFini }: { borne: BorneDetail; onFini: () =>
             {Object.entries(STATUTS_BORNE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </label>
-        <label className="col-span-2 block">
-          <span className="etiquette">Parc</span>
-          <select className="champ" value={f.parc} onChange={(e) => setF({ ...f, parc: e.target.value })}>
-            <option value="SELFIZEE">Parc Selfizee</option>
-            <option value="CLIENT">Parc client (location financière) : ses ventes sortent des stats Selfizee</option>
-          </select>
-        </label>
+
       </div>
       <p className="text-xs text-ink-muted">Le module de paiement et son n° de terminal se modifient dans la section « Module de paiement ».</p>
       {enregistrer.error && <Erreur erreur={enregistrer.error} />}

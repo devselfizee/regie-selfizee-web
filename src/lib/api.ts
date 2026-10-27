@@ -272,10 +272,9 @@ export interface BorneListe {
   id: number;
   identifiant: string;
   statut: string;
-  parc: Parc;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; type: { id: number; code: string; libelle: string } }[];
-  lieuActuel: { id: number; enseigne: string; ville: string | null } | null;
+  lieuActuel: { id: number; enseigne: string; ville: string | null; parc: Parc } | null;
   affectationActuelle: { id: number; debut: string } | null;
   dernierHeartbeat: string | null;
   derniereVente: string | null;
@@ -473,7 +472,6 @@ export interface BorneDetail {
   id: number;
   identifiant: string;
   statut: string;
-  parc: Parc;
   gamme: { id: number; libelle: string };
   modules: { id: number; numeroSerie: string | null; identifiantPrestataire: string | null; installeLe: string | null; retireLe: string | null; type: { id: number; libelle: string } }[];
   affectations: { id: number; debut: string; fin: string | null; lieu: { id: number; enseigne: string; ville: string | null; dateInstallation: string | null } }[];
@@ -736,8 +734,8 @@ export interface RecapVente extends Vente {
   produitCode: string;
   produitLibelle: string | null;
   nbTirages: number;
-  borne: { id: number; identifiant: string; parc: Parc; gamme: { libelle: string } };
-  lieu: { id: number; enseigne: string; ville: string | null } | null;
+  borne: { id: number; identifiant: string; gamme: { libelle: string } };
+  lieu: { id: number; enseigne: string; ville: string | null; parc: Parc } | null;
   module: { numeroSerie: string | null; identifiantPrestataire: string | null } | null;
   origine: { id: string; transactionIdModule: string } | null;
   remboursements: { id: string; horodatage: string; montantTtcCents: number; motif: string | null }[];
