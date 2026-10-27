@@ -34,16 +34,17 @@ const MESURES: { cle: Mesure; libelle: string; aide: string }[] = [
   { cle: "evolution", libelle: "Évolution", aide: "Par rapport à la période précédente de même durée" },
 ];
 
-// Échelle séquentielle (une teinte, du clair au foncé) pour les montants ; rose : aucune vente (bien visible sur la carte)
-const SEQUENTIELLE = ["#9ec5f4", "#5598e7", "#2a78d6", "#1c5cab", "#0d366b"];
+// Échelle séquentielle (une teinte, du clair au foncé) pour les montants, en vert : le bleu se confondait avec la mer
+// et les rivières du fond IGN (retour de Sébastien) ; rose : aucune vente (bien visible sur la carte)
+const SEQUENTIELLE = ["#86d9a8", "#3fbf7a", "#16a05a", "#0b7a43", "#05502b"];
 const SANS_VENTE = "#e0408a";
-// Échelle divergente : baisse (rouge) ↔ stable (gris foncé, visible sur la carte) ↔ hausse (bleu)
+// Échelle divergente : baisse (rouge) ↔ stable (gris foncé, visible sur la carte) ↔ hausse (vert)
 const DIVERGENTE = [
   { max: -0.3, couleur: "#b42626", libelle: "Baisse > 30 %" },
   { max: -0.1, couleur: "#e66767", libelle: "Baisse 10–30 %" },
   { max: 0.1, couleur: "#57534e", libelle: "Stable (± 10 %)" },
-  { max: 0.3, couleur: "#5598e7", libelle: "Hausse 10–30 %" },
-  { max: Infinity, couleur: "#1c5cab", libelle: "Hausse > 30 %" },
+  { max: 0.3, couleur: "#3fbf7a", libelle: "Hausse 10–30 %" },
+  { max: Infinity, couleur: "#0b7a43", libelle: "Hausse > 30 %" },
 ];
 
 export default function PageCarte() {
