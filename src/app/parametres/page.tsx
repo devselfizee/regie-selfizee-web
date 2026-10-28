@@ -93,7 +93,12 @@ function Parametres() {
               </button>
             ))}
           </nav>
-          {liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
+          {liste.cle === "ANTENNE" ? (
+            <div className="space-y-4">
+              <SynchroAntennes />
+              <Liste key={liste.cle} def={liste} data={data} />
+            </div>
+          ) : liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
         </div>
       )}
     </>
@@ -291,5 +296,37 @@ function Ajout({
         </span>
       )}
     </form>
+  );
+}
+
+/** Villes principales : alignées sur l'application Antennes (automatiquement toutes les 6 heures). */
+function SynchroAntennes() {
+  const client = useQueryClient();
+  const etat = useQuery({ queryKey: ["antennes-config"], queryFn: () => api<{ configure: boolean }>("/referentiel/antennes") });
+  const synchro = useMutation({
+    mutationFn: () => api<{ recues: number; creees: number; majees: number; rapprochees: number; desactivees: number }>("/referentiel/antennes/synchroniser", { method: "POST" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["referentiel"] }),
+  });
+  if (!etat.data) return null;
+  return (
+    <div className="carte flex flex-wrap items-center gap-3 p-4 text-sm">
+      <div className="min-w-0 flex-1">
+        <p className="font-medium">Application Antennes</p>
+        <p className="text-xs text-ink-2">
+          {etat.data.configure
+            ? "La liste suit les villes principales de l'application Antennes (mise à jour toutes les 6 heures). Une ville saisie ici avec le même nom y est rattachée."
+            : "Pas encore reliée : ANTENNES_API_URL et ANTENNES_API_TOKEN sont à renseigner dans les variables de l'API."}
+        </p>
+        {synchro.data && (
+          <p className="mt-1 text-xs text-ink-2">
+            {synchro.data.recues} reçue(s) : {synchro.data.creees} ajoutée(s), {synchro.data.majees} mise(s) à jour, {synchro.data.rapprochees} rattachée(s), {synchro.data.desactivees} désactivée(s).
+          </p>
+        )}
+        {synchro.error ? <Erreur erreur={synchro.error} /> : null}
+      </div>
+      <button type="button" className="bouton-second" disabled={!etat.data.configure || synchro.isPending} onClick={() => synchro.mutate()}>
+        {synchro.isPending ? "Synchronisation…" : "Synchroniser maintenant"}
+      </button>
+    </div>
   );
 }
