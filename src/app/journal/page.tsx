@@ -21,12 +21,14 @@ interface LotJournal {
   nbRecues: number;
   nbCreees: number;
   nbDoublons: number;
+  nbCompletees: number;
   nbRejetees: number;
   borne: { id: number; identifiant: string } | null;
   erreurs: { code: string }[];
+  refusParCode: { code: string; nb: number }[];
 }
 
-interface LotDetail extends Omit<LotJournal, "erreurs"> {
+interface LotDetail extends Omit<LotJournal, "erreurs" | "refusParCode"> {
   payload: unknown;
   erreurs: { index: number | null; transactionIdModule: string | null; code: string; message: string }[];
 }
@@ -173,7 +175,7 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
             </div>
             <p className="mt-1 text-xs text-ink-2 tabular">
               {(l.type === "TRANSACTIONS" || l.type === "PARCOURS") && l.statut !== "REJETE"
-                ? `${l.nbRecues} reçue(s) : ${l.nbCreees} nouvelle(s), ${l.nbDoublons} déjà reçue(s), ${l.nbRejetees} refusée(s)`
+                ? `${l.nbRecues} reçue(s) : ${l.nbCreees} nouvelle(s), ${l.nbDoublons} déjà reçue(s)${l.nbCompletees ? ` dont ${l.nbCompletees} complétée(s)` : ""}, ${l.nbRejetees} refusée(s)${l.refusParCode?.length ? ` (${l.refusParCode.map((c) => `${c.code} × ${c.nb}`).join(", ")})` : ""}`
                 : l.erreurs.map((e) => e.code).join(", ")}
               {!l.borne && l.statut === "REJETE" && " · borne inconnue de la Régie ou clé refusée"}
             </p>
