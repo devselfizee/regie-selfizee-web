@@ -342,7 +342,7 @@ function Statistiques({ s, lieuId, horaires }: { s: StatsLieu; lieuId: number; h
           />
         </Section>
         <Section titre="Meilleures dates">
-          <Tableau entetes={["Date", "Ventes", "CA"]} lignes={s.meilleuresDates.map((d) => [jour(d.jour), nombre(d.nbVentes), euros(d.caTtcCents)])} />
+          <Tableau entetes={["Date", "Ventes", "CA"]} lignes={s.meilleuresDates.map((d) => [dateAvecJour(d.jour), nombre(d.nbVentes), euros(d.caTtcCents)])} />
         </Section>
       </div>
 
@@ -430,4 +430,12 @@ export function Papier({ restant, le }: { restant: number | null | undefined; le
       <span className="block text-xs text-ink-muted">{depuis(le ?? null)}</span>
     </span>
   );
+}
+
+/** « Ven. 09/10/26 » : jour de la semaine et année sur deux chiffres */
+const jourCourtFmt = new Intl.DateTimeFormat("fr-FR", { weekday: "short", timeZone: "UTC" });
+function dateAvecJour(ymd: string): string {
+  const [a, m, j] = ymd.slice(0, 10).split("-");
+  const nom = jourCourtFmt.format(new Date(`${ymd.slice(0, 10)}T00:00:00Z`));
+  return `${nom.charAt(0).toUpperCase()}${nom.slice(1)} ${j}/${m}/${a.slice(2)}`;
 }
