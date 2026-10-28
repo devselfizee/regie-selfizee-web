@@ -325,8 +325,20 @@ function Statistiques({ s, lieuId, horaires }: { s: StatsLieu; lieuId: number; h
         {/* Formules et montants payés réunis (retour de Sébastien), des plus vendues aux moins vendues */}
         <Section titre="Formules vendues">
           <Tableau
-            entetes={["Formule", "Montant", "Ventes", "CA"]}
-            lignes={s.formules.map((f) => [f.libelle ?? f.code, f.montantCents !== undefined ? euros(f.montantCents) : "—", nombre(f.nbVentes), euros(f.caTtcCents)])}
+            entetes={["Formule", "Montant", "Ventes", "% ventes", "CA", "% CA"]}
+            lignes={(() => {
+              // Part de chaque formule dans les ventes et dans le CA (retour de Sébastien)
+              const nbTotal = s.formules.reduce((x, f) => x + f.nbVentes, 0);
+              const caTotal = s.formules.reduce((x, f) => x + f.caTtcCents, 0);
+              return s.formules.map((f) => [
+                f.libelle ?? f.code,
+                f.montantCents !== undefined ? euros(f.montantCents) : "—",
+                nombre(f.nbVentes),
+                <span key="pv" className="text-ink-2">{pct(nbTotal ? f.nbVentes / nbTotal : 0)}</span>,
+                euros(f.caTtcCents),
+                <span key="pc" className="text-ink-2">{pct(caTotal ? f.caTtcCents / caTotal : 0)}</span>,
+              ]);
+            })()}
           />
         </Section>
         <Section titre="Meilleures dates">
