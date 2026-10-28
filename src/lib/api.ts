@@ -775,6 +775,8 @@ export interface ReglagesEvenement {
   };
   gabarits: { choisis: GabaritEvenement[]; accueil: GabaritEvenement[] };
   tarifs: {
+    /** Reprendre les tarifs du lieu (la grille ci-dessous est alors celle du lieu) */
+    herite: boolean;
     paliers: { de: number; prixCents: number }[];
     palierMisEnAvant: number | null;
     libelleMisEnAvant: string;
@@ -808,6 +810,8 @@ export interface FicheEvenementLieu {
   publieeLe: string | null;
   modifieDepuisPublication: boolean;
   reglages: ReglagesEvenement;
+  /** Tarifs par défaut du lieu, repris par l'événement qui en hérite */
+  tarifsLieu: { grille: GrilleTarifs; origine: OrigineGrille };
   horaires: { jourSemaine: number; ouverture: string; fermeture: string }[];
   controles: { niveau: "erreur" | "avertissement"; message: string }[];
 }
@@ -848,4 +852,22 @@ export interface MesMentions {
     luLe: string | null;
     commentaire: { id: number; texte: string; createdAt: string; auteur: { prenom: string; nom: string } | null; lieu: { id: number; enseigne: string; ville: string | null } };
   }[];
+}
+
+// ─── Tarifs : base du parc → lieu → événement ───
+
+export interface GrilleTarifs {
+  paliers: { de: number; prixCents: number }[];
+  palierMisEnAvant: number | null;
+  libelleMisEnAvant: string;
+  plusUnCents: number;
+}
+
+/** LIEU : tarifs propres au lieu ; BASE : tarifs de base du parc ; DEFAUT : grille d'usine (base pas encore saisie) */
+export type OrigineGrille = "LIEU" | "BASE" | "DEFAUT";
+
+export interface TarifsLieu {
+  propre: GrilleTarifs | null;
+  base: GrilleTarifs;
+  effective: { grille: GrilleTarifs; origine: OrigineGrille };
 }

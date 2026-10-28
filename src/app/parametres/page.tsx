@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RefValeur } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
+import { TarifsBase } from "@/components/GrilleTarifs";
 import { ReglesAlertes } from "@/components/ReglesAlertes";
 import { DonneesDemo } from "@/components/DonneesDemo";
 
@@ -22,6 +23,7 @@ const LISTES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "TYPE_EVENEMENT", libelle: "Types d'événement", aide: "Journal d'événements du lieu" },
   { cle: "GAMMES", libelle: "Gammes de bornes", aide: "Spherik, Kalifun, Classic… Le code est un identifiant fixe : il ne change pas quand on renomme le libellé." },
   { cle: "MODULES", libelle: "Modules de paiement", aide: "Le code est celui que les bornes envoient (module.type) : il ne change pas quand on renomme le libellé." },
+  { cle: "TARIFS", libelle: "Tarifs de base", aide: "" },
   { cle: "ALERTES", libelle: "Règles d'alerte", aide: "" },
   { cle: "DEMO", libelle: "Données de démonstration", aide: "" },
 ];
@@ -82,7 +84,7 @@ function Parametres() {
               </button>
             ))}
           </nav>
-          {liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
+          {liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
         </div>
       )}
     </>

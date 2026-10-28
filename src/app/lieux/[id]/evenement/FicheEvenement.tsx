@@ -7,7 +7,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, telecharger, type CadreEvenement, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
-import { dateHeure, euros, JOURS_SEMAINE } from "@/lib/format";
+import { dateHeure, JOURS_SEMAINE } from "@/lib/format";
+import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : trois écrans, puis le config.json de la borne.
 
@@ -108,7 +109,7 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
 
           {ecran === 0 && <EcranLieu r={r} setR={setR} horaires={fiche.horaires} lieuId={lieuId} />}
           {ecran === 1 && <EcranGabarits r={r} setR={setR} lieuId={lieuId} ouvrirStudio={ouvrirStudio} ouverture={enregistrer.isPending} />}
-          {ecran === 2 && <EcranTarifs r={r} setR={setR} />}
+          {ecran === 2 && <EcranTarifs r={r} setR={setR} tarifsLieu={fiche.tarifsLieu} />}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex gap-2">
@@ -416,28 +417,6 @@ function EcranGabarits({ r, setR, lieuId, ouvrirStudio, ouverture }: PropsEcran 
 
 // ─── Écran 3 : tarifs et options ────────────────────────────
 
-/** Saisie d'un montant en euros (« 3,50 »), stocké en centimes. */
-function ChampEuros({ cents, onChange, id }: { cents: number; onChange: (c: number) => void; id?: string }) {
-  const [texte, setTexte] = useState((cents / 100).toFixed(2).replace(".", ","));
-  return (
-    <div className="relative">
-      <input
-        id={id}
-        className="champ pr-7 text-right tabular"
-        inputMode="decimal"
-        value={texte}
-        onChange={(e) => {
-          setTexte(e.target.value);
-          const v = Number(e.target.value.replace(",", ".").replace(/\s/g, ""));
-          if (Number.isFinite(v) && v >= 0) onChange(Math.round(v * 100));
-        }}
-        onBlur={() => setTexte((cents / 100).toFixed(2).replace(".", ","))}
-      />
-      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted">€</span>
-    </div>
-  );
-}
-
 const LOTS: { cle: LotJeu; nom: string }[] = [
   { cle: "free", nom: "Photo offerte" },
   { cle: "pct50", nom: "-50 % sur la prochaine" },
@@ -445,88 +424,32 @@ const LOTS: { cle: LotJeu; nom: string }[] = [
   { cle: "none", nom: "Perdu" },
 ];
 
-function EcranTarifs({ r, setR }: PropsEcran) {
+function EcranTarifs({ r, setR, tarifsLieu }: PropsEcran & { tarifsLieu: FicheEvenementLieu["tarifsLieu"] }) {
   const t = r.tarifs;
   const maj = (p: Partial<ReglagesEvenement["tarifs"]>) => setR((x) => ({ ...x, tarifs: { ...x.tarifs, ...p } }));
-  const majPalier = (i: number, p: Partial<ReglagesEvenement["tarifs"]["paliers"][number]>) =>
-    maj({ paliers: t.paliers.map((x, j) => (j === i ? { ...x, ...p } : x)) });
   const totalLots = Object.values(t.jeu.lots).reduce((s, v) => s + v, 0);
 
   return (
     <div className="space-y-4">
       <Section titre="Prix des tirages">
-        <p className="mb-3 text-xs text-ink-muted">Grille dégressive : le prix d&apos;un tirage selon le nombre commandé. Le premier palier est le prix unitaire.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[26rem] text-sm">
-            <thead>
-              <tr className="text-left text-xs text-ink-2">
-                <th className="pb-2 font-medium">À partir de</th>
-                <th className="pb-2 font-medium">Prix par tirage</th>
-                <th className="pb-2 font-medium">Exemple</th>
-                <th className="pb-2 font-medium">Mis en avant</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {t.paliers.map((p, i) => (
-                <tr key={i} className="border-t border-line">
-                  <td className="py-2 pr-3">
-                    <input
-                      className="champ w-20 tabular"
-                      type="number"
-                      min={1}
-                      max={50}
-                      aria-label="À partir de (tirages)"
-                      value={p.de}
-                      disabled={i === 0}
-                      onChange={(e) => majPalier(i, { de: Number(e.target.value) })}
-                    />
-                  </td>
-                  <td className="py-2 pr-3 w-32"><ChampEuros cents={p.prixCents} onChange={(c) => majPalier(i, { prixCents: c })} /></td>
-                  <td className="py-2 pr-3 text-ink-2 tabular">{p.de} × {euros(p.prixCents)} = {euros(p.de * p.prixCents)}</td>
-                  <td className="py-2 pr-3">
-                    <input type="radio" name="palier-en-avant" className="h-4 w-4 accent-accent" aria-label={`Mettre en avant ${p.de} tirages`} checked={t.palierMisEnAvant === p.de} onChange={() => maj({ palierMisEnAvant: p.de })} />
-                  </td>
-                  <td className="py-2 text-right">
-                    {i > 0 && (
-                      <button
-                        type="button"
-                        className="text-xs text-crit-ink hover:underline"
-                        onClick={() => maj({ paliers: t.paliers.filter((_, j) => j !== i), palierMisEnAvant: t.palierMisEnAvant === p.de ? null : t.palierMisEnAvant })}
-                      >
-                        Retirer
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="mb-3 flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="Tarifs de l'événement">
+          <label className="flex items-center gap-2">
+            <input type="radio" className="h-4 w-4 accent-accent" checked={t.herite} onChange={() => maj({ herite: true, ...tarifsLieu.grille })} />
+            Reprendre les tarifs du lieu
+            <span className="text-xs text-ink-muted">({tarifsLieu.origine === "LIEU" ? "tarifs propres au lieu" : "tarifs de base du parc"})</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" className="h-4 w-4 accent-accent" checked={!t.herite} onChange={() => maj({ herite: false })} />
+            Tarifs propres à l&apos;événement
+          </label>
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            className="bouton-second !py-1 text-xs"
-            disabled={t.paliers.length >= 10}
-            onClick={() => {
-              const dernier = t.paliers[t.paliers.length - 1];
-              maj({ paliers: [...t.paliers, { de: dernier.de + 1, prixCents: dernier.prixCents }] });
-            }}
-          >
-            + Ajouter un palier
-          </button>
-          <button type="button" className="text-xs text-accent hover:underline" disabled={t.palierMisEnAvant === null} onClick={() => maj({ palierMisEnAvant: null })}>
-            Ne rien mettre en avant
-          </button>
-        </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Champ libelle="Libellé du palier mis en avant">
-            <input className="champ" value={t.libelleMisEnAvant} onChange={(e) => maj({ libelleMisEnAvant: e.target.value })} />
-          </Champ>
-          <Champ libelle="« +1 pour un pote » pendant l'impression" aide="0 € : la question n'est pas posée.">
-            <ChampEuros cents={t.plusUnCents} onChange={(c) => maj({ plusUnCents: c })} />
-          </Champ>
-        </div>
+        <EditeurGrille
+          valeur={t}
+          onChange={(g) => maj({ paliers: g.paliers, palierMisEnAvant: g.palierMisEnAvant, libelleMisEnAvant: g.libelleMisEnAvant, plusUnCents: g.plusUnCents })}
+          desactive={t.herite}
+          nom="evenement"
+        />
+        {t.herite && <p className="mt-3 text-xs text-ink-muted">Les tarifs se modifient sur la fiche du lieu (onglet Informations) ou dans Paramètres → Tarifs de base.</p>}
         <p className="mt-3 text-xs text-ink-muted">Paiement par le terminal Hexapay de la borne.</p>
       </Section>
 
