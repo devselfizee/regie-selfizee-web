@@ -4,25 +4,34 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, telecharger, type CadreEvenement, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
+import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type EvenementPonctuel, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
-import { dateHeure, JOURS_SEMAINE, parametreUrl } from "@/lib/format";
+import { dateHeure, jour, JOURS_SEMAINE, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : trois écrans, puis le config.json de la borne.
+// Un lieu a son événement habituel et des événements ponctuels (Halloween, une soirée…), chacun avec son
+// code, ses cadres et ses tarifs : on passe de l'un à l'autre en tapant le code sur la borne.
 
-export function FicheEvenement({ id }: { id: number }) {
+/** Chemins d'un événement : dans l'API, et la page de la fiche (eid absent = l'événement habituel). */
+export const cheminsEvenement = (lieuId: number, eid?: number | null) =>
+  eid
+    ? { api: `/lieux/${lieuId}/evenements-ponctuels/${eid}`, page: `/lieux/${lieuId}/evenement/${eid}` }
+    : { api: `/lieux/${lieuId}/evenement`, page: `/lieux/${lieuId}/evenement` };
+
+export function FicheEvenement({ id, eid }: { id: number; eid?: number }) {
   return (
     <Reserve roles={["ADMIN"]}>
-      <Chargeur id={id} />
+      <Chargeur id={id} eid={eid} />
     </Reserve>
   );
 }
 
-function Chargeur({ id }: { id: number }) {
+function Chargeur({ id, eid }: { id: number; eid?: number }) {
+  const chemins = cheminsEvenement(id, eid);
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
-  const fiche = useQuery({ queryKey: ["evenement-lieu", id], queryFn: () => api<FicheEvenementLieu>(`/lieux/${id}/evenement`) });
+  const fiche = useQuery({ queryKey: ["evenement-lieu", id, eid ?? "habituel"], queryFn: () => api<FicheEvenementLieu>(chemins.api) });
   // Ici et non dans l'éditeur : l'éditeur repart des réglages enregistrés après chaque enregistrement.
   // ?ecran=gabarits : retour du studio de cadres sur l'écran d'où on l'a ouvert.
   const demande = useSearchParams().get("ecran");
@@ -33,39 +42,55 @@ function Chargeur({ id }: { id: number }) {
   };
   if (lieu.error || fiche.error) return <Erreur erreur={lieu.error ?? fiche.error} />;
   if (!lieu.data || !fiche.data) return <Chargement />;
-  return <Editeur key={fiche.dataUpdatedAt} lieuId={id} enseigne={lieu.data.enseigne} fiche={fiche.data} ecran={ecran} setEcran={setEcran} />;
+  return <Editeur key={`${eid ?? "habituel"}-${fiche.dataUpdatedAt}`} lieuId={id} eid={eid} enseigne={lieu.data.enseigne} fiche={fiche.data} ecran={ecran} setEcran={setEcran} />;
 }
 
 const ECRANS = ["Le lieu", "Gabarits", "Tarifs et options"] as const;
 
-function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number; enseigne: string; fiche: FicheEvenementLieu; ecran: number; setEcran: (n: number) => void }) {
+function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: number; eid?: number; enseigne: string; fiche: FicheEvenementLieu; ecran: number; setEcran: (n: number) => void }) {
   const client = useQueryClient();
   const router = useRouter();
+  const chemins = cheminsEvenement(lieuId, eid);
+  const cle = ["evenement-lieu", lieuId, eid ?? "habituel"];
   const [r, setR] = useState<ReglagesEvenement>(fiche.reglages);
-  const modifie = JSON.stringify(r) !== JSON.stringify(fiche.reglages);
+  const [nom, setNom] = useState(fiche.nom ?? "");
+  const modifie = JSON.stringify(r) !== JSON.stringify(fiche.reglages) || (!fiche.habituel && nom.trim() !== (fiche.nom ?? ""));
 
   const enregistrer = useMutation({
-    mutationFn: () => api<FicheEvenementLieu>(`/lieux/${lieuId}/evenement`, { method: "PUT", json: { reglages: r } }),
-    onSuccess: (f) => client.setQueryData(["evenement-lieu", lieuId], f),
+    mutationFn: () => api<FicheEvenementLieu>(chemins.api, { method: "PUT", json: { reglages: r, ...(fiche.habituel ? {} : { nom: nom.trim() }) } }),
+    onSuccess: (f) => {
+      client.setQueryData(cle, f);
+      client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
+    },
   });
   const publier = useMutation({
-    mutationFn: () => api<FicheEvenementLieu>(`/lieux/${lieuId}/evenement/publier`, { method: "POST" }),
-    onSuccess: (f) => client.setQueryData(["evenement-lieu", lieuId], f),
+    mutationFn: () => api<FicheEvenementLieu>(`${chemins.api}/publier`, { method: "POST" }),
+    onSuccess: (f) => {
+      client.setQueryData(cle, f);
+      client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
+    },
+  });
+  const supprimer = useMutation({
+    mutationFn: () => api(chemins.api, { method: "DELETE" }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
+      router.push(cheminsEvenement(lieuId).page);
+    },
   });
   const [erreurTelechargement, setErreurTelechargement] = useState<unknown>(null);
-  // Le studio s'ouvre sur une autre page : on enregistre d'abord ce qui ne l'est pas (gabarit tout juste coché…)
-  const ouvrirStudio = async (g: GabaritEvenement) => {
+  // Le studio s'ouvre sur une autre page : on enregistre d'abord ce qui ne l'est pas (composition tout juste ajoutée…)
+  const ouvrirStudio = async (compositionId: string) => {
     if (modifie || !fiche.enregistre) await enregistrer.mutateAsync();
-    router.push(`/lieux/${lieuId}/evenement/studio/${g}`);
+    router.push(`/lieux/${lieuId}/evenement/studio/${compositionId}${eid ? `?e=${eid}` : ""}`);
   };
   const telechargerConfig = (publiee: boolean) =>
-    telecharger(`/lieux/${lieuId}/evenement/config.json${publiee ? "?publiee=1" : ""}`).catch(setErreurTelechargement);
+    telecharger(`${chemins.api}/config.json${publiee ? "?publiee=1" : ""}`).catch(setErreurTelechargement);
   // Le zip (config.json, cadres du studio assemblés, éléments du kit) est refait à chaque fois côté API
   const [zipEnCours, setZipEnCours] = useState(false);
   const telechargerZip = () => {
     setZipEnCours(true);
     setErreurTelechargement(null);
-    telecharger(`/lieux/${lieuId}/evenement/zip`).catch(setErreurTelechargement).finally(() => setZipEnCours(false));
+    telecharger(`${chemins.api}/zip`).catch(setErreurTelechargement).finally(() => setZipEnCours(false));
   };
 
   const erreurs = fiche.controles.filter((c) => c.niveau === "erreur");
@@ -74,7 +99,7 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
   return (
     <>
       <EnTete
-        titre={`Fiche événement · ${enseigne}`}
+        titre={fiche.habituel ? `Fiche événement · ${enseigne}` : `${fiche.nom ?? "Événement"} · ${enseigne}`}
         sousTitre={
           <span className="flex flex-wrap items-center gap-2">
             {fiche.code ? <span>Code d&apos;événement <strong className="font-mono">{fiche.code}</strong></span> : <span>Code attribué au premier enregistrement</span>}
@@ -94,6 +119,8 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
         actions={<Link href={`/lieux/${lieuId}`} className="bouton-second">← Fiche du lieu</Link>}
       />
 
+      <BarreEvenements lieuId={lieuId} eid={eid} />
+
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-4">
           <nav className="flex flex-wrap gap-1 rounded-lg bg-surface-2 p-1" aria-label="Écrans de la fiche événement">
@@ -111,8 +138,8 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
             ))}
           </nav>
 
-          {ecran === 0 && <EcranLieu r={r} setR={setR} horaires={fiche.horaires} lieuId={lieuId} />}
-          {ecran === 1 && <EcranGabarits r={r} setR={setR} lieuId={lieuId} ouvrirStudio={ouvrirStudio} ouverture={enregistrer.isPending} />}
+          {ecran === 0 && <EcranLieu r={r} setR={setR} horaires={fiche.horaires} lieuId={lieuId} nom={fiche.habituel ? null : nom} setNom={setNom} />}
+          {ecran === 1 && <EcranGabarits r={r} setR={setR} apiEvenement={chemins.api} ouvrirStudio={ouvrirStudio} ouverture={enregistrer.isPending} />}
           {ecran === 2 && <EcranTarifs r={r} setR={setR} tarifsLieu={fiche.tarifsLieu} />}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -181,6 +208,22 @@ function Editeur({ lieuId, enseigne, fiche, ecran, setEcran }: { lieuId: number;
               </p>
             </div>
           </Section>
+          {!fiche.habituel && (
+            <Section titre="Cet événement">
+              <p className="mb-3 text-sm text-ink-2">
+                Pour l&apos;installer, tapez <strong className="font-mono">{fiche.code}</strong> sur la borne ; pour revenir à l&apos;habituel, retapez le code du lieu.
+              </p>
+              <button
+                type="button"
+                className="text-sm text-crit-ink hover:underline"
+                disabled={supprimer.isPending}
+                onClick={() => confirm(`Supprimer l'événement « ${fiche.nom} » et ses cadres ? Son code ne fonctionnera plus.`) && supprimer.mutate()}
+              >
+                Supprimer cet événement
+              </button>
+              {supprimer.error && <Erreur erreur={supprimer.error} />}
+            </Section>
+          )}
         </aside>
       </div>
     </>
@@ -224,7 +267,10 @@ const TONS: Record<ReglagesEvenement["lieu"]["ton"], string> = {
   pro: "Pro : soirée d'entreprise",
 };
 
-function EcranLieu({ r, setR, horaires, lieuId }: PropsEcran & { horaires: FicheEvenementLieu["horaires"]; lieuId: number }) {
+// Thèmes de l'interface de la borne (uiKit) : les autres viendront quand la borne saura les afficher
+const THEMES: Record<ReglagesEvenement["theme"], string> = { nightlife: "Nightlife" };
+
+function EcranLieu({ r, setR, horaires, lieuId, nom, setNom }: PropsEcran & { horaires: FicheEvenementLieu["horaires"]; lieuId: number; nom: string | null; setNom: (v: string) => void }) {
   const l = r.lieu;
   const maj = (p: Partial<ReglagesEvenement["lieu"]>) => setR((x) => ({ ...x, lieu: { ...x.lieu, ...p } }));
   const majAssistance = (p: Partial<ReglagesEvenement["lieu"]["assistance"]>) =>
@@ -233,8 +279,29 @@ function EcranLieu({ r, setR, horaires, lieuId }: PropsEcran & { horaires: Fiche
 
   return (
     <div className="space-y-4">
+      {nom !== null && (
+        <Section titre="Événement">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Champ libelle="Nom de l'événement *" aide="Pour s'y retrouver dans la Régie ; la borne l'affiche après le nom du lieu.">
+              <input className="champ" required maxLength={80} value={nom} onChange={(e) => setNom(e.target.value)} />
+            </Champ>
+            <Champ libelle="Thème de la borne" aide="D'autres thèmes (Halloween, personnalisés) viendront.">
+              <select className="champ" value={r.theme} onChange={(e) => setR((x) => ({ ...x, theme: e.target.value as ReglagesEvenement["theme"] }))}>
+                {Object.entries(THEMES).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+            </Champ>
+          </div>
+        </Section>
+      )}
       <Section titre="Identité">
         <div className="grid gap-3 sm:grid-cols-2">
+          {nom === null && (
+            <Champ libelle="Thème de la borne" aide="D'autres thèmes (Halloween, personnalisés) viendront.">
+              <select className="champ" value={r.theme} onChange={(e) => setR((x) => ({ ...x, theme: e.target.value as ReglagesEvenement["theme"] }))}>
+                {Object.entries(THEMES).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+            </Champ>
+          )}
           <Champ libelle="Nom affiché *" aide="Sur l'accueil de la borne, la page souvenir et les mails.">
             <input className="champ" required value={l.nom} onChange={(e) => maj({ nom: e.target.value })} />
           </Champ>
@@ -322,100 +389,184 @@ const GABARITS: { cle: GabaritEvenement; nom: string; detail: string; qr: boolea
   { cle: "carte", nom: "Photo 10x15 + deux cartes à QR", detail: "Ruban 15x20 obligatoire ; même QR sur les deux cartes, une pour chaque invité.", qr: true },
 ];
 
-function EcranGabarits({ r, setR, lieuId, ouvrirStudio, ouverture }: PropsEcran & { lieuId: number; ouvrirStudio: (g: GabaritEvenement) => void; ouverture: boolean }) {
+/** Identifiant d'une nouvelle composition : le nom du gabarit la première fois, puis numéroté au hasard. */
+function nouvelId(g: GabaritEvenement, existants: string[]): string {
+  if (!existants.includes(g)) return g;
+  for (;;) {
+    const id = `${g}-${Math.random().toString(36).slice(2, 6)}`;
+    if (!existants.includes(id)) return id;
+  }
+}
+
+function EcranGabarits({ r, setR, apiEvenement, ouvrirStudio, ouverture }: PropsEcran & { apiEvenement: string; ouvrirStudio: (compositionId: string) => void; ouverture: boolean }) {
   const { choisis, accueil } = r.gabarits;
   const client = useQueryClient();
   // Relue à chaque retour du studio
-  const cadres = useQuery({ queryKey: ["cadres-evenement", lieuId], queryFn: () => api<CadreEvenement[]>(`/lieux/${lieuId}/evenement/cadres`), staleTime: 0 });
+  const cadres = useQuery({ queryKey: ["cadres-evenement", apiEvenement], queryFn: () => api<CadreEvenement[]>(`${apiEvenement}/cadres`), staleTime: 0 });
   const retirer = useMutation({
-    mutationFn: (g: GabaritEvenement) => api(`/lieux/${lieuId}/evenement/cadres/${g}`, { method: "DELETE" }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["cadres-evenement", lieuId] }),
+    mutationFn: (compositionId: string) => api(`${apiEvenement}/cadres/${compositionId}`, { method: "DELETE" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["cadres-evenement", apiEvenement] }),
   });
   const maj = (g: Partial<ReglagesEvenement["gabarits"]>) => setR((x) => ({ ...x, gabarits: { ...x.gabarits, ...g } }));
-  const basculer = (cle: GabaritEvenement, oui: boolean) =>
-    maj(oui ? { choisis: [...choisis, cle] } : { choisis: choisis.filter((c) => c !== cle), accueil: accueil.filter((c) => c !== cle) });
+  const ids = choisis.map((c) => c.id);
+  const plein = choisis.length >= MAX_COMPOSITIONS;
+  const ajouter = (g: GabaritEvenement) => !plein && maj({ choisis: [...choisis, { id: nouvelId(g, ids), gabarit: g }] });
+  const enlever = (id: string, avecCadre: boolean) => {
+    if (avecCadre && !confirm("Retirer ce format ? Son cadre dessiné sera supprimé à l'enregistrement.")) return;
+    maj({ choisis: choisis.filter((c) => c.id !== id), accueil: accueil.filter((a) => a !== id) });
+  };
   const deplacer = (i: number, sens: -1 | 1) => {
     const n = [...choisis];
     [n[i], n[i + sens]] = [n[i + sens], n[i]];
     maj({ choisis: n });
   };
-  const ordonnes = [...choisis.map((c) => GABARITS.find((g) => g.cle === c)!), ...GABARITS.filter((g) => !choisis.includes(g.cle))];
+  const mettreEnAvant = (id: string, oui: boolean) =>
+    maj({ accueil: oui ? ids.filter((x) => x === id || accueil.includes(x)) : accueil.filter((x) => x !== id) });
 
   return (
     <Section titre="Gabarits du kit nightlife">
       <p className="mb-3 text-sm text-ink-2">
-        Cochez les gabarits proposés par la borne, dans l&apos;ordre de l&apos;écran de choix. Pour chaque gabarit coché, le studio dessine son cadre
-        aux formats du gabarit ; sans cadre dessiné, la borne garde celui du kit.
+        Les formats proposés par la borne, dans l&apos;ordre de l&apos;écran de choix ({choisis.length} / {MAX_COMPOSITIONS}). Un même gabarit peut
+        revenir plusieurs fois (8 polas, 2 bandelettes…), chacun avec son cadre au studio ; sans cadre dessiné, la borne garde celui du kit.
       </p>
+      {choisis.length === 0 && <p className="mb-3 rounded-md bg-surface-2 p-3 text-sm text-ink-2">Aucun format : ajoutez-en au moins un ci-dessous.</p>}
       <ul className="space-y-2">
-        {ordonnes.map((g) => {
-          const rang = choisis.indexOf(g.cle);
-          const actif = rang >= 0;
-          const cadre = cadres.data?.find((c) => c.gabarit === g.cle);
+        {choisis.map((c, rang) => {
+          const g = GABARITS.find((x) => x.cle === c.gabarit)!;
+          const memes = choisis.filter((x) => x.gabarit === c.gabarit);
+          const libelle = memes.length > 1 ? `${g.nom} · ${memes.indexOf(c) + 1}` : g.nom;
+          const cadre = cadres.data?.find((x) => x.compositionId === c.id);
           return (
-            <li key={g.cle} className={`flex flex-wrap items-start gap-3 rounded-md border p-3 ${actif ? "border-accent bg-surface" : "border-line bg-surface-2"}`}>
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 accent-accent"
-                checked={actif}
-                aria-label={`Proposer ${g.nom}`}
-                onChange={(e) => basculer(g.cle, e.target.checked)}
-              />
+            <li key={c.id} className="flex flex-wrap items-start gap-3 rounded-md border border-accent bg-surface p-3">
+              <span className="mt-0.5 w-5 font-mono text-sm text-accent">{rang + 1}</span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">
-                  {actif && <span className="mr-2 font-mono text-accent">{rang + 1}</span>}
-                  {g.nom}
+                  {libelle}
                   {g.qr && <span className="ml-2"><Badge ton="ok">QR · collecte</Badge></span>}
                 </p>
                 <p className="text-xs text-ink-2">{g.detail}</p>
-                {actif && (
-                  <label className="mt-2 flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 accent-accent"
-                      checked={accueil.includes(g.cle)}
-                      onChange={(e) => maj({ accueil: e.target.checked ? choisis.filter((c) => c === g.cle || accueil.includes(c)) : accueil.filter((c) => c !== g.cle) })}
-                    />
-                    Mis en avant sur l&apos;écran d&apos;accueil
-                  </label>
-                )}
-                {actif && (
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    {cadre?.vignette && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={cadre.vignette} alt={`Cadre ${g.nom}`} className="h-16 w-auto rounded border border-line bg-surface-2 object-contain" />
-                    )}
-                    <button type="button" className="bouton !py-1 text-xs" disabled={ouverture} onClick={() => ouvrirStudio(g.cle)}>
-                      {ouverture ? "Enregistrement…" : cadre ? "Modifier le cadre" : "Ouvrir le studio"}
-                    </button>
-                    {cadre && (
-                      <>
-                        <span className="text-xs text-ink-muted">Cadre enregistré le {dateHeure(cadre.updatedAt)}</span>
-                        <button
-                          type="button"
-                          className="text-xs text-crit-ink hover:underline"
-                          disabled={retirer.isPending}
-                          onClick={() => confirm(`Retirer le cadre de « ${g.nom} » ? La borne reprendra celui du kit.`) && retirer.mutate(g.cle)}
-                        >
-                          Retirer le cadre
-                        </button>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-              {actif && (
-                <div className="flex gap-1">
-                  <button type="button" className="bouton-second !px-2 !py-1 text-xs" disabled={rang === 0} aria-label="Monter" onClick={() => deplacer(rang, -1)}>▲</button>
-                  <button type="button" className="bouton-second !px-2 !py-1 text-xs" disabled={rang === choisis.length - 1} aria-label="Descendre" onClick={() => deplacer(rang, 1)}>▼</button>
+                <label className="mt-2 flex items-center gap-2 text-xs">
+                  <input type="checkbox" className="h-3.5 w-3.5 accent-accent" checked={accueil.includes(c.id)} onChange={(e) => mettreEnAvant(c.id, e.target.checked)} />
+                  Mis en avant sur l&apos;écran d&apos;accueil
+                </label>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  {cadre?.vignette && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cadre.vignette} alt={`Cadre ${libelle}`} className="h-16 w-auto rounded border border-line bg-surface-2 object-contain" />
+                  )}
+                  <button type="button" className="bouton !py-1 text-xs" disabled={ouverture} onClick={() => ouvrirStudio(c.id)}>
+                    {ouverture ? "Enregistrement…" : cadre ? "Modifier le cadre" : "Ouvrir le studio"}
+                  </button>
+                  {cadre && (
+                    <>
+                      <span className="text-xs text-ink-muted">Cadre enregistré le {dateHeure(cadre.updatedAt)}</span>
+                      <button
+                        type="button"
+                        className="text-xs text-crit-ink hover:underline"
+                        disabled={retirer.isPending}
+                        onClick={() => confirm(`Retirer le cadre de « ${libelle} » ? La borne reprendra celui du kit.`) && retirer.mutate(c.id)}
+                      >
+                        Retirer le cadre
+                      </button>
+                    </>
+                  )}
                 </div>
-              )}
+              </div>
+              <div className="flex gap-1">
+                <button type="button" className="bouton-second !px-2 !py-1 text-xs" disabled={rang === 0} aria-label="Monter" onClick={() => deplacer(rang, -1)}>▲</button>
+                <button type="button" className="bouton-second !px-2 !py-1 text-xs" disabled={rang === choisis.length - 1} aria-label="Descendre" onClick={() => deplacer(rang, 1)}>▼</button>
+                <button type="button" className="bouton-second !px-2 !py-1 text-xs text-crit-ink" aria-label={`Retirer ${libelle}`} onClick={() => enlever(c.id, Boolean(cadre))}>✕</button>
+              </div>
             </li>
           );
         })}
       </ul>
+      <div className="mt-4 rounded-md border border-dashed border-line-strong p-3">
+        <p className="mb-2 text-xs font-medium text-ink-2">{plein ? `L'écran de choix de la borne affiche ${MAX_COMPOSITIONS} formats au plus.` : "Ajouter un format à l'écran de choix"}</p>
+        <div className="flex flex-wrap gap-2">
+          {GABARITS.map((g) => (
+            <button key={g.cle} type="button" className="bouton-second !py-1 text-xs" disabled={plein} onClick={() => ajouter(g.cle)}>
+              + {g.nom}
+            </button>
+          ))}
+        </div>
+      </div>
       {(cadres.error || retirer.error) && <div className="mt-3"><Erreur erreur={cadres.error ?? retirer.error} /></div>}
     </Section>
+  );
+}
+
+// ─── Barre des événements du lieu ───────────────────────────
+
+/** L'habituel, les ponctuels (Halloween, une soirée…) et la création d'un nouveau. */
+function BarreEvenements({ lieuId, eid }: { lieuId: number; eid?: number }) {
+  const client = useQueryClient();
+  const router = useRouter();
+  const liste = useQuery({ queryKey: ["evenements-ponctuels", lieuId], queryFn: () => api<EvenementPonctuel[]>(`/lieux/${lieuId}/evenements-ponctuels`) });
+  const [creation, setCreation] = useState(false);
+  const [nom, setNom] = useState("");
+  const [debut, setDebut] = useState("");
+  const [fin, setFin] = useState("");
+  const creer = useMutation({
+    mutationFn: () => api<FicheEvenementLieu>(`/lieux/${lieuId}/evenements-ponctuels`, { method: "POST", json: { nom: nom.trim(), dateDebut: debut, dateFin: fin || debut } }),
+    onSuccess: (f) => {
+      client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
+      setCreation(false);
+      setNom("");
+      router.push(cheminsEvenement(lieuId, f.id).page);
+    },
+  });
+  const puce = (actif: boolean) => `rounded-full border px-3 py-1 text-sm ${actif ? "border-accent bg-accent text-accent-ink" : "border-line-strong bg-surface text-ink hover:border-accent"}`;
+
+  return (
+    <div className="mb-4 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-ink-muted">Événements</span>
+        <Link href={cheminsEvenement(lieuId).page} className={puce(!eid)}>Habituel</Link>
+        {liste.data?.map((e) => (
+          <Link key={e.id} href={cheminsEvenement(lieuId, e.id).page} className={puce(eid === e.id)} title={`Code ${e.code}`}>
+            {e.nom} <span className="opacity-75">· {e.dateDebut === e.dateFin ? jour(e.dateDebut) : `${jour(e.dateDebut)} → ${jour(e.dateFin)}`}</span>
+          </Link>
+        ))}
+        {!creation && (
+          <button type="button" className="rounded-full border border-dashed border-line-strong px-3 py-1 text-sm text-accent hover:border-accent" onClick={() => setCreation(true)}>
+            + Nouvel événement
+          </button>
+        )}
+      </div>
+      {creation && (
+        <form
+          className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-surface p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            creer.mutate();
+          }}
+        >
+          <label className="block">
+            <span className="etiquette">Nom *</span>
+            <input className="champ w-64" required maxLength={80} placeholder="Halloween, soirée étudiante…" value={nom} onChange={(e) => setNom(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="etiquette">Début *</span>
+            <input className="champ" type="date" required value={debut} onChange={(e) => setDebut(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="etiquette">Fin</span>
+            <input className="champ" type="date" min={debut} value={fin} onChange={(e) => setFin(e.target.value)} />
+          </label>
+          <button type="submit" className="bouton" disabled={creer.isPending || !nom.trim() || !debut}>
+            {creer.isPending ? "Création…" : "Créer"}
+          </button>
+          <button type="button" className="bouton-second" onClick={() => setCreation(false)}>Annuler</button>
+          <p className="w-full text-xs text-ink-muted">
+            Il reprend les réglages de l&apos;événement habituel et les tarifs du lieu, sans les cadres ; il aura son propre code, à taper sur la borne.
+            Sans date de fin : une seule soirée.
+          </p>
+          {creer.error && <div className="w-full"><Erreur erreur={creer.error} /></div>}
+        </form>
+      )}
+      {liste.error && <Erreur erreur={liste.error} />}
+    </div>
   );
 }
 

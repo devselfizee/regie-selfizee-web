@@ -758,8 +758,17 @@ export interface RecapVente extends Vente {
 // Fiche événement d'un lieu (config de la borne, CDC page souvenir § 13). Montants en centimes.
 export type GabaritEvenement = "bandelette" | "pola" | "planche" | "carte";
 export type LotJeu = "free" | "pct50" | "pct30" | "none";
+/** Une composition de l'écran de choix de la borne : un gabarit du kit (le même peut revenir : 8 polas…) */
+export interface CompositionEvenement {
+  id: string;
+  gabarit: GabaritEvenement;
+}
+/** Compositions sur l'écran de choix de la borne, au plus (maximumStaticDisplayCount) */
+export const MAX_COMPOSITIONS = 9;
 
 export interface ReglagesEvenement {
+  /** Thème de l'interface de la borne (uiKit) ; d'autres viendront quand la borne saura les afficher */
+  theme: "nightlife";
   lieu: {
     nom: string;
     ville: string | null;
@@ -773,7 +782,8 @@ export interface ReglagesEvenement {
     hashtag: string | null;
     assistance: { proprietaire: "selfizee" | "client"; telephone: string | null; email: string | null };
   };
-  gabarits: { choisis: GabaritEvenement[]; accueil: GabaritEvenement[] };
+  /** Compositions dans l'ordre de l'écran de choix ; accueil = ids des compositions mises en avant */
+  gabarits: { choisis: CompositionEvenement[]; accueil: string[] };
   tarifs: {
     /** Reprendre les tarifs du lieu (la grille ci-dessous est alors celle du lieu) */
     herite: boolean;
@@ -789,9 +799,10 @@ export interface ReglagesEvenement {
   };
 }
 
-/** Cadre dessiné au studio pour un gabarit du kit (liste : sans le canvas). */
+/** Cadre dessiné au studio pour une composition de l'événement (liste : sans le canvas). */
 export interface CadreEvenement {
   id?: number;
+  compositionId: string;
   gabarit: GabaritEvenement;
   nom: string;
   formatId: string;
@@ -802,6 +813,12 @@ export interface CadreEvenement {
 }
 
 export interface FicheEvenementLieu {
+  /** null tant que l'événement habituel n'est pas enregistré */
+  id: number | null;
+  /** Événement habituel du lieu, ou ponctuel (Halloween, une soirée…) */
+  habituel: boolean;
+  /** Nom d'un événement ponctuel */
+  nom: string | null;
   enregistre: boolean;
   code: string | null;
   /** Mot de passe du tableau de bord de la borne (customerDashboardPassword du config.json) */
@@ -814,6 +831,18 @@ export interface FicheEvenementLieu {
   tarifsLieu: { grille: GrilleTarifs; origine: OrigineGrille };
   horaires: { jourSemaine: number; ouverture: string; fermeture: string }[];
   controles: { niveau: "erreur" | "avertissement"; message: string }[];
+}
+
+/** Événement ponctuel d'un lieu, dans la liste */
+export interface EvenementPonctuel {
+  id: number;
+  nom: string;
+  code: string;
+  dateDebut: string;
+  dateFin: string;
+  version: number;
+  publieeLe: string | null;
+  modifieDepuisPublication: boolean;
 }
 
 // ─── Suivi de la fiche lieu : commentaires et timeline ───

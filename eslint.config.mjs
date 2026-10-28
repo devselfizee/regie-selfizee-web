@@ -14,8 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Studio de cadres copié tel quel de Kalifun (lui-même repris de selfizee-booth-ui) : pas aux règles
     // de la Régie. src/studio/regie (le raccord avec la Régie) reste vérifié.
-    "src/studio/**",
-    "!src/studio/regie/**",
+    "src/studio/api/**",
+    "src/studio/app/**",
+    "src/studio/components/**",
+    "src/studio/lib/**",
     "src/app/editor-api/**",
   ]),
 ]);

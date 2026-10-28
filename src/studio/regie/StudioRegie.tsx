@@ -24,8 +24,20 @@ export interface CadreARouvrir extends CadreEvenement {
   canvas: string;
 }
 
-export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: number; gabarit: GabaritEvenement; nomLieu: string; cadre: CadreARouvrir | null }) {
+/**
+ * `apiCadre` : le cadre de la composition dans l'API (…/cadres/:composition) ; `pageRetour` : la fiche de
+ * l'événement ; `libelle` : le nom de la composition (« Pola 1 pose · 2 » quand le gabarit revient).
+ */
+export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, libelle }: {
+  gabarit: GabaritEvenement;
+  nomLieu: string;
+  cadre: CadreARouvrir | null;
+  apiCadre: string;
+  pageRetour: string;
+  libelle?: string;
+}) {
   const kit = FORMATS_KIT[gabarit];
+  const nomComposition = libelle ?? kit.libelle;
   // Posée avant le premier rendu des enfants : le studio ne voit que les formats du gabarit
   useState(() => definirRestriction(kit));
   useEffect(() => {
@@ -57,7 +69,7 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
       : null);
   const vue: Etape = cadre && !loading && !fmt && etape === "editeur" ? "depart" : etape;
 
-  const versFiche = () => router.push(`/lieux/${lieuId}/evenement?ecran=gabarits`);
+  const versFiche = () => router.push(`${pageRetour}?ecran=gabarits`);
 
   const choisirFormat = (f: Format) => {
     setEffectif(null);
@@ -101,10 +113,10 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
   };
 
   const enregistrer = async (p: FrameSavePayload) => {
-    const r = await api<CadreEvenement>(`/lieux/${lieuId}/evenement/cadres/${gabarit}`, {
+    const r = await api<CadreEvenement>(apiCadre, {
       method: "PUT",
       json: {
-        nom: `${nomLieu} — ${kit.libelle}`,
+        nom: `${nomLieu} — ${nomComposition}`,
         formatId: p.formatId,
         gabaritStudioId: p.gabaritId,
         nbPoses: p.shootCount,
@@ -113,7 +125,7 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
         vignette: p.thumbnailDataUrl || null,
       },
     });
-    return { id: r.id != null ? String(r.id) : gabarit };
+    return { id: r.id != null ? String(r.id) : r.compositionId };
   };
 
   if (vue === "editeur" && (!fmt || !gb)) return <Attente />;
@@ -126,7 +138,7 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
             <button type="button" onClick={retour} className="flex items-center gap-1.5 text-sm text-ink-2 hover:text-accent">
               <span aria-hidden>←</span> {vue === "depart" ? "Fiche événement" : "Retour"}
             </button>
-            <h1 className="text-lg font-semibold text-ink">Studio · {kit.libelle}</h1>
+            <h1 className="text-lg font-semibold text-ink">Studio · {nomComposition}</h1>
           </div>
           <div className="max-w-[280px] truncate text-sm text-ink-2">{nomLieu}</div>
         </header>
@@ -179,11 +191,11 @@ export function StudioRegie({ lieuId, gabarit, nomLieu, cadre }: { lieuId: numbe
               catalogMode
               format={effectif?.format ?? fmt}
               gabarit={effectif?.gabarit ?? gb}
-              frameId={enregistre ? gabarit : undefined}
+              frameId={enregistre ? apiCadre : undefined}
               initialCanvasState={canvasInitial}
               typeSlug="cadres"
               publicMode
-              fixedFrameName={`${nomLieu} — ${kit.libelle}`}
+              fixedFrameName={`${nomLieu} — ${nomComposition}`}
               openCatalogue={depuisCatalogue}
               saveHandler={enregistrer}
               onSaved={() => {
