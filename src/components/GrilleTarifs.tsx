@@ -17,7 +17,7 @@ export function ChampEuros({ cents, onChange, id, desactive }: { cents: number; 
     <div className="relative">
       <input
         id={id}
-        className="champ pr-7 text-right tabular"
+        className="champ !pr-8 text-right tabular"
         inputMode="decimal"
         value={desactive ? (cents / 100).toFixed(2).replace(".", ",") : texte}
         disabled={desactive}
@@ -69,7 +69,7 @@ export function EditeurGrille({ valeur, onChange, desactive = false, nom = "gril
               <tr key={i} className="border-t border-line">
                 <td className="py-2 pr-3">
                   <input
-                    className="champ w-20 tabular"
+                    className="champ !w-24 tabular"
                     type="number"
                     min={1}
                     max={50}
@@ -79,7 +79,7 @@ export function EditeurGrille({ valeur, onChange, desactive = false, nom = "gril
                     onChange={(e) => majPalier(i, { de: Number(e.target.value) })}
                   />
                 </td>
-                <td className="w-32 py-2 pr-3">
+                <td className="w-36 py-2 pr-3">
                   <ChampEuros cents={p.prixCents} desactive={desactive} onChange={(c) => majPalier(i, { prixCents: c })} />
                 </td>
                 <td className="py-2 pr-3 text-ink-2 tabular">
