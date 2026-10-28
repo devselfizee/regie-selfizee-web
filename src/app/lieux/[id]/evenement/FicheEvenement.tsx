@@ -7,7 +7,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, telecharger, type CadreEvenement, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
-import { dateHeure, JOURS_SEMAINE } from "@/lib/format";
+import { dateHeure, JOURS_SEMAINE, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : trois écrans, puis le config.json de la borne.
@@ -26,7 +26,11 @@ function Chargeur({ id }: { id: number }) {
   // Ici et non dans l'éditeur : l'éditeur repart des réglages enregistrés après chaque enregistrement.
   // ?ecran=gabarits : retour du studio de cadres sur l'écran d'où on l'a ouvert.
   const demande = useSearchParams().get("ecran");
-  const [ecran, setEcran] = useState(() => Math.max(0, ["lieu", "gabarits", "tarifs"].indexOf(demande ?? "")));
+  const [ecran, setEcranEtat] = useState(() => Math.max(0, ["lieu", "gabarits", "tarifs"].indexOf(demande ?? "")));
+  const setEcran = (n: number) => {
+    setEcranEtat(n);
+    parametreUrl("ecran", ["lieu", "gabarits", "tarifs"][n] ?? null);
+  };
   if (lieu.error || fiche.error) return <Erreur erreur={lieu.error ?? fiche.error} />;
   if (!lieu.data || !fiche.data) return <Chargement />;
   return <Editeur key={fiche.dataUpdatedAt} lieuId={id} enseigne={lieu.data.enseigne} fiche={fiche.data} ecran={ecran} setEcran={setEcran} />;

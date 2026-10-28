@@ -6,7 +6,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
 import { peut, useMoi } from "@/lib/session";
-import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, nombre, pct } from "@/lib/format";
+import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, nombre, pct, parametreUrl } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { KpiCouleur } from "@/components/KpiCouleur";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
@@ -85,7 +85,10 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             key={o.cle}
             type="button"
             aria-current={ongletActif === o.cle ? "page" : undefined}
-            onClick={() => setOnglet(o.cle)}
+            onClick={() => {
+              setOnglet(o.cle);
+              parametreUrl("onglet", o.cle);
+            }}
             className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${ongletActif === o.cle ? "border-accent text-accent" : "border-transparent text-ink-2 hover:text-ink"}`}
           >
             {o.libelle}

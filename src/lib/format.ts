@@ -72,3 +72,14 @@ export const GRATUITES: Record<string, string> = {
 
 /** Parc d'un lieu ou d'une borne (les stats montrent le parc Selfizee par défaut) */
 export const PARCS: Record<string, string> = { SELFIZEE: "Parc Selfizee", CLIENT: "Parc client" };
+
+/**
+ * Met un paramètre dans l'adresse sans recharger la page (onglet, étape, rubrique) :
+ * le lien copié depuis le navigateur rouvre au même endroit. null : retire le paramètre.
+ */
+export function parametreUrl(cle: string, valeur: string | null) {
+  const url = new URL(window.location.href);
+  if (valeur === null) url.searchParams.delete(cle);
+  else url.searchParams.set(cle, valeur);
+  window.history.replaceState(window.history.state, "", url);
+}

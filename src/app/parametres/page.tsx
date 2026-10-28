@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RefValeur } from "@/lib/api";
+import { parametreUrl } from "@/lib/format";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
 import { TarifsBase } from "@/components/GrilleTarifs";
@@ -54,13 +56,20 @@ const versCode = (libelle: string) =>
 export default function PageParametres() {
   return (
     <Reserve roles={["ADMIN"]}>
-      <Parametres />
+      <Suspense>
+        <Parametres />
+      </Suspense>
     </Reserve>
   );
 }
 
 function Parametres() {
-  const [liste, setListe] = useState(LISTES[0]);
+  const rubrique = useSearchParams().get("rubrique");
+  const [liste, setListeEtat] = useState(() => LISTES.find((l) => l.cle.toLowerCase() === rubrique) ?? LISTES[0]);
+  const setListe = (l: (typeof LISTES)[number]) => {
+    setListeEtat(l);
+    parametreUrl("rubrique", l.cle.toLowerCase());
+  };
   const { data, error } = useQuery({ queryKey: ["referentiel"], queryFn: () => api<Referentiel>("/referentiel") });
 
   return (
