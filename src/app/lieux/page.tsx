@@ -67,11 +67,11 @@ export default function ListeLieux() {
           </select>
         </label>
         <label>
-          <span className="etiquette">Antenne Selfizee</span>
+          <span className="etiquette">Ville principale</span>
           <select id="lieux-antenne" className="champ" value={antenneId} onChange={(e) => setAntenneId(e.target.value)}>
             <option value="">Toutes</option>
             {antennes.map((a) => <option key={a.id} value={a.id}>{a.libelle}</option>)}
-            <option value="aucune">Sans antenne</option>
+            <option value="aucune">Sans ville principale</option>
           </select>
         </label>
         <label>
@@ -120,7 +120,8 @@ export default function ListeLieux() {
               <tr>
                 <th className="px-4 py-3 font-medium">Lieu</th>
                 <th className="px-4 py-3 font-medium">Ville</th>
-                <th className="px-4 py-3 font-medium">Antenne</th>
+                <th className="px-4 py-3 font-medium">Ville principale</th>
+                <th className="px-4 py-3 font-medium">Parc</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Bornes</th>
                 {peut.voirVentes(moi.role) && (
@@ -138,13 +139,13 @@ export default function ListeLieux() {
                   <td className="px-4 py-3">
                     <Link href={`/lieux/${l.id}`} className="font-medium hover:underline">{l.enseigne}</Link>
                     <div className="text-xs text-ink-muted">{l.raisonSociale}</div>
-                    {l.parc === "CLIENT" && <Badge ton="neutre">Parc client</Badge>}
                   </td>
                   <td className="px-4 py-3">
                     {l.ville ?? <span className="text-ink-muted">—</span>}
                     {l.departement && <div className="text-xs text-ink-muted">{libelleDepartement(l.departement)}</div>}
                   </td>
                   <td className="px-4 py-3 text-ink-2">{l.antenne?.libelle ?? <span className="text-ink-muted">—</span>}</td>
+                  <td className="px-4 py-3">{l.parc === "CLIENT" ? <Badge ton="neutre">Client</Badge> : <span className="text-ink-2">Selfizee</span>}</td>
                   <td className="px-4 py-3 text-ink-2">
                     {l.typeLieu.libelle}
                     {l.saisonnalite === "SAISONNIER" && <span className="text-ink-muted"> · saisonnier</span>}

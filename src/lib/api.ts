@@ -167,7 +167,7 @@ export interface StatsLieu {
   meilleuresDates: { jour: string; caTtcCents: number; nbVentes: number }[];
   moyensPaiement: { moyen: string; caTtcCents: number; nbVentes: number; nbRefusees: number }[];
   modulesPaiement: { libelle: string; caTtcCents: number; nbVentes: number; nbRefusees: number }[];
-  formules: { code: string; nbTirages?: number; libelle: string | null; nbVentes: number; caTtcCents: number }[];
+  formules: { code: string; nbTirages?: number; montantCents?: number; libelle: string | null; nbVentes: number; caTtcCents: number }[];
   montants: { montantCents: number; nbVentes: number }[];
   bornes: {
     borneId: number;
@@ -178,6 +178,8 @@ export interface StatsLieu {
     dernierHeartbeat: string | null;
     derniereVente: string | null;
     heartbeatsRecus: number;
+    papierRestant: number | null;
+    papierLe: string | null;
     disponibilite: {
       minutesAttendues: number;
       minutesEnLigne: number;
@@ -215,6 +217,7 @@ export interface LieuFiche {
   id: number;
   statut: string;
   parc: Parc;
+  papierSurPlace: boolean;
   raisonSociale: string;
   enseigne: string;
   siret: string | null;
@@ -283,6 +286,8 @@ export interface BorneListe {
   logicielVersion: string | null;
   enLigne: boolean;
   cleConfiguree: boolean;
+  /** Dernier niveau de papier remonté par la borne */
+  papier: { restant: number; le: string } | null;
 }
 
 /** Parc Selfizee, ou parc d'un client en location financière */

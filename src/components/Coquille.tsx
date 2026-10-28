@@ -35,7 +35,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
   {
     libelle: "Argent",
     liens: [
-      { href: "/reversements", libelle: "Reversements", icone: "Banknote", roles: ["ADMIN"] },
+      { href: "/reversements", libelle: "Commissions", icone: "Banknote", roles: ["ADMIN"] },
       { href: "/paiements", libelle: "Paiements", icone: "Receipt", roles: ["ADMIN"] },
       { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", roles: ["ADMIN"] },
       { href: "/rentabilite", libelle: "Rentabilité", icone: "TrendingUp", roles: ["ADMIN"] },

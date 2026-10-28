@@ -15,7 +15,7 @@ const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/prospects", libelle: "Prospects", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/alertes", libelle: "Alertes", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
   { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },
-  { href: "/reversements", libelle: "Reversements", roles: ["ADMIN"] },
+  { href: "/reversements", libelle: "Commissions", roles: ["ADMIN"] },
   { href: "/paiements", libelle: "Paiements", roles: ["ADMIN"] },
   { href: "/rapprochement", libelle: "Rapprochement", roles: ["ADMIN"] },
   { href: "/rentabilite", libelle: "Rentabilité", roles: ["ADMIN"] },

@@ -103,6 +103,7 @@ function Bornes() {
                 <th className="px-4 py-3 font-medium">Borne</th>
                 <th className="px-4 py-3 font-medium">Connexion</th>
                 <th className="px-4 py-3 font-medium">Dernière vente</th>
+                <th className="px-4 py-3 font-medium">Papier restant</th>
                 <th className="px-4 py-3 font-medium">Paiement</th>
                 <th className="px-4 py-3 font-medium"><span className="sr-only">Actions</span></th>
               </tr>
@@ -133,6 +134,16 @@ function Bornes() {
                     <div className="mt-1 text-xs text-ink-muted">signal {depuis(b.dernierHeartbeat)}</div>
                   </td>
                   <td className="px-4 py-3 text-ink-2">{depuis(b.derniereVente)}</td>
+                  <td className="px-4 py-3 tabular">
+                    {b.papier ? (
+                      <span className={b.papier.restant < 50 ? "text-bad" : b.papier.restant < 100 ? "text-warn-ink" : ""}>
+                        {b.papier.restant} tirage{b.papier.restant > 1 ? "s" : ""}
+                        <span className="block text-xs text-ink-muted">{depuis(b.papier.le)}</span>
+                      </span>
+                    ) : (
+                      <span className="text-ink-muted">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs text-ink-2">
                     {b.modules.map((m) => <div key={m.id}>{m.type.libelle}{m.numeroSerie && ` · ${m.numeroSerie}`}</div>)}
                     {!b.cleConfiguree && <Badge ton="warn">Pas de clé API</Badge>}

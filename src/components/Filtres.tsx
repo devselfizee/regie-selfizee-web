@@ -139,7 +139,7 @@ export function Filtres({
         <Select nom="moyenPaiement" valeurs={valeurs} set={set} libelle="Moyen de paiement" options={OPTIONS_MOYENS} />
         {filtresLieu && (
           <>
-            <Select nom="antenneId" valeurs={valeurs} set={set} libelle="Antenne Selfizee" options={liste("ANTENNE")} />
+            <Select nom="antenneId" valeurs={valeurs} set={set} libelle="Ville principale" options={liste("ANTENNE")} />
             <Select nom="typeLieuId" valeurs={valeurs} set={set} libelle="Type de lieu" options={liste("TYPE_LIEU")} />
             <Select nom="zoneGeoId" valeurs={valeurs} set={set} libelle="Zone" options={liste("ZONE_GEO")} />
             <Select nom="standingId" valeurs={valeurs} set={set} libelle="Standing" options={liste("STANDING")} />

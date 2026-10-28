@@ -24,6 +24,7 @@ export function FicheLieu({ id }: { id: number }) {
   const moi = useMoi();
   const voitVentesRole = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
+  const [onglet, setOnglet] = useState<Onglet>("stats");
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   // Le lieu est déjà choisi : pas de filtre de parc
   const query = qs({ ...filtres, parc: undefined });
@@ -46,6 +47,9 @@ export function FicheLieu({ id }: { id: number }) {
   // Un prospect n'a pas encore de ventes : on montre son potentiel estimé à la place
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
+  const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "commissions" ? voitCommissions : true));
+  const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
     <>
@@ -71,55 +75,70 @@ export function FicheLieu({ id }: { id: number }) {
         </div>
       )}
 
-      {prospect && (moi.role === "ADMIN" || moi.role === "COMMERCIAL") && (
+      <nav className="mb-6 flex gap-1 border-b border-line" aria-label="Parties de la fiche">
+        {ongletsVisibles.map((o) => (
+          <button
+            key={o.cle}
+            type="button"
+            aria-current={ongletActif === o.cle ? "page" : undefined}
+            onClick={() => setOnglet(o.cle)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${ongletActif === o.cle ? "border-accent text-accent" : "border-transparent text-ink-2 hover:text-ink"}`}
+          >
+            {o.libelle}
+          </button>
+        ))}
+      </nav>
+
+      {ongletActif === "stats" && prospect && (moi.role === "ADMIN" || moi.role === "COMMERCIAL") && (
         <div className="mb-6">
           <SectionPotentiel lieuId={id} />
         </div>
       )}
 
-      {voitVentes && (
+      {ongletActif === "stats" && voitVentes && (
         <>
           <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
           {stats.error && <Erreur erreur={stats.error} />}
           {stats.isPending && !stats.error && <Chargement />}
-          {stats.data && <Statistiques s={stats.data} lieuId={id} />}
+          {stats.data && <Statistiques s={stats.data} lieuId={id} horaires={l.horaires} />}
         </>
       )}
 
-      {voitVentes && l.statut === "ACTIF" && (
+      {ongletActif === "stats" && voitVentes && l.statut === "ACTIF" && (
         <div className="mt-6">
           <PrevisionLieuSection lieuId={id} />
         </div>
       )}
 
-      {voitVentes && (
+      {ongletActif === "stats" && voitVentes && (
         <div className="mt-6">
           <SectionContexte lieuId={id} />
         </div>
       )}
 
-      {voitVentes && (
+      {ongletActif === "stats" && voitVentes && (
         <div className="mt-6">
           <SectionParcours lieuId={id} du={filtres.du} au={filtres.au} />
         </div>
       )}
 
-      <div className="mt-6">
-        <JournalEvenements lieuId={id} peutEcrire={moi.role !== "PARTENAIRE"} />
-      </div>
-
-      {(moi.role === "ADMIN" || moi.role === "PARTENAIRE") && (
+      {ongletActif === "stats" && (
         <div className="mt-6">
-          <SectionCommissions lieuId={id} />
+          <JournalEvenements lieuId={id} peutEcrire={moi.role !== "PARTENAIRE"} />
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
+
+      {ongletActif === "infos" && (
+      <>
+      <div className="grid gap-6 lg:grid-cols-2">
         <Section titre="Fiche">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <Info l="Raison sociale">{l.raisonSociale}{l.siret && <span className="text-ink-muted"> · {l.siret}</span>}</Info>
             <Info l="Adresse">{[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ") || "—"}</Info>
-            <Info l="Antenne Selfizee">{l.antenne?.libelle ?? "—"}</Info>
+            <Info l="Ville principale">{l.antenne?.libelle ?? "—"}</Info>
+            <Info l="Papier">{l.papierSurPlace ? "Changé sur place par le lieu" : "Changé par Selfizee"}</Info>
             <Info l="Parc">{l.parc === "CLIENT" ? "Parc client (location financière)" : "Parc Selfizee"}</Info>
             <Info l="Standing">{l.standing?.libelle ?? "—"}</Info>
             <Info l="Clientèle">{l.clienteles.map((c) => c.libelle).join(", ") || "—"}</Info>
@@ -223,9 +242,18 @@ export function FicheLieu({ id }: { id: number }) {
           )}
         </Section>
       </div>
+      </>
+      )}
     </>
   );
 }
+
+type Onglet = "stats" | "infos" | "commissions";
+const ONGLETS: { cle: Onglet; libelle: string }[] = [
+  { cle: "stats", libelle: "Statistiques" },
+  { cle: "infos", libelle: "Informations" },
+  { cle: "commissions", libelle: "Commissions" },
+];
 
 function Info({ l, children }: { l: string; children: ReactNode }) {
   return (
@@ -236,7 +264,7 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
   );
 }
 
-function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
+function Statistiques({ s, lieuId, horaires }: { s: StatsLieu; lieuId: number; horaires: LieuFiche["horaires"] }) {
   const { courant: c, precedente: p } = s.kpis;
   const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);
   const evenements = useEvenements(lieuId);
@@ -276,7 +304,7 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
       </Section>
 
       <Section titre="Quand ça vend : CA par jour et par heure">
-        <HeatmapHoraire cellules={s.heatmap} />
+        <HeatmapHoraire cellules={s.heatmap} horaires={horaires} />
       </Section>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -293,15 +321,13 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
         </Section>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+        {/* Formules et montants payés réunis (retour de Sébastien), des plus vendues aux moins vendues */}
         <Section titre="Formules vendues">
           <Tableau
-            entetes={["Formule", "Ventes", "CA"]}
-            lignes={s.formules.map((f) => [f.libelle ?? f.code, nombre(f.nbVentes), euros(f.caTtcCents)])}
+            entetes={["Formule", "Montant", "Ventes", "CA"]}
+            lignes={s.formules.map((f) => [f.libelle ?? f.code, f.montantCents !== undefined ? euros(f.montantCents) : "—", nombre(f.nbVentes), euros(f.caTtcCents)])}
           />
-        </Section>
-        <Section titre="Montants payés">
-          <Tableau entetes={["Montant", "Ventes"]} lignes={s.montants.map((m) => [euros(m.montantCents), nombre(m.nbVentes)])} />
         </Section>
         <Section titre="Meilleures dates">
           <Tableau entetes={["Date", "Ventes", "CA"]} lignes={s.meilleuresDates.map((d) => [jour(d.jour), nombre(d.nbVentes), euros(d.caTtcCents)])} />
@@ -310,7 +336,7 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
 
       <Section titre="Bornes sur la période">
         <Tableau
-          entetes={["Borne", "Disponibilité", "Coupures", "Pannes déclarées", "Dernière vente", "Dernier signal"]}
+          entetes={["Borne", "Disponibilité", "Coupures", "Pannes déclarées", "Papier restant", "Dernière vente", "Dernier signal"]}
           lignes={s.bornes.map((b) => {
             const d = b.disponibilite;
             return [
@@ -318,6 +344,7 @@ function Statistiques({ s, lieuId }: { s: StatsLieu; lieuId: number }) {
               !b.dernierHeartbeat ? <span key="d" className="text-ink-muted" title="La borne n’a encore rien envoyé à Régie">pas encore synchronisée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
               d.coupures ? `${d.coupures} (max ${duree(d.plusLongueCoupureMin)})` : "—",
               d.pannes ? `${d.pannes} · ${duree(d.minutesPanne)}` : "—",
+              <Papier key="p" restant={b.papierRestant} le={b.papierLe} />,
               depuis(b.derniereVente),
               depuis(b.dernierHeartbeat),
             ];
@@ -379,4 +406,16 @@ function ActiviteNonFacturee({ k }: { k: StatsLieu["kpis"]["courant"] }) {
   ].filter(Boolean);
   if (!elements.length) return null;
   return <p className="text-sm text-ink-2"><span className="font-medium text-ink">Hors chiffre d&apos;affaires :</span> {elements.join(" · ")}.</p>;
+}
+
+/** Papier restant dans l'imprimante et ancienneté de l'information (dernier signe de vie qui l'a donnée) */
+export function Papier({ restant, le }: { restant: number | null | undefined; le: string | null | undefined }) {
+  if (restant === null || restant === undefined) return <span className="text-ink-muted">—</span>;
+  const ton = restant < 50 ? "text-bad" : restant < 100 ? "text-warn-ink" : "";
+  return (
+    <span className={ton}>
+      {nombre(restant)} tirage{restant > 1 ? "s" : ""}
+      <span className="block text-xs text-ink-muted">{depuis(le ?? null)}</span>
+    </span>
+  );
 }

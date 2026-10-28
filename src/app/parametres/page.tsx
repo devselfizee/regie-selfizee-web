@@ -11,7 +11,7 @@ import { DonneesDemo } from "@/components/DonneesDemo";
 // Listes administrables de la fiche lieu (CDC §3.1) + gammes et types de module (CDC §2)
 const LISTES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "TYPE_LIEU", libelle: "Types et sous-types", aide: "Chaque type de lieu (camping, bar…) et ses sous-types (camping 3*, camping 4-5*…)." },
-  { cle: "ANTENNE", libelle: "Antennes Selfizee", aide: "Antenne Selfizee qui suit le lieu : filtre de la liste des lieux, des statistiques et de la carte." },
+  { cle: "ANTENNE", libelle: "Villes principales", aide: "Ville principale à laquelle le lieu est rattaché, comme dans l'application Antennes : filtre de la liste des lieux, des statistiques et de la carte." },
   { cle: "STANDING", libelle: "Standing", aide: "Gamme du lieu" },
   { cle: "CLIENTELE", libelle: "Clientèles", aide: "Clientèle dominante (plusieurs choix possibles)" },
   { cle: "ZONE_GEO", libelle: "Zones", aide: "Urbaine, littoral, montagne…" },
