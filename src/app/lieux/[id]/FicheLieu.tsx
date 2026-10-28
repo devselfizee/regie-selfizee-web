@@ -19,6 +19,7 @@ import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, us
 import { ListeAlertes } from "@/components/ListeAlertes";
 import { SectionParcours } from "@/components/Entonnoir";
 import { ListePaiements } from "@/components/ListePaiements";
+import { CarteLieux } from "@/components/CarteLieux";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id }: { id: number }) {
@@ -214,6 +215,7 @@ export function FicheLieu({ id }: { id: number }) {
               Fermetures : {l.fermetures.map((f) => `${date(f.debut)} → ${date(f.fin)}${f.motif ? ` (${f.motif})` : ""}`).join(", ")}
             </p>
           )}
+          <EmplacementLieu l={l} />
         </Section>
       </div>
 
@@ -442,4 +444,28 @@ function dateAvecJour(ymd: string): string {
   const [a, m, j] = ymd.slice(0, 10).split("-");
   const nom = jourCourtFmt.format(new Date(`${ymd.slice(0, 10)}T00:00:00Z`));
   return `${nom.charAt(0).toUpperCase()}${nom.slice(1)} ${j}/${m}/${a.slice(2)}`;
+}
+
+/** Le lieu sur la carte (coordonnées de la fiche), avec un lien vers l'itinéraire */
+function EmplacementLieu({ l }: { l: LieuFiche }) {
+  const lat = l.latitude ? Number(l.latitude) : NaN;
+  const lng = l.longitude ? Number(l.longitude) : NaN;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return <p className="mt-4 text-sm text-ink-muted">Lieu non localisé : complétez l&apos;adresse dans la fiche pour l&apos;afficher sur la carte.</p>;
+  }
+  return (
+    <div className="mt-4">
+      <div className="overflow-hidden rounded-md border border-line">
+        <CarteLieux
+          points={[{ id: l.id, latitude: lat, longitude: lng, couleur: "#4f46e5", titre: l.enseigne, lignes: [[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ")] }]}
+          onClic={() => undefined}
+          hauteur={260}
+          zoomMax={15}
+        />
+      </div>
+      <a className="mt-2 inline-block text-sm text-accent hover:underline" href={`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`} target="_blank" rel="noreferrer">
+        Ouvrir l&apos;itinéraire ↗
+      </a>
+    </div>
+  );
 }

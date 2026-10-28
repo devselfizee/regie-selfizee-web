@@ -41,7 +41,7 @@ function decalages(points: PointCarte[]): Map<number, [number, number]> {
 const echapper = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 
 /** Carte des lieux (Leaflet, chargé côté navigateur uniquement). Un clic ouvre la fiche du lieu. */
-export function CarteLieux({ points, onClic, hauteur = 560 }: { points: PointCarte[]; onClic: (id: number) => void; hauteur?: number }) {
+export function CarteLieux({ points, onClic, hauteur = 560, zoomMax = 11 }: { points: PointCarte[]; onClic: (id: number) => void; hauteur?: number; zoomMax?: number }) {
   const conteneur = useRef<HTMLDivElement>(null);
   const carte = useRef<CarteLeaflet | null>(null);
   const calque = useRef<LayerGroup | null>(null);
@@ -120,7 +120,7 @@ export function CarteLieux({ points, onClic, hauteur = 560 }: { points: PointCar
         };
         m.on("zoomend", replacer.current);
         if (premierCadrage.current && points.length) {
-          m.fitBounds(L.latLngBounds(points.map((p) => [p.latitude, p.longitude])), { padding: [40, 40], maxZoom: 11 });
+          m.fitBounds(L.latLngBounds(points.map((p) => [p.latitude, p.longitude])), { padding: [40, 40], maxZoom: zoomMax });
           premierCadrage.current = false;
         }
         replacer.current();
@@ -142,7 +142,7 @@ export function CarteLieux({ points, onClic, hauteur = 560 }: { points: PointCar
     return () => {
       annule = true;
     };
-  }, [points]);
+  }, [points, zoomMax]);
 
   return (
     <div
