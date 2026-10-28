@@ -20,13 +20,14 @@ import { ListeAlertes } from "@/components/ListeAlertes";
 import { SectionParcours } from "@/components/Entonnoir";
 import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
+import { SuiviLieu } from "@/components/SuiviLieu";
 import type { Alerte } from "@/lib/api";
 
-export function FicheLieu({ id }: { id: number }) {
+export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
   const moi = useMoi();
   const voitVentesRole = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
-  const [onglet, setOnglet] = useState<Onglet>("stats");
+  const [onglet, setOnglet] = useState<Onglet>(ONGLETS.some((o) => o.cle === ongletInitial) ? (ongletInitial as Onglet) : "stats");
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   // Le lieu est déjà choisi : pas de filtre de parc
   const query = qs({ ...filtres, parc: undefined });
@@ -50,7 +51,7 @@ export function FicheLieu({ id }: { id: number }) {
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -131,6 +132,8 @@ export function FicheLieu({ id }: { id: number }) {
       )}
 
       {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} />}
+
+      {ongletActif === "suivi" && <SuiviLieu lieuId={id} />}
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
@@ -253,11 +256,12 @@ export function FicheLieu({ id }: { id: number }) {
   );
 }
 
-type Onglet = "stats" | "ventes" | "infos" | "commissions";
+type Onglet = "stats" | "ventes" | "infos" | "suivi" | "commissions";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
   { cle: "ventes", libelle: "Ventes" },
   { cle: "infos", libelle: "Informations" },
+  { cle: "suivi", libelle: "Suivi" },
   { cle: "commissions", libelle: "Commissions" },
 ];
 

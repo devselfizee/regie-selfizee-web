@@ -1,6 +1,7 @@
 import { FicheLieu } from "./FicheLieu";
 
-export default async function Page({ params }: PageProps<"/lieux/[id]">) {
+export default async function Page({ params, searchParams }: PageProps<"/lieux/[id]">) {
   const { id } = await params;
-  return <FicheLieu id={Number(id)} />;
+  const { onglet } = await searchParams;
+  return <FicheLieu id={Number(id)} ongletInitial={typeof onglet === "string" ? onglet : undefined} />;
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, type MesMentions } from "@/lib/api";
 import { jeton, keycloak } from "@/lib/auth";
 import { useMoi, type Role } from "@/lib/session";
 import { chargerPlateforme, PLATEFORME_URL, type Plateforme, type Racine18 } from "@/lib/plateforme";
@@ -21,6 +21,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
+      { href: "/mentions", libelle: "Mes mentions", icone: "AtSign", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
     ],
   },
   {
@@ -137,7 +138,15 @@ export function Coquille({ children }: { children: ReactNode }) {
     refetchInterval: 60_000,
   });
 
+  const { data: mentions } = useQuery({
+    queryKey: ["mentions"],
+    queryFn: () => api<MesMentions>("/commentaires/mentions"),
+    enabled: moi.role !== "PARTENAIRE",
+    refetchInterval: 60_000,
+  });
+
   const nbAlertes = compteur?.nouvelles ?? 0;
+  const nbMentions = mentions?.nonLues ?? 0;
   const sections = useMemo(() => {
     if (!plateforme) return [];
     if (moi.role === "PARTENAIRE" && moi.lieuId)
@@ -151,9 +160,10 @@ export function Coquille({ children }: { children: ReactNode }) {
           label: l.libelle,
           path: l.href,
           ...(l.href === "/alertes" && nbAlertes ? { badge: nbAlertes } : {}),
+          ...(l.href === "/mentions" && nbMentions ? { badge: nbMentions } : {}),
         })),
     })).filter((s) => s.items.length);
-  }, [plateforme, moi.role, moi.lieuId, nbAlertes]);
+  }, [plateforme, moi.role, moi.lieuId, nbAlertes, nbMentions]);
 
   // La barre latérale ne surligne que le chemin exact : on lui donne l'entrée de menu qui contient la page
   const cheminActif = useMemo(() => {

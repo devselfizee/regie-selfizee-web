@@ -811,3 +811,41 @@ export interface FicheEvenementLieu {
   horaires: { jourSemaine: number; ouverture: string; fermeture: string }[];
   controles: { niveau: "erreur" | "avertissement"; message: string }[];
 }
+
+// ─── Suivi de la fiche lieu : commentaires et timeline ───
+
+export interface Mentionnable {
+  id: number;
+  prenom: string;
+  nom: string;
+  role: string;
+}
+
+export interface CommentaireLieu {
+  id: number;
+  lieuId: number;
+  texte: string;
+  createdAt: string;
+  modifieLe: string | null;
+  auteur: { id: number; prenom: string; nom: string } | null;
+  mentions: { luLe: string | null; user: { id: number; prenom: string; nom: string } }[];
+}
+
+export interface ElementTimeline {
+  cle: string;
+  type: "COMMENTAIRE" | "LIEU" | "CONTRAT" | "BORNE" | "INTERVENTION" | "ALERTE" | "EVENEMENT" | "COMMISSION";
+  date: string;
+  titre: string;
+  detail?: string | null;
+  auteur?: string | null;
+  ton?: string;
+  commentaire?: CommentaireLieu;
+}
+
+export interface MesMentions {
+  nonLues: number;
+  mentions: {
+    luLe: string | null;
+    commentaire: { id: number; texte: string; createdAt: string; auteur: { prenom: string; nom: string } | null; lieu: { id: number; enseigne: string; ville: string | null } };
+  }[];
+}
