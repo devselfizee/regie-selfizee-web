@@ -10,7 +10,7 @@ import { Reserve, useMoi } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
-import { PRESETS, useReferentiel } from "@/components/Filtres";
+import { preset, PRESETS, useReferentiel } from "@/components/Filtres";
 
 export const CATEGORIES: Record<CategorieCout, string> = {
   CONSOMMABLES: "Consommables",
@@ -108,7 +108,7 @@ function Info({ libelle, children }: { libelle: string; children: React.ReactNod
 // ─── Rentabilité (admin) ────────────────────────────────────
 
 function SectionRentabilite({ id }: { id: number }) {
-  const [periode, setPeriode] = useState(PRESETS[2].calcul()); // 90 jours
+  const [periode, setPeriode] = useState(preset("90j").calcul()); // 90 jours
   const [achat, setAchat] = useState(false);
   const { data, error } = useQuery({
     queryKey: ["rentabilite", id, periode.du, periode.au],

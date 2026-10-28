@@ -27,8 +27,24 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10);
 // Aujourd'hui en heure de Paris
 const aujourdhui = () => new Date(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date()) + "T00:00:00Z");
 const moinsJours = (d: Date, n: number) => new Date(d.getTime() - n * 86_400_000);
+/** Dernier week-end : celui en cours le samedi et le dimanche, sinon le précédent (jamais celui à venir) */
+export const dernierWeekEnd = (a: Date): { du: Date; au: Date } => {
+  const j = a.getUTCDay(); // 0 = dimanche, 6 = samedi
+  if (j === 6) return { du: a, au: a };
+  if (j === 0) return { du: moinsJours(a, 1), au: a };
+  return { du: moinsJours(a, j + 1), au: moinsJours(a, j) };
+};
 
 export const PRESETS: { cle: string; libelle: string; calcul: () => { du: string; au: string; granularite: Granularite } }[] = [
+  { cle: "jour", libelle: "Ce jour", calcul: () => ({ du: ymd(aujourdhui()), au: ymd(aujourdhui()), granularite: "jour" }) },
+  {
+    cle: "we",
+    libelle: "Ce week-end",
+    calcul: () => {
+      const w = dernierWeekEnd(aujourdhui());
+      return { du: ymd(w.du), au: ymd(w.au), granularite: "jour" };
+    },
+  },
   { cle: "7j", libelle: "7 jours", calcul: () => ({ du: ymd(moinsJours(aujourdhui(), 6)), au: ymd(aujourdhui()), granularite: "jour" }) },
   { cle: "30j", libelle: "30 jours", calcul: () => ({ du: ymd(moinsJours(aujourdhui(), 29)), au: ymd(aujourdhui()), granularite: "jour" }) },
   { cle: "90j", libelle: "90 jours", calcul: () => ({ du: ymd(moinsJours(aujourdhui(), 89)), au: ymd(aujourdhui()), granularite: "semaine" }) },
@@ -50,7 +66,10 @@ export const PRESETS: { cle: string; libelle: string; calcul: () => { du: string
   },
 ];
 
-export const filtresParDefaut = (): ValeursFiltres => ({ ...PRESETS[1].calcul(), parc: "SELFIZEE" });
+/** Préréglage par sa clé (les index bougent quand on en ajoute) */
+export const preset = (cle: string) => PRESETS.find((p) => p.cle === cle)!;
+
+export const filtresParDefaut = (): ValeursFiltres => ({ ...preset("30j").calcul(), parc: "SELFIZEE" });
 
 export function useReferentiel() {
   return useQuery({ queryKey: ["referentiel"], queryFn: () => api<Referentiel>("/referentiel"), staleTime: 5 * 60_000 });

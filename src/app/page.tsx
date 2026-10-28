@@ -18,6 +18,7 @@ import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
 import { SectionParcours } from "@/components/Entonnoir";
+import { dernierWeekEnd } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
 export default function Accueil() {
@@ -41,6 +42,8 @@ const lundi = (d: Date) => plusJours(d, -((d.getUTCDay() + 6) % 7));
 const PERIODES: { cle: string; libelle: string; calcul?: () => { du: Date; au: Date } }[] = [
   { cle: "jour", libelle: "Aujourd'hui", calcul: () => ({ du: aujourdhui(), au: aujourdhui() }) },
   { cle: "hier", libelle: "Hier", calcul: () => ({ du: plusJours(aujourdhui(), -1), au: plusJours(aujourdhui(), -1) }) },
+  // Celui en cours le samedi et le dimanche, sinon le précédent (jamais celui à venir)
+  { cle: "we", libelle: "Dernier week-end", calcul: () => dernierWeekEnd(aujourdhui()) },
   { cle: "7j", libelle: "7 derniers jours", calcul: () => ({ du: plusJours(aujourdhui(), -6), au: aujourdhui() }) },
   { cle: "30j", libelle: "30 derniers jours", calcul: () => ({ du: plusJours(aujourdhui(), -29), au: aujourdhui() }) },
   { cle: "semaine", libelle: "Cette semaine", calcul: () => ({ du: lundi(aujourdhui()), au: aujourdhui() }) },

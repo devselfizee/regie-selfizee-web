@@ -6,7 +6,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type Rentabilite } from "@/lib/api";
 import { euros, jour, pct } from "@/lib/format";
 import { Reserve } from "@/lib/session";
-import { PRESETS } from "@/components/Filtres";
+import { preset, PRESETS } from "@/components/Filtres";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 
 interface Ligne extends Rentabilite {
@@ -29,7 +29,7 @@ export default function PageRentabilite() {
 const moins = (c: number) => (c ? euros(-c) : "—");
 
 function Contenu() {
-  const [periode, setPeriode] = useState(PRESETS[2].calcul());
+  const [periode, setPeriode] = useState(preset("90j").calcul());
   const { data, error, isPending } = useQuery({
     queryKey: ["rentabilite", "toutes", periode.du, periode.au],
     queryFn: () =>
@@ -63,7 +63,7 @@ function Contenu() {
         actions={<button className="bouton-second" onClick={exporter} disabled={!data}>Exporter (CSV)</button>}
       />
       <div className="mb-4 flex flex-wrap gap-1">
-        {PRESETS.filter((p) => p.cle !== "7j").map((p) => {
+        {PRESETS.filter((p) => !["7j", "jour", "we"].includes(p.cle)).map((p) => {
           const c = p.calcul();
           return (
             <button key={p.cle} onClick={() => setPeriode(c)}
