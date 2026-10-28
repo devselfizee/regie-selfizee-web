@@ -11,7 +11,7 @@ import { dateHeure, jour, JOURS_SEMAINE, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : trois écrans, puis le config.json de la borne.
-// Un lieu a son événement habituel et des événements ponctuels (Halloween, une soirée…), chacun avec son
+// Un lieu a son événement par défaut (« habituel » dans le code) et d'autres événements (Halloween, une soirée…), chacun avec son
 // code, ses cadres et ses tarifs : on passe de l'un à l'autre en tapant le code sur la borne.
 
 /** Chemins d'un événement : dans l'API, et la page de la fiche (eid absent = l'événement habituel). */
@@ -211,7 +211,7 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
           {!fiche.habituel && (
             <Section titre="Cet événement">
               <p className="mb-3 text-sm text-ink-2">
-                Pour l&apos;installer, tapez <strong className="font-mono">{fiche.code}</strong> sur la borne ; pour revenir à l&apos;habituel, retapez le code du lieu.
+                Pour l&apos;installer, tapez <strong className="font-mono">{fiche.code}</strong> sur la borne ; pour revenir à l&apos;événement par défaut, retapez son code.
               </p>
               <button
                 type="button"
@@ -498,7 +498,7 @@ function EcranGabarits({ r, setR, apiEvenement, ouvrirStudio, ouverture }: Props
 
 // ─── Barre des événements du lieu ───────────────────────────
 
-/** L'habituel, les ponctuels (Halloween, une soirée…) et la création d'un nouveau. */
+/** L'événement par défaut, les autres (Halloween, une soirée…) et la création d'un nouveau. */
 function BarreEvenements({ lieuId, eid }: { lieuId: number; eid?: number }) {
   const client = useQueryClient();
   const router = useRouter();
@@ -522,7 +522,7 @@ function BarreEvenements({ lieuId, eid }: { lieuId: number; eid?: number }) {
     <div className="mb-4 space-y-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-1 text-xs font-medium uppercase tracking-wide text-ink-muted">Événements</span>
-        <Link href={cheminsEvenement(lieuId).page} className={puce(!eid)}>Habituel</Link>
+        <Link href={cheminsEvenement(lieuId).page} className={puce(!eid)}>Par défaut</Link>
         {liste.data?.map((e) => (
           <Link key={e.id} href={cheminsEvenement(lieuId, e.id).page} className={puce(eid === e.id)} title={`Code ${e.code}`}>
             {e.nom} <span className="opacity-75">· {e.dateDebut === e.dateFin ? jour(e.dateDebut) : `${jour(e.dateDebut)} → ${jour(e.dateFin)}`}</span>
@@ -544,7 +544,7 @@ function BarreEvenements({ lieuId, eid }: { lieuId: number; eid?: number }) {
         >
           <label className="block">
             <span className="etiquette">Nom *</span>
-            <input className="champ w-64" required maxLength={80} placeholder="Halloween, soirée étudiante…" value={nom} onChange={(e) => setNom(e.target.value)} />
+            <input className="champ w-64" required maxLength={80} placeholder="Halloween, Noël…" value={nom} onChange={(e) => setNom(e.target.value)} />
           </label>
           <label className="block">
             <span className="etiquette">Début *</span>
@@ -559,7 +559,7 @@ function BarreEvenements({ lieuId, eid }: { lieuId: number; eid?: number }) {
           </button>
           <button type="button" className="bouton-second" onClick={() => setCreation(false)}>Annuler</button>
           <p className="w-full text-xs text-ink-muted">
-            Il reprend les réglages de l&apos;événement habituel et les tarifs du lieu, sans les cadres ; il aura son propre code, à taper sur la borne.
+            Il reprend les réglages de l&apos;événement par défaut et les tarifs du lieu, sans les cadres ; il aura son propre code, à taper sur la borne.
             Sans date de fin : une seule soirée.
           </p>
           {creer.error && <div className="w-full"><Erreur erreur={creer.error} /></div>}
