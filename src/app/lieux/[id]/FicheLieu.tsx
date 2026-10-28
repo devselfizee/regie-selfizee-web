@@ -18,6 +18,7 @@ import { SectionPotentiel } from "@/components/Prospect";
 import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
 import { ListeAlertes } from "@/components/ListeAlertes";
 import { SectionParcours } from "@/components/Entonnoir";
+import { ListePaiements } from "@/components/ListePaiements";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id }: { id: number }) {
@@ -48,7 +49,7 @@ export function FicheLieu({ id }: { id: number }) {
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "commissions" ? voitCommissions : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -127,6 +128,8 @@ export function FicheLieu({ id }: { id: number }) {
           <JournalEvenements lieuId={id} peutEcrire={moi.role !== "PARTENAIRE"} />
         </div>
       )}
+
+      {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} />}
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
@@ -248,9 +251,10 @@ export function FicheLieu({ id }: { id: number }) {
   );
 }
 
-type Onglet = "stats" | "infos" | "commissions";
+type Onglet = "stats" | "ventes" | "infos" | "commissions";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
+  { cle: "ventes", libelle: "Ventes" },
   { cle: "infos", libelle: "Informations" },
   { cle: "commissions", libelle: "Commissions" },
 ];
