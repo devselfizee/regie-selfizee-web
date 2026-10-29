@@ -2,7 +2,10 @@ import { FORMATS, type Format } from "./gabarits";
 
 // Restriction du studio au gabarit du kit qu'on habille depuis la fiche événement de la Régie :
 // seuls ses formats (et gabarits du studio) sont proposés, et le catalogue de modèles ne montre
-// que ceux du même format et du même nombre de poses. Posée par la page du studio avant de le monter.
+// que ceux du même format. Le nombre de poses du gabarit n'y est qu'un filtre présélectionné : un
+// modèle à 3 poses reste utilisable en bandelette 4 poses, il suffit d'ajouter un shoot (l'API
+// refuse d'enregistrer un cadre qui n'a pas le nombre de poses du gabarit). Posée par la page du
+// studio avant de le monter.
 
 export interface RestrictionStudio {
   /** Formats du studio autorisés, chacun limité à certains de ses gabarits si `gabarits` est donné. */
@@ -27,14 +30,18 @@ export function filtrerFormats(formats: Format[]): Format[] {
   });
 }
 
+/** Nombre de poses du gabarit du kit : filtre « poses » présélectionné dans le catalogue. */
+export function posesDuGabarit(): number | null {
+  return courante?.poses ?? null;
+}
+
 /** Le studio peut-il passer à ce format (bascule automatique selon le nombre de poses) ? */
 export function formatPermis(formatId: string): boolean {
   return !courante || courante.formats.some((r) => r.id === formatId);
 }
 
-/** Un modèle du catalogue (format booth + nombre de poses) est-il permis ? */
-export function modelePermis(formatBoothId: number, poses: number): boolean {
+/** Un modèle du catalogue (format booth) est-il permis ? */
+export function modelePermis(formatBoothId: number): boolean {
   if (!courante) return true;
-  if (poses !== courante.poses) return false;
   return filtrerFormats(FORMATS).some((f) => f.formatBoothId != null && Number(f.formatBoothId) === formatBoothId);
 }

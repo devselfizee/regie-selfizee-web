@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CatalogueItem } from "@/studio/components/dashboard/editor/panels/PanelModeles";
-import { modelePermis } from "@/studio/lib/restrictionStudio";
+import { modelePermis, posesDuGabarit } from "@/studio/lib/restrictionStudio";
 
 /**
  * Page « Catalogue Selfizee » (entrée du studio, retour boss p.8). Liste plein
@@ -10,7 +10,7 @@ import { modelePermis } from "@/studio/lib/restrictionStudio";
  *
  * Source (doc fournie) = /api/bibliotheques/content-menu/1?type_id=1 (le « 1 »
  * = groupe Selfizee), groupé par thème → chaque modèle porte ses thèmes. Une
- * seule requête (cachée). Filtres : Thème, Format, Nombre de shoots (1/2/3/4),
+ * seule requête (cachée). Filtres : Thème, Format, Nombre de shoots (ceux du catalogue),
  * recherche — tout côté client.
  *
  * Clic sur un modèle → onPick(item) : StudioContent ouvre l'éditeur qui charge
@@ -32,7 +32,6 @@ const FORMAT_LABELS: Record<number, string> = {
   7: "Carte paysage coupon",
   8: "Mini polaroid",
 };
-const POSE_OPTIONS = [1, 2, 3, 4];
 
 interface Theme {
   id: number;
@@ -130,7 +129,8 @@ export function CatalogueBrowser({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [formatId, setFormatId] = useState<number | null>(null);
-  const [poses, setPoses] = useState<number | null>(null);
+  // Régie : les poses du gabarit présélectionnées, modifiables (un modèle à 3 poses + un shoot)
+  const [poses, setPoses] = useState<number | null>(() => posesDuGabarit());
   const [themeId, setThemeId] = useState<number | null>(null);
   const [visible, setVisible] = useState(30);
   const [reloadKey, setReloadKey] = useState(0);
@@ -159,7 +159,7 @@ export function CatalogueBrowser({
 
   const formatOptions = useMemo(() => {
     const counts: Record<number, number> = {};
-    models.filter((m) => modelePermis(m.format_id, m.nbr_pose)).forEach((m) => {
+    models.filter((m) => modelePermis(m.format_id)).forEach((m) => {
       counts[m.format_id] = (counts[m.format_id] || 0) + 1;
     });
     return Object.entries(counts)
@@ -167,10 +167,17 @@ export function CatalogueBrowser({
       .sort((a, b) => b.count - a.count);
   }, [models]);
 
+  // Nombres de poses des modèles permis (le filtre choisi reste affiché, même sans modèle)
+  const poseOptions = useMemo(() => {
+    const n = new Set(models.filter((m) => modelePermis(m.format_id)).map((m) => m.nbr_pose));
+    if (poses !== null) n.add(poses);
+    return [...n].sort((a, b) => a - b);
+  }, [models, poses]);
+
   const filtered = useMemo(
     () =>
       models.filter((m) => {
-        if (!modelePermis(m.format_id, m.nbr_pose)) return false;
+        if (!modelePermis(m.format_id)) return false;
         if (formatId !== null && m.format_id !== formatId) return false;
         if (poses !== null && m.nbr_pose !== poses) return false;
         if (themeId !== null && !m.themes.includes(themeId)) return false;
@@ -224,15 +231,15 @@ export function CatalogueBrowser({
             />
           </div>
 
-          {/* Nombre de shoots (1/2/3/4 fixes) */}
+          {/* Nombre de shoots (ceux des modèles du catalogue) */}
           <FilterGroup title="Nombre de shoots">
             <div className="flex flex-wrap gap-1.5">
               <Chip active={poses === null} onClick={() => setPoses(null)}>
                 Tous
               </Chip>
-              {POSE_OPTIONS.map((p) => (
+              {poseOptions.map((p) => (
                 <Chip key={p} active={poses === p} onClick={() => setPoses(p)}>
-                  {p}
+                  {p === 0 ? "Fond" : p}
                 </Chip>
               ))}
             </div>

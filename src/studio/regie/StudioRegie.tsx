@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import FrameEditor from "@/studio/components/dashboard/FrameEditor";
 import { useTypeFormats } from "@/studio/components/dashboard/editor/hooks/useTypeFormats";
-import { setPendingAutoModel, type CatalogueItem } from "@/studio/components/dashboard/editor/panels/PanelModeles";
+import { reinitialiserFiltresModeles, setPendingAutoModel, type CatalogueItem } from "@/studio/components/dashboard/editor/panels/PanelModeles";
 import type { FrameSavePayload } from "@/studio/components/dashboard/editor/hooks/useCanvasExport";
 import { CatalogueBrowser } from "@/studio/app/CatalogueBrowser";
 import { SavedChoiceDialog } from "@/studio/app/SavedChoiceDialog";
@@ -12,6 +12,7 @@ import { definirRestriction } from "@/studio/lib/restrictionStudio";
 import type { Format, Gabarit } from "@/studio/lib/gabarits";
 import { api, type CadreEvenement, type GabaritEvenement } from "@/lib/api";
 import { FORMATS_KIT } from "./formatsKit";
+import { AvertissementPoses, posesDifferentes } from "./AvertissementPoses";
 
 // Studio de cadres ouvert depuis l'écran Gabarits de la fiche événement d'un lieu : l'éditeur de
 // Kalifun (copié dans src/studio), limité aux formats du gabarit du kit, enregistré dans l'API Régie.
@@ -38,8 +39,12 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
 }) {
   const kit = FORMATS_KIT[gabarit];
   const nomComposition = libelle ?? kit.libelle;
-  // Posée avant le premier rendu des enfants : le studio ne voit que les formats du gabarit
-  useState(() => definirRestriction(kit));
+  // Posée avant le premier rendu des enfants : le studio ne voit que les formats du gabarit, et le
+  // catalogue s'ouvre filtré sur son nombre de poses
+  useState(() => {
+    definirRestriction(kit);
+    reinitialiserFiltresModeles(kit.poses);
+  });
   useEffect(() => {
     definirRestriction(kit);
     return () => definirRestriction(null);
@@ -57,6 +62,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
   const [canvasInitial, setCanvasInitial] = useState<string | undefined>(cadre?.canvas);
   const [enregistre, setEnregistre] = useState(Boolean(cadre));
   const [choixApresEnregistrement, setChoixApresEnregistrement] = useState(false);
+  const [posesAConfirmer, setPosesAConfirmer] = useState<CatalogueItem | null>(null);
 
   // Cadre existant : son format et son gabarit du studio, retrouvés dès que les formats sont là
   // (tant qu'on n'en a pas choisi d'autres). Format disparu du studio : on repart de l'écran de départ.
@@ -87,7 +93,8 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
     else setEtape("format");
   };
 
-  const choisirModele = (item: CatalogueItem) => {
+  const choisirModele = (item: CatalogueItem, posesConfirmees = false) => {
+    if (!posesConfirmees && posesDifferentes(item.nbr_pose)) return setPosesAConfirmer(item);
     const f = formats.find((x) => x.formatBoothId != null && Number(x.formatBoothId) === Number(item.format_id)) ?? formats[0];
     if (!f) return;
     setPendingAutoModel(item);
@@ -113,6 +120,14 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
   };
 
   const enregistrer = async (p: FrameSavePayload) => {
+    // Un modèle du catalogue peut avoir un autre nombre de poses : à ajuster avant d'enregistrer
+    if (p.shootCount !== kit.poses) {
+      const ecart = kit.poses - p.shootCount;
+      throw new Error(
+        `${kit.libelle} : il faut ${kit.poses} shoot${kit.poses > 1 ? "s" : ""}, le cadre en a ${p.shootCount}. ` +
+          (ecart > 0 ? `Ajoutez-en ${ecart} (« Ajouter un shoot »).` : `Supprimez-en ${-ecart}.`),
+      );
+    }
     const r = await api<CadreEvenement>(apiCadre, {
       method: "PUT",
       json: {
@@ -159,7 +174,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
           </div>
         )}
 
-        {vue === "catalogue" && <CatalogueBrowser onPick={choisirModele} onBack={retour} />}
+        {vue === "catalogue" && <CatalogueBrowser onPick={(item) => choisirModele(item)} onBack={retour} />}
 
         {vue === "format" && (
           <Choix titre="Quel format ?">
@@ -215,6 +230,14 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
         )}
       </div>
 
+      <AvertissementPoses
+        poses={posesAConfirmer?.nbr_pose ?? null}
+        onAnnuler={() => setPosesAConfirmer(null)}
+        onContinuer={() => {
+          if (posesAConfirmer) choisirModele(posesAConfirmer, true);
+          setPosesAConfirmer(null);
+        }}
+      />
       <SavedChoiceDialog open={choixApresEnregistrement} onStay={() => setChoixApresEnregistrement(false)} onLeave={versFiche} />
     </div>
   );

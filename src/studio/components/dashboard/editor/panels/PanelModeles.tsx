@@ -20,6 +20,7 @@ import {
 } from "./fonts";
 import { useEditorStore } from "../store/editorStore";
 import { modelePermis } from "@/studio/lib/restrictionStudio";
+import { AvertissementPoses, posesDifferentes } from "@/studio/regie/AvertissementPoses";
 
 // Catalogue des modèles servi nativement par Kalifun via apiUrl()
 // (/editor-api/bibliotheques/*) — plus de backend externe.
@@ -53,6 +54,14 @@ const persistedPanelState: PersistedPanelState = {
  *  Selfizee (utilisé quand on entre dans le studio via « Catalogue Selfizee »). */
 export function presetModelesCatalogue(): void {
   persistedPanelState.view = "catalogue";
+}
+
+/** Régie : à l'ouverture du studio d'un gabarit, filtres remis à zéro et nombre de poses du gabarit
+ *  présélectionné (modifiable : un modèle à 3 poses peut servir, en ajoutant un shoot). */
+export function reinitialiserFiltresModeles(poses: number | null): void {
+  persistedPanelState.catalogueSearch = "";
+  persistedPanelState.filterPoses = poses;
+  persistedPanelState.activeTheme = null;
 }
 
 // Modèle choisi depuis la PAGE catalogue (entrée du studio) et à charger
@@ -311,6 +320,8 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
   const setActiveTheme = (v: string | null) => { persistedPanelState.activeTheme = v; _setActiveTheme(v); };
   const [visibleCount, setVisibleCount] = useState(20);
   const [previewItem, setPreviewItem] = useState<CatalogueItem | null>(null);
+  // Régie : modèle dont le nombre de shoots n'est pas celui du gabarit, en attente de confirmation
+  const [posesAConfirmer, setPosesAConfirmer] = useState<CatalogueItem | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ item?: CatalogueItem; format?: Format; gabarit?: Gabarit } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const { loadingKey: modLoadingKey, run: modRun } = useLoadingClick();
@@ -357,7 +368,11 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
     loadCatalogue();
   };
 
-  const addCatalogueImage = async (item: CatalogueItem) => {
+  const addCatalogueImage = async (item: CatalogueItem, posesConfirmees = false) => {
+    if (!posesConfirmees && posesDifferentes(item.nbr_pose)) {
+      setPosesAConfirmer(item);
+      return;
+    }
     const canvas = canvasRef?.current;
     if (!canvas) return;
     // Check if canvas has user content (more than just background)
@@ -830,18 +845,24 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredCatalogue = catalogue.filter((item) => {
-    if (!modelePermis(item.format_id, item.nbr_pose)) return false;
+  // Régie : seuls les modèles des formats du gabarit du kit ; les filtres et leurs compteurs portent
+  // sur eux, et un format resté d'un autre studio (état persistant) est ignoré.
+  const catalogueAutorise = catalogue.filter((item) => modelePermis(item.format_id));
+  const formatsAutorises = new Set(catalogueAutorise.map((item) => String(item.format_id)));
+  const formatActif = activeTheme && formatsAutorises.has(activeTheme) ? activeTheme : null;
+
+  const filteredCatalogue = catalogueAutorise.filter((item) => {
     if (filterPoses !== null && item.nbr_pose !== filterPoses) return false;
-    if (activeTheme && activeTheme !== "null" && item.format_id !== Number(activeTheme)) return false;
+    if (formatActif && item.format_id !== Number(formatActif)) return false;
     if (catalogueSearch && !item.nom.toLowerCase().includes(catalogueSearch.toLowerCase())) return false;
     return true;
   });
 
-  const poseCounts = catalogue.reduce((acc, item) => {
+  // Nombres de poses présents dans le catalogue (le filtre choisi reste affiché, même sans modèle)
+  const poseCounts = catalogueAutorise.reduce((acc, item) => {
     acc[item.nbr_pose] = (acc[item.nbr_pose] || 0) + 1;
     return acc;
-  }, {} as Record<number, number>);
+  }, (filterPoses !== null ? { [filterPoses]: 0 } : {}) as Record<number, number>);
 
   // Build the format filter buttons from the catalogue itself instead of a
   // hardcoded list. Known format_ids keep their friendly label; anything
@@ -861,7 +882,7 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
     8: "Mini Polaroid",
   };
   const formatFilterOptions = (() => {
-    const counts = catalogue.reduce((acc, item) => {
+    const counts = catalogueAutorise.reduce((acc, item) => {
       acc[item.format_id] = (acc[item.format_id] || 0) + 1;
       return acc;
     }, {} as Record<number, number>);
@@ -917,7 +938,7 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
               </svg>
             </div>
             <span className="bg-[#4f46e5] text-white text-[11px] font-bold px-2.5 py-1 rounded-full">
-              {catalogue.length > 0 ? catalogue.length : (loadingCatalogue ? "…" : "—")}
+              {catalogue.length > 0 ? catalogueAutorise.length : (loadingCatalogue ? "…" : "—")}
             </span>
           </div>
           <p className="text-base font-bold text-gray-800 group-hover:text-[#4f46e5] transition-colors">Catalogue Selfizee</p>
@@ -1062,7 +1083,7 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
 
       <div className="flex items-center justify-between">
         <h3 className="text-gray-800 font-bold text-sm">Catalogue Selfizee</h3>
-        {catalogue.length > 0 && <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{catalogue.length} modèles</span>}
+        {catalogue.length > 0 && <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{catalogueAutorise.length} modèle{catalogueAutorise.length > 1 ? "s" : ""}</span>}
       </div>
 
       {/* Search */}
@@ -1084,25 +1105,25 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
           label for yet. */}
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {[
-          { id: null, label: "Tous les formats", count: catalogue.length },
+          { id: null, label: "Tous les formats", count: catalogueAutorise.length },
           ...formatFilterOptions,
         ].map((f) => (
           <button
             key={String(f.id)}
-            onClick={() => setActiveTheme(activeTheme === String(f.id) ? null : String(f.id))}
+            onClick={() => setActiveTheme(formatActif === String(f.id) ? null : String(f.id))}
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all ${
-              activeTheme === String(f.id)
+              (formatActif ?? "null") === String(f.id)
                 ? "bg-[#4f46e5] text-white shadow-sm"
                 : "bg-white border border-gray-200 text-gray-600 hover:border-gray-400"
             }`}
           >
-            {f.label} <span className={`ml-0.5 text-[10px] ${activeTheme === String(f.id) ? "text-white/70" : "text-gray-400"}`}>({f.count})</span>
+            {f.label} <span className={`ml-0.5 text-[10px] ${(formatActif ?? "null") === String(f.id) ? "text-white/70" : "text-gray-400"}`}>({f.count})</span>
           </button>
         ))}
       </div>
 
       {/* Poses filter */}
-      {catalogue.length > 0 && (
+      {catalogueAutorise.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           <button onClick={() => setFilterPoses(null)} className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${filterPoses === null ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
             Tous
@@ -1199,6 +1220,16 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
 
       {/* ── Gabarit confirmation (shared popup) ── */}
       {gabaritConfirmPopup}
+
+      <AvertissementPoses
+        poses={posesAConfirmer?.nbr_pose ?? null}
+        onAnnuler={() => setPosesAConfirmer(null)}
+        onContinuer={() => {
+          const item = posesAConfirmer;
+          setPosesAConfirmer(null);
+          if (item) void addCatalogueImage(item, true);
+        }}
+      />
 
       {/* ── Catalogue confirmation modal ── */}
       {confirmAction && confirmAction.item && (
