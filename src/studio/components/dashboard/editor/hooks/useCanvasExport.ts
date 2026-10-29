@@ -43,6 +43,25 @@ export interface UseCanvasExportParams {
   saveHandler?: (payload: FrameSavePayload) => Promise<{ id?: string } | void>;
 }
 
+/**
+ * Coin haut-gauche (après rotation) et taille du remplissage d'un shoot, en coordonnées du
+ * canvas. Les shoots du studio ont leur origine en haut à gauche, ceux d'un modèle du catalogue
+ * au centre : on part du centre réel de l'objet, là où fabric dessine le remplissage.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function zoneDuShoot(o: any) {
+  const c = o.getCenterPoint();
+  const w = o.width * (o.scaleX || 1);
+  const h = o.height * (o.scaleY || 1);
+  const a = ((o.angle || 0) * Math.PI) / 180;
+  return {
+    x: c.x - (w / 2) * Math.cos(a) + (h / 2) * Math.sin(a),
+    y: c.y - (w / 2) * Math.sin(a) - (h / 2) * Math.cos(a),
+    w,
+    h,
+  };
+}
+
 export function useCanvasExport({
   fabricRef,
   canvasWidth,
@@ -182,6 +201,28 @@ export function useCanvasExport({
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fabricRef, canvasWidth, canvasHeight, BLEED_PX, exportMime, exportQuality]);
+
+  // ── renderAvecTrous ──
+  // Rendu du cadre dans l'ordre des calques : chaque shoot perce (destination-out,
+  // comme les creux de la borne) ce qui est SOUS lui, et ce qui est AU-DESSUS reste
+  // visible — comme dans l'éditeur et l'aperçu. Avant, le rendu recollait tous les
+  // calques par-dessus les trous : un shoot posé sur une image disparaissait.
+  // Les shoots retrouvent ensuite leur état (masqués pendant l'export).
+  const renderAvecTrous = useCallback(async (): Promise<string> => {
+    const canvas = fabricRef.current;
+    if (!canvas) return "";
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shoots: any[] = canvas.getObjects().filter((o: any) => o._isShootZone);
+    const etats = shoots.map((o) => ({ o, visible: o.visible, fill: o.fill, stroke: o.stroke, opacity: o.opacity, shadow: o.shadow, gco: o.globalCompositeOperation }));
+    // strokeWidth gardé : il décale le remplissage, le trou doit tomber au même endroit que dans l'éditeur
+    shoots.forEach((o) => o.set({ visible: true, fill: "#000000", stroke: null, opacity: 1, shadow: null, globalCompositeOperation: "destination-out" }));
+    try {
+      return await renderDesignArea();
+    } finally {
+      etats.forEach(({ o, gco, ...e }) => o.set({ ...e, globalCompositeOperation: gco }));
+      canvas.renderAll();
+    }
+  }, [fabricRef, renderDesignArea]);
 
   // Legacy passthrough — kept for callers that pass a pre-rendered URL.
   const cropToDesignArea = useCallback(
@@ -419,11 +460,12 @@ export function useCanvasExport({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     canvas.getObjects().forEach((o: any) => {
       if (o._isShootZone) {
+        const z = zoneDuShoot(o);
         shootZones.push({
-          left: (o.left - BLEED_PX) * finalScale,
-          top: (o.top - BLEED_PX) * finalScale,
-          width: o.width * (o.scaleX || 1) * finalScale,
-          height: o.height * (o.scaleY || 1) * finalScale,
+          left: (z.x - BLEED_PX) * finalScale,
+          top: (z.y - BLEED_PX) * finalScale,
+          width: z.w * finalScale,
+          height: z.h * finalScale,
           angle: o.angle || 0,
           rx: (o.rx || 0) * finalScale,
           ry: (o.ry || 0) * finalScale,
@@ -457,46 +499,8 @@ export function useCanvasExport({
       const dataUrl = await renderDesignArea();
       finalDataUrl = dataUrl;
     if (shootZones.length > 0) {
-      // Render B: user elements ONLY (hide bg too). Used to re-composite
-      // user elements back on top of the punched shoot-zone holes so
-      // elements drawn over a shoot zone stay visible in the export.
-      //
-      // For catalogue (booth Selfizee) loads, the booth uses
-      // globalCompositeOperation:"destination-out" on creu_<n> rects to
-      // punch holes through everything BELOW them in z-order — including
-      // the booth's "background image" layer (watercolor / pattern) that
-      // is a regular fabric Image, not flagged as _isBgImage. Our default
-      // re-composite re-adds that image, filling back the holes. Hide
-      // every catalogue object whose z-index sits BEFORE the LAST shoot
-      // (= "below the shoots") so they don't leak back into the holes.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allObjsForB: any[] = canvas.getObjects();
-      let lastCatalogueShootIndex = -1;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      allObjsForB.forEach((o: any, i: number) => {
-        if (o._isShootZone && o._fromCatalogue && i > lastCatalogueShootIndex) lastCatalogueShootIndex = i;
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      // Hide ALL background layers so Render B captures only user-drawn elements.
-      const bgObjectsForBpng: { obj: any; wasVisible: boolean }[] = [];
-      canvas.getObjects().forEach((o: any, i: number) => {
-        const isStudioBg = o._isSolidBg || o._isDesignAreaBg || o._isBgImage || o._isGradientBg;
-        const isCatalogueBelowShoots = lastCatalogueShootIndex >= 0 &&
-          i < lastCatalogueShootIndex && o._fromCatalogue && !o._isShootZone && !o._isShootLabel;
-        if (isStudioBg || isCatalogueBelowShoots) {
-          bgObjectsForBpng.push({ obj: o, wasVisible: o.visible !== false });
-          o.set("visible", false);
-        }
-      });
-      const savedCanvasBgForB = canvas.backgroundColor;
-      canvas.backgroundColor = "transparent";
-      canvas.renderAll();
-      const elementsOnlyUrl = await renderDesignArea();
-      bgObjectsForBpng.forEach(({ obj, wasVisible }) => obj.set("visible", wasVisible));
-      canvas.backgroundColor = savedCanvasBgForB;
-      canvas.renderAll();
-
+      // Trous des shoots dans l'ordre des calques (voir renderAvecTrous)
+      const avecTrous = await renderAvecTrous();
       const offscreen = document.createElement("canvas");
       offscreen.width = targetW;
       offscreen.height = targetH;
@@ -505,46 +509,7 @@ export function useCanvasExport({
       await new Promise<void>((resolve, reject) => {
         img.onload = () => { ctx.drawImage(img, 0, 0); resolve(); };
         img.onerror = () => reject(new Error("Export image load failed"));
-        img.src = dataUrl;
-      });
-      ctx.globalCompositeOperation = "destination-out";
-      for (const zone of shootZones) {
-        ctx.save();
-        if (zone.angle) {
-          // Shoot zones use originX:"left", originY:"top" — Fabric rotates
-          // around the top-left corner (the origin), NOT the geometric center.
-          ctx.translate(zone.left, zone.top);
-          ctx.rotate((zone.angle * Math.PI) / 180);
-          ctx.translate(-zone.left, -zone.top);
-        }
-        const r = zone.rx || 0;
-        if (r > 0) {
-          const x = zone.left, y = zone.top, w = zone.width, h = zone.height;
-          ctx.beginPath();
-          ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
-          ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-          ctx.lineTo(x + w, y + h - r);
-          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-          ctx.lineTo(x + r, y + h);
-          ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-          ctx.lineTo(x, y + r);
-          ctx.quadraticCurveTo(x, y, x + r, y);
-          ctx.closePath(); ctx.fill();
-        } else {
-          ctx.fillRect(zone.left, zone.top, zone.width, zone.height);
-        }
-        ctx.restore();
-      }
-      ctx.globalCompositeOperation = "source-over";
-
-      // Re-composite user elements on top of the punched holes so anything
-      // drawn OVER a shoot zone stays visible in the export (it would
-      // otherwise be erased by the destination-out punch above).
-      const elementsImg = new window.Image();
-      await new Promise<void>((resolve, reject) => {
-        elementsImg.onload = () => { ctx.drawImage(elementsImg, 0, 0); resolve(); };
-        elementsImg.onerror = () => reject(new Error("Elements-only image load failed"));
-        elementsImg.src = elementsOnlyUrl;
+        img.src = avecTrous;
       });
 
       // Draw stroke borders outside the holes
@@ -626,7 +591,7 @@ export function useCanvasExport({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  }, [fabricRef, canvasWidth, canvasHeight, frameName, cropToDesignArea]);
+  }, [fabricRef, canvasWidth, canvasHeight, frameName, cropToDesignArea, renderDesignArea, renderAvecTrous]);
 
   // ── handleSave ──
   const handleSave = useCallback(async (skipMarginCheck = false) => {
@@ -733,11 +698,12 @@ export function useCanvasExport({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       canvas.getObjects().forEach((o: any) => {
         if (o._isShootZone) {
+          const z = zoneDuShoot(o);
           shootZones.push({
-            left: (o.left - BLEED_PX) * finalScale2,
-            top: (o.top - BLEED_PX) * finalScale2,
-            width: o.width * (o.scaleX || 1) * finalScale2,
-            height: o.height * (o.scaleY || 1) * finalScale2,
+            left: (z.x - BLEED_PX) * finalScale2,
+            top: (z.y - BLEED_PX) * finalScale2,
+            width: z.w * finalScale2,
+            height: z.h * finalScale2,
             angle: o.angle || 0,
             rx: (o.rx || 0) * finalScale2,
             ry: (o.ry || 0) * finalScale2,
@@ -766,38 +732,9 @@ export function useCanvasExport({
       // Punch transparent holes for shoot zones, then re-composite user
       // elements that sit OVER a shoot so they stay visible in the preview.
       let finalDataUrl = dataUrl;
-      let elementsOnlyUrl = "";
       if (shootZones.length > 0) {
-        // Catalogue-load fidelity: also hide every _fromCatalogue object
-        // whose z-index is BEFORE the last catalogue shoot — they were
-        // meant to be punched by the booth's destination-out shoots and
-        // would otherwise leak back into the holes when re-composited.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const allObjsForBSave: any[] = canvas.getObjects();
-        let lastCatShootIndexSave = -1;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        allObjsForBSave.forEach((o: any, i: number) => {
-          if (o._isShootZone && o._fromCatalogue && i > lastCatShootIndexSave) lastCatShootIndexSave = i;
-        });
-        // Render B: user elements ONLY (hide ALL bg layers).
-        const bgObjectsForB: { obj: any; wasVisible: boolean }[] = [];
-        canvas.getObjects().forEach((o: any, i: number) => {
-          const isStudioBg = o._isSolidBg || o._isDesignAreaBg || o._isBgImage || o._isGradientBg;
-          const isCatalogueBelowShoots = lastCatShootIndexSave >= 0 &&
-            i < lastCatShootIndexSave && o._fromCatalogue && !o._isShootZone && !o._isShootLabel;
-          if (isStudioBg || isCatalogueBelowShoots) {
-            bgObjectsForB.push({ obj: o, wasVisible: o.visible !== false });
-            o.set("visible", false);
-          }
-        });
-        const savedCanvasBgForB = canvas.backgroundColor;
-        canvas.backgroundColor = "transparent";
-        canvas.renderAll();
-        elementsOnlyUrl = await renderDesignArea();
-        bgObjectsForB.forEach(({ obj, wasVisible }) => obj.set("visible", wasVisible));
-        canvas.backgroundColor = savedCanvasBgForB;
-        canvas.renderAll();
-
+        // Trous des shoots dans l'ordre des calques (voir renderAvecTrous)
+        const avecTrous = await renderAvecTrous();
         const offscreen = document.createElement("canvas");
         offscreen.width = targetW2;
         offscreen.height = targetH2;
@@ -806,42 +743,7 @@ export function useCanvasExport({
         await new Promise<void>((resolve, reject) => {
           img.onload = () => { ctx.drawImage(img, 0, 0); resolve(); };
           img.onerror = () => reject(new Error("Save image load failed"));
-          img.src = dataUrl;
-        });
-
-        ctx.globalCompositeOperation = "destination-out";
-        for (const zone of shootZones) {
-          ctx.save();
-          if (zone.angle) {
-            ctx.translate(zone.left, zone.top);
-            ctx.rotate((zone.angle * Math.PI) / 180);
-            ctx.translate(-zone.left, -zone.top);
-          }
-          const r = zone.rx || 0;
-          if (r > 0) {
-            const x = zone.left, y = zone.top, w = zone.width, h = zone.height;
-            ctx.beginPath();
-            ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
-            ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-            ctx.lineTo(x + w, y + h - r);
-            ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-            ctx.lineTo(x + r, y + h);
-            ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-            ctx.lineTo(x, y + r);
-            ctx.quadraticCurveTo(x, y, x + r, y);
-            ctx.closePath(); ctx.fill();
-          } else {
-            ctx.fillRect(zone.left, zone.top, zone.width, zone.height);
-          }
-          ctx.restore();
-        }
-        ctx.globalCompositeOperation = "source-over";
-
-        const elementsImg = new window.Image();
-        await new Promise<void>((resolve, reject) => {
-          elementsImg.onload = () => { ctx.drawImage(elementsImg, 0, 0); resolve(); };
-          elementsImg.onerror = () => reject(new Error("Elements-only image load failed"));
-          elementsImg.src = elementsOnlyUrl;
+          img.src = avecTrous;
         });
 
         for (const zone of shootZones) {
@@ -889,7 +791,8 @@ export function useCanvasExport({
         offscreen.width = 0; offscreen.height = 0;
       }
 
-      // ── Generate thumbnail: shoots filled #999 + camera icon, resized to max 500px ──
+      // ── Generate thumbnail: shoots filled #999 + camera icon UNDER the final render
+      // (seen through the holes only, so layers above a shoot stay on top), max 500px ──
       const THUMB_MAX = 500;
       let thumbDataUrl = "";
       try {
@@ -900,13 +803,6 @@ export function useCanvasExport({
         // Fill background white (JPG has no transparency)
         tctx.fillStyle = "#ffffff";
         tctx.fillRect(0, 0, targetW2, targetH2);
-        // Draw the base render (bg + elements, no shoots) — force exact dimensions
-        const baseImg = new window.Image();
-        await new Promise<void>((resolve, reject) => {
-          baseImg.onload = () => { tctx.drawImage(baseImg, 0, 0, targetW2, targetH2); resolve(); };
-          baseImg.onerror = () => reject(new Error("Thumb base load failed"));
-          baseImg.src = dataUrl;
-        });
         // Fill shoot zones with #999 + camera icon
         for (const zone of shootZones) {
           tctx.save();
@@ -991,15 +887,13 @@ export function useCanvasExport({
             tctx.restore();
           }
         }
-        // Re-composite user elements on top
-        if (elementsOnlyUrl) {
-          const elImg = new window.Image();
-          await new Promise<void>((resolve, reject) => {
-            elImg.onload = () => { tctx.drawImage(elImg, 0, 0, targetW2, targetH2); resolve(); };
-            elImg.onerror = () => reject(new Error("Thumb elements load failed"));
-            elImg.src = elementsOnlyUrl;
-          });
-        }
+        // The final render (holes in layer order) on top — force exact dimensions
+        const finalImg = new window.Image();
+        await new Promise<void>((resolve, reject) => {
+          finalImg.onload = () => { tctx.drawImage(finalImg, 0, 0, targetW2, targetH2); resolve(); };
+          finalImg.onerror = () => reject(new Error("Thumb final load failed"));
+          finalImg.src = finalDataUrl;
+        });
         // Resize to max 500px
         const tw = thumbCanvas.width;
         const th = thumbCanvas.height;
@@ -1102,7 +996,7 @@ export function useCanvasExport({
   }, [
     fabricRef, saving, canvasWidth, canvasHeight, frameName, frameId, eventId, catalogMode,
     format, gabarit, setSaving, onSaved, cropToDesignArea, checkPrintMargins,
-    generateMarginPreview, saveHandler,
+    generateMarginPreview, saveHandler, renderDesignArea, renderAvecTrous,
   ]);
 
   return {
