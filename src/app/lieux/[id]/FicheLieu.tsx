@@ -21,6 +21,7 @@ import { SectionParcours } from "@/components/Entonnoir";
 import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
+import { EvenementsLieu } from "@/components/EvenementsLieu";
 import { TarifsDuLieu } from "@/components/GrilleTarifs";
 import type { Alerte } from "@/lib/api";
 
@@ -52,7 +53,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "evenements" ? peut.administrer(moi.role) : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -140,6 +141,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {ongletActif === "suivi" && <SuiviLieu lieuId={id} />}
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
+
+      {ongletActif === "evenements" && <EvenementsLieu lieuId={id} />}
 
       {ongletActif === "infos" && (
       <>
@@ -266,13 +269,14 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "ventes" | "infos" | "suivi" | "commissions";
+type Onglet = "stats" | "ventes" | "infos" | "suivi" | "commissions" | "evenements";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
   { cle: "ventes", libelle: "Ventes" },
   { cle: "infos", libelle: "Informations" },
   { cle: "suivi", libelle: "Suivi" },
   { cle: "commissions", libelle: "Commissions" },
+  { cle: "evenements", libelle: "Événements" },
 ];
 
 function Info({ l, children }: { l: string; children: ReactNode }) {

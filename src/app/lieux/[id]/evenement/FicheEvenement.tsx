@@ -7,8 +7,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type EvenementPonctuel, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
-import { dateHeure, jour, JOURS_SEMAINE, parametreUrl } from "@/lib/format";
+import { dateHeure, JOURS_SEMAINE, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
+import { dates, FormNouvelEvenement, periode, trier } from "@/components/EvenementsLieu";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : trois écrans, puis le config.json de la borne.
 // Un lieu a son événement par défaut (« habituel » dans le code) et d'autres événements (Halloween, une soirée…), chacun avec son
@@ -119,7 +120,7 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
         actions={<Link href={`/lieux/${lieuId}`} className="bouton-second">← Fiche du lieu</Link>}
       />
 
-      <BarreEvenements lieuId={lieuId} eid={eid} />
+      <ChoixEvenement lieuId={lieuId} eid={eid} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-4">
@@ -311,7 +312,7 @@ function EcranLieu({ r, setR, horaires, lieuId, nom, setNom }: PropsEcran & { ho
           <Champ libelle="Début *">
             <input className="champ" type="date" required value={l.dateDebut} onChange={(e) => maj({ dateDebut: e.target.value })} />
           </Champ>
-          <Champ libelle="Fin *" aide="Une borne à l'année : plusieurs années.">
+          <Champ libelle="Fin *" aide={nom === null ? "Une borne à l'année : plusieurs années." : "Le même jour que le début : une seule journée."}>
             <input className="champ" type="date" required value={l.dateFin} min={l.dateDebut} onChange={(e) => maj({ dateFin: e.target.value })} />
           </Champ>
           <Champ libelle="Ton des textes" aide="Consignes de pose et phrases du « +1 pour un pote ».">
@@ -496,75 +497,50 @@ function EcranGabarits({ r, setR, apiEvenement, ouvrirStudio, ouverture }: Props
   );
 }
 
-// ─── Barre des événements du lieu ───────────────────────────
+// ─── Choix de l'événement ───────────────────────────────────
 
-/** L'événement par défaut, les autres (Halloween, une soirée…) et la création d'un nouveau. */
-function BarreEvenements({ lieuId, eid }: { lieuId: number; eid?: number }) {
-  const client = useQueryClient();
+/**
+ * Passer d'un événement du lieu à l'autre : une liste déroulante (en cours et à venir d'abord, passés
+ * ensuite) qui tient même avec beaucoup d'événements ; la vue d'ensemble est l'onglet « Événements » du lieu.
+ */
+function ChoixEvenement({ lieuId, eid }: { lieuId: number; eid?: number }) {
   const router = useRouter();
   const liste = useQuery({ queryKey: ["evenements-ponctuels", lieuId], queryFn: () => api<EvenementPonctuel[]>(`/lieux/${lieuId}/evenements-ponctuels`) });
   const [creation, setCreation] = useState(false);
-  const [nom, setNom] = useState("");
-  const [debut, setDebut] = useState("");
-  const [fin, setFin] = useState("");
-  const creer = useMutation({
-    mutationFn: () => api<FicheEvenementLieu>(`/lieux/${lieuId}/evenements-ponctuels`, { method: "POST", json: { nom: nom.trim(), dateDebut: debut, dateFin: fin || debut } }),
-    onSuccess: (f) => {
-      client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
-      setCreation(false);
-      setNom("");
-      router.push(cheminsEvenement(lieuId, f.id).page);
-    },
-  });
-  const puce = (actif: boolean) => `rounded-full border px-3 py-1 text-sm ${actif ? "border-accent bg-accent text-accent-ink" : "border-line-strong bg-surface text-ink hover:border-accent"}`;
+  const tries = trier(liste.data ?? []);
+  const actuels = tries.filter((e) => periode(e) !== "passe");
+  const passes = tries.filter((e) => periode(e) === "passe");
+  const option = (e: EvenementPonctuel) => (
+    <option key={e.id} value={e.id}>
+      {e.nom} · {dates(e)} · {e.code}
+    </option>
+  );
 
   return (
     <div className="mb-4 space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-medium uppercase tracking-wide text-ink-muted">Événements</span>
-        <Link href={cheminsEvenement(lieuId).page} className={puce(!eid)}>Par défaut</Link>
-        {liste.data?.map((e) => (
-          <Link key={e.id} href={cheminsEvenement(lieuId, e.id).page} className={puce(eid === e.id)} title={`Code ${e.code}`}>
-            {e.nom} <span className="opacity-75">· {e.dateDebut === e.dateFin ? jour(e.dateDebut) : `${jour(e.dateDebut)} → ${jour(e.dateFin)}`}</span>
-          </Link>
-        ))}
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm">
+          <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">Événement</span>
+          <select
+            className="champ w-auto min-w-64"
+            value={eid ?? ""}
+            onChange={(e) => router.push(cheminsEvenement(lieuId, e.target.value ? Number(e.target.value) : null).page)}
+          >
+            <option value="">Par défaut</option>
+            {actuels.length > 0 && <optgroup label="En cours et à venir">{actuels.map(option)}</optgroup>}
+            {passes.length > 0 && <optgroup label="Passés">{passes.map(option)}</optgroup>}
+          </select>
+        </label>
+        <Link href={`/lieux/${lieuId}?onglet=evenements`} className="text-sm text-accent hover:underline">
+          Tous les événements{liste.data?.length ? ` (${liste.data.length + 1})` : ""}
+        </Link>
         {!creation && (
-          <button type="button" className="rounded-full border border-dashed border-line-strong px-3 py-1 text-sm text-accent hover:border-accent" onClick={() => setCreation(true)}>
+          <button type="button" className="text-sm text-accent hover:underline" onClick={() => setCreation(true)}>
             + Nouvel événement
           </button>
         )}
       </div>
-      {creation && (
-        <form
-          className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-surface p-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            creer.mutate();
-          }}
-        >
-          <label className="block">
-            <span className="etiquette">Nom *</span>
-            <input className="champ w-64" required maxLength={80} placeholder="Halloween, Noël…" value={nom} onChange={(e) => setNom(e.target.value)} />
-          </label>
-          <label className="block">
-            <span className="etiquette">Début *</span>
-            <input className="champ" type="date" required value={debut} onChange={(e) => setDebut(e.target.value)} />
-          </label>
-          <label className="block">
-            <span className="etiquette">Fin</span>
-            <input className="champ" type="date" min={debut} value={fin} onChange={(e) => setFin(e.target.value)} />
-          </label>
-          <button type="submit" className="bouton" disabled={creer.isPending || !nom.trim() || !debut}>
-            {creer.isPending ? "Création…" : "Créer"}
-          </button>
-          <button type="button" className="bouton-second" onClick={() => setCreation(false)}>Annuler</button>
-          <p className="w-full text-xs text-ink-muted">
-            Il reprend les réglages de l&apos;événement par défaut et les tarifs du lieu, sans les cadres ; il aura son propre code, à taper sur la borne.
-            Sans date de fin : une seule soirée.
-          </p>
-          {creer.error && <div className="w-full"><Erreur erreur={creer.error} /></div>}
-        </form>
-      )}
+      {creation && <FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
       {liste.error && <Erreur erreur={liste.error} />}
     </div>
   );
