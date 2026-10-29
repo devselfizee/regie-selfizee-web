@@ -37,6 +37,7 @@ export const dernierWeekEnd = (a: Date): { du: Date; au: Date } => {
 
 export const PRESETS: { cle: string; libelle: string; calcul: () => { du: string; au: string; granularite: Granularite } }[] = [
   { cle: "jour", libelle: "Ce jour", calcul: () => ({ du: ymd(aujourdhui()), au: ymd(aujourdhui()), granularite: "jour" }) },
+  { cle: "hier", libelle: "Hier", calcul: () => ({ du: ymd(moinsJours(aujourdhui(), 1)), au: ymd(moinsJours(aujourdhui(), 1)), granularite: "jour" }) },
   {
     cle: "we",
     libelle: "Ce week-end",

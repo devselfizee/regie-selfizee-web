@@ -63,7 +63,7 @@ function Contenu() {
         actions={<button className="bouton-second" onClick={exporter} disabled={!data}>Exporter (CSV)</button>}
       />
       <div className="mb-4 flex flex-wrap gap-1">
-        {PRESETS.filter((p) => !["7j", "jour", "we"].includes(p.cle)).map((p) => {
+        {PRESETS.filter((p) => !["7j", "jour", "hier", "we"].includes(p.cle)).map((p) => {
           const c = p.calcul();
           return (
             <button key={p.cle} onClick={() => setPeriode(c)}
