@@ -130,7 +130,10 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
           </thead>
           <tbody>
             <tr className="border-b border-line bg-surface-2/50">
-              <td className="py-2 pr-3 font-medium">Par défaut <span className="ml-1 text-xs font-normal text-ink-muted">(toute l&apos;année)</span></td>
+              <td className="py-2 pr-3 font-medium">
+                <Link href={pageEvenement(lieuId)} className="hover:text-accent hover:underline">Par défaut</Link>
+                <span className="ml-1 text-xs font-normal text-ink-muted">(toute l&apos;année)</span>
+              </td>
               <td className="py-2 pr-3 font-mono">{d.code ?? "—"}</td>
               <td className="py-2 pr-3 tabular">{dates(d.reglages.lieu)}</td>
               <td className="py-2 pr-3"><Badge ton={PERIODES[periode(d.reglages.lieu)].ton}>{PERIODES[periode(d.reglages.lieu)].libelle}</Badge></td>
@@ -141,7 +144,9 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
               const p = PERIODES[periode(e)];
               return (
                 <tr key={e.id} className="border-b border-line last:border-0">
-                  <td className="py-2 pr-3 font-medium">{e.nom}</td>
+                  <td className="py-2 pr-3 font-medium">
+                    <Link href={pageEvenement(lieuId, e.id)} className="hover:text-accent hover:underline">{e.nom}</Link>
+                  </td>
                   <td className="py-2 pr-3 font-mono">{e.code}</td>
                   <td className="py-2 pr-3 tabular">{dates(e)}</td>
                   <td className="py-2 pr-3"><Badge ton={p.ton}>{p.libelle}</Badge></td>
