@@ -438,6 +438,7 @@ function ActiviteNonFacturee({ k }: { k: StatsLieu["kpis"]["courant"] }) {
     k.nbGratuites ? `${nombre(k.nbGratuites)} séance(s) gratuite(s)` : null,
     k.tiragesNonFactures ? `${nombre(k.tiragesNonFactures)} tirage(s) non facturé(s)` : null,
     k.nbExpirees ? `${nombre(k.nbExpirees)} paiement(s) expiré(s) : terminal sans réponse` : null,
+    k.tests?.nbVentes ? `${nombre(k.tests.nbVentes)} vente(s) avec les cartes de test (${euros(k.tests.caTtcCents)})` : null,
     k.nbIncertaines ? `${euros(k.caIncertainTtcCents ?? 0)} de CA à l'enregistrement incertain (${nombre(k.nbIncertaines)} vente(s), à vérifier au rapprochement)` : null,
   ].filter(Boolean);
   if (!elements.length) return null;

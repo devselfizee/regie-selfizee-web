@@ -89,6 +89,8 @@ export interface Kpis {
   nbIncertaines?: number;
   caIncertainTtcCents?: number;
   lieuxAvecVentes: number;
+  /** Ventes des cartes de test sur la période : hors chiffres ci-dessus */
+  tests?: { nbVentes: number; caTtcCents: number };
   // Activité photo (séances) : prises = arrivées au paiement, achetées = avec une vraie vente
   photosPrises: number;
   /** parcours : photos vraiment prises (parcours invité) ; paiement : séances arrivées au paiement */
@@ -731,6 +733,20 @@ export interface Vente {
   pikcloudUuid: string | null;
   /** Adresse de la photo (null : pas de photo ou adresse des photos non réglée) */
   photoUrl: string | null;
+  /** Nom de la carte de test (Paramètres) : vente hors chiffres réels ; null pour une vraie vente */
+  carteTest: string | null;
+}
+
+/** Carte bancaire de test (Paramètres) et ce qui a été payé avec */
+export interface CarteTest {
+  id: number;
+  derniersChiffres: string;
+  nom: string;
+  createdAt: string;
+  creePar: { prenom: string; nom: string } | null;
+  nbVentes: number;
+  caTtcCents: number;
+  derniereVente: string | null;
 }
 
 /** Récapitulatif d'une commande (GET /ventes/:id) */

@@ -21,6 +21,8 @@ const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "
   REMBOURSEE: { libelle: "Remboursement", ton: "neutre" },
 };
 
+const CARTES: Record<string, string> = { reelles: "Ventes réelles", test: "Cartes de test", toutes: "Toutes" };
+
 const TYPES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "paiements", libelle: "Tous les paiements", aide: "Chaque passage par le terminal ou le QR, encaissé ou non, et les remboursements" },
   { cle: "ventes", libelle: "Ventes encaissées", aide: "Acceptées et débitées, et les remboursements" },
@@ -42,8 +44,10 @@ interface PagePaiements {
  * Liste paginée des paiements, avec filtres, récapitulatif et remboursement.
  * Page Paiements ; avec lieuIdFixe, onglet « Ventes » d'une fiche lieu (lieu imposé, tous parcs).
  */
-export function ListePaiements({ lieuIdFixe }: { lieuIdFixe?: number }) {
-  const [q, setQ] = useState("");
+export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; initial?: { q?: string; cartes?: string } }) {
+  const [q, setQ] = useState(initial?.q ?? "");
+  // Ventes réelles par défaut ; les cartes de test (Paramètres) sont à part
+  const [cartes, setCartes] = useState(initial?.cartes && CARTES[initial.cartes] ? initial.cartes : "reelles");
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
   const [type, setType] = useState("paiements");
@@ -66,7 +70,7 @@ export function ListePaiements({ lieuIdFixe }: { lieuIdFixe?: number }) {
   const recherche = useDeferredValue(q.trim());
   const query = qs({
     q: recherche || undefined, du: du || undefined, au: au || undefined, type, lieuId: lieuId || undefined,
-    borneId: borneId || undefined, moyenPaiement: moyen || undefined, parc: parc || undefined, page,
+    borneId: borneId || undefined, moyenPaiement: moyen || undefined, parc: parc || undefined, cartes, page,
   });
   const { data, error, isPending, isFetching } = useQuery({
     queryKey: ["ventes", query],
@@ -116,13 +120,21 @@ export function ListePaiements({ lieuIdFixe }: { lieuIdFixe?: number }) {
             <ChoixLieu id="paiements-lieu" lieux={lieux.data ?? []} valeur={lieuId} onChange={changer(setLieuId)} tous="Tous" />
           </div>
         )}
-        <label className="block">
-          <span className="etiquette">Borne</span>
-          <select id="paiements-borne" className="champ" value={borneId} onChange={(e) => changer(setBorneId)(e.target.value)}>
-            <option value="">Toutes</option>
-            {bornes.data?.map((b) => <option key={b.id} value={b.id}>{b.identifiant}</option>)}
-          </select>
-        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="etiquette">Borne</span>
+            <select id="paiements-borne" className="champ" value={borneId} onChange={(e) => changer(setBorneId)(e.target.value)}>
+              <option value="">Toutes</option>
+              {bornes.data?.map((b) => <option key={b.id} value={b.id}>{b.identifiant}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className="etiquette">Cartes</span>
+            <select id="paiements-cartes" className="champ" value={cartes} onChange={(e) => changer(setCartes)(e.target.value)}>
+              {Object.entries(CARTES).map(([cle, libelle]) => <option key={cle} value={cle}>{libelle}</option>)}
+            </select>
+          </label>
+        </div>
         <div className={lieuIdFixe ? "" : "grid grid-cols-2 gap-3"}>
           <label className="block">
             <span className="etiquette">Moyen</span>
@@ -142,7 +154,13 @@ export function ListePaiements({ lieuIdFixe }: { lieuIdFixe?: number }) {
           </label>
           )}
         </div>
-        {typeChoisi && !recherche && <p className="text-xs text-ink-muted sm:col-span-2 lg:col-span-4">{typeChoisi.aide}.</p>}
+        {typeChoisi && !recherche && (
+          <p className="text-xs text-ink-muted sm:col-span-2 lg:col-span-4">
+            {typeChoisi.aide}.
+            {cartes === "test" && " Seulement les ventes des cartes de test, hors chiffres réels."}
+            {cartes === "toutes" && " Cartes de test comprises (elles ne comptent pas dans les statistiques)."}
+          </p>
+        )}
         {recherche && <p className="text-xs text-ink-muted sm:col-span-2 lg:col-span-4">Une recherche porte sur toutes les séances, quel que soit « Afficher ».</p>}
       </div>
 
@@ -223,6 +241,7 @@ export function ListePaiements({ lieuIdFixe }: { lieuIdFixe?: number }) {
                       <div className="flex flex-wrap gap-1">
                         <Badge ton={statut.ton}>{statut.libelle}</Badge>
                         {v.encaissement === "INCERTAIN" && <Badge ton="warn">À rapprocher</Badge>}
+                        {v.carteTest && <Badge ton="warn">Test · {v.carteTest}</Badge>}
                         {(v.gratuite || (v.statut === "ACCEPTEE" && v.moyenPaiement === "AUCUN")) && (
                           <Badge ton="neutre">Gratuit{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>
                         )}

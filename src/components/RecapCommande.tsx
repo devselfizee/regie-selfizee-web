@@ -71,6 +71,7 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
           <div className="flex flex-wrap justify-end gap-1">
             <Badge ton={statut.ton}>{statut.libelle}</Badge>
             {v.encaissement === "INCERTAIN" && <Badge ton="warn">À rapprocher</Badge>}
+            {v.carteTest && <Badge ton="warn">Carte de test · {v.carteTest} : hors chiffres</Badge>}
             {gratuite && <Badge ton="neutre">Gratuit{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>}
             {v.lieu?.parc === "CLIENT" && <Badge ton="neutre">Parc client</Badge>}
           </div>

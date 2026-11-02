@@ -251,6 +251,7 @@ function Contenu({
           {...comparer(ht ? c.panierPhotoHtCents : c.panierPhotoTtcCents, ht ? p.panierPhotoHtCents : p.panierPhotoTtcCents)}
         />
       </div>
+      {c.tests && c.tests.nbVentes > 0 && <LigneTests tests={c.tests} />}
 
       {/* Graphique d'évolution du CA */}
       <Section
@@ -435,4 +436,17 @@ function ParHeure({ heures, ht }: { heures: StatsGlobales["parHeure"]; ht: boole
   );
   if (!heures.some((h) => h.caTtcCents > 0)) return <Vide>Aucune vente sur la journée pour l&apos;instant.</Vide>;
   return <Graphique option={option} description={`Chiffre d'affaires ${ht ? "HT" : "TTC"} de la journée par heure`} />;
+}
+
+/** Ventes des cartes de test sur la période : à part, hors chiffres ci-dessus */
+function LigneTests({ tests }: { tests: { nbVentes: number; caTtcCents: number } }) {
+  return (
+    <p className="-mt-3 text-sm text-ink-2">
+      Hors chiffres : {nombre(tests.nbVentes)} vente{tests.nbVentes > 1 ? "s" : ""} de test ({euros(tests.caTtcCents)} TTC) avec les{" "}
+      <Link href="/paiements?cartes=test" className="text-accent hover:underline">
+        cartes de test
+      </Link>
+      .
+    </p>
+  );
 }

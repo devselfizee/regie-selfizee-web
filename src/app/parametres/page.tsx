@@ -10,6 +10,7 @@ import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
 import { TarifsBase } from "@/components/GrilleTarifs";
 import { ReglesAlertes } from "@/components/ReglesAlertes";
 import { DonneesDemo } from "@/components/DonneesDemo";
+import { CartesTest } from "@/components/CartesTest";
 
 // Listes administrables de la fiche lieu (CDC §3.1) + gammes et types de module (CDC §2)
 const LISTES: { cle: string; libelle: string; aide: string }[] = [
@@ -26,6 +27,7 @@ const LISTES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "GAMMES", libelle: "Gammes de bornes", aide: "Spherik, Kalifun, Classic… Le code est un identifiant fixe : il ne change pas quand on renomme le libellé." },
   { cle: "MODULES", libelle: "Modules de paiement", aide: "Le code est celui que les bornes envoient (module.type) : il ne change pas quand on renomme le libellé." },
   { cle: "TARIFS", libelle: "Tarifs de base", aide: "" },
+  { cle: "CARTES_TEST", libelle: "Cartes de test", aide: "" },
   { cle: "ALERTES", libelle: "Règles d'alerte", aide: "" },
   { cle: "DEMO", libelle: "Données de démonstration", aide: "" },
 ];
@@ -98,7 +100,7 @@ function Parametres() {
               <SynchroAntennes />
               <Liste key={liste.cle} def={liste} data={data} />
             </div>
-          ) : liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
+          ) : liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "CARTES_TEST" ? <CartesTest /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
         </div>
       )}
     </>
