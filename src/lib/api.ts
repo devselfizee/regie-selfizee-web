@@ -760,6 +760,8 @@ export interface EmplacementConcurrent {
   latitude: number | null;
   longitude: number | null;
   concurrent: { id: number; nom: string; typeMateriel: "CABINE" | "BORNE" };
+  /** Fiche prospect créée depuis cet emplacement */
+  lieu?: { id: number; statut: string } | null;
 }
 
 export interface ListeProspects {

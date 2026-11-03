@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type EmplacementConcurrent, type ListeProspects, type Prospect } from "@/lib/api";
 import { euros, eurosRond, pct } from "@/lib/format";
 import { Reserve } from "@/lib/session";
@@ -11,6 +11,7 @@ import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Classe, CONFIANCE, Precision } from "@/components/Prospect";
 import { CarteLieux, type PointCarte } from "@/components/CarteLieux";
 import { MATERIELS, useConcurrents } from "@/components/Concurrents";
+import { useReferentiel } from "@/components/Filtres";
 
 export default function PageProspects() {
   return (
@@ -230,20 +231,65 @@ function Prospects() {
   );
 }
 
-/** Vue liste : les emplacements connus des concurrents (importés dans Paramètres → Concurrents), avec une recherche */
+/**
+ * Vue liste : les emplacements connus des concurrents (importés dans Paramètres → Concurrents), avec une recherche.
+ * Chacun peut devenir un prospect (demande de Sébastien) : nom, adresse, position et concurrent en place repris.
+ */
 function ListeEmplacements({ emplacements, chargement }: { emplacements: EmplacementConcurrent[] | undefined; chargement: boolean }) {
+  const client = useQueryClient();
+  const { data: ref } = useReferentiel();
   const [q, setQ] = useState("");
   const [nb, setNb] = useState(100);
+  const [choisis, setChoisis] = useState<Set<number>>(new Set());
+  const [typeLieuId, setTypeLieuId] = useState("");
+  const creer = useMutation({
+    mutationFn: (ids: number[]) =>
+      api<{ crees: number; dejaProspects: number }>("/concurrents/emplacements/prospects", { method: "POST", json: { ids, typeLieuId: Number(typeLieuId) } }),
+    onSuccess: () => {
+      setChoisis(new Set());
+      client.invalidateQueries({ queryKey: ["prospects"] });
+      client.invalidateQueries({ queryKey: ["emplacements-concurrents"] });
+    },
+  });
   if (chargement) return <Chargement />;
   if (!emplacements) return null;
   const n = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const filtres = q.trim() ? emplacements.filter((e) => n([e.nom, e.ville, e.codePostal, e.adresse, e.concurrent.nom].filter(Boolean).join(" ")).includes(n(q.trim()))) : emplacements;
+  const disponibles = filtres.filter((e) => !e.lieu);
+  const tousCoches = disponibles.length > 0 && disponibles.every((e) => choisis.has(e.id));
+  const basculer = (id: number) => setChoisis((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
+  const typesLieu = (ref?.listes.TYPE_LIEU ?? []).filter((t) => t.actif);
+
   return (
     <section className="mt-6">
       <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-base font-semibold">Emplacements des concurrents ({filtres.length})</h2>
         <input className="champ !w-72" placeholder="Rechercher un nom, une ville, un code postal…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
+
+      {choisis.size > 0 && (
+        <div className="mb-2 flex flex-wrap items-end gap-2 rounded-md bg-accent/5 p-3 text-sm">
+          <span className="self-center font-medium">{choisis.size} emplacement(s) sélectionné(s)</span>
+          <label>
+            <span className="etiquette">Type de lieu des prospects *</span>
+            <select className="champ" value={typeLieuId} onChange={(e) => setTypeLieuId(e.target.value)}>
+              <option value="">—</option>
+              {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+            </select>
+          </label>
+          <button type="button" className="bouton" disabled={!typeLieuId || creer.isPending} onClick={() => creer.mutate([...choisis])}>
+            {creer.isPending ? "Création…" : `Créer ${choisis.size} prospect${choisis.size > 1 ? "s" : ""}`}
+          </button>
+          <button type="button" className="bouton-second" onClick={() => setChoisis(new Set())}>Annuler</button>
+        </div>
+      )}
+      {creer.data && (
+        <p className="mb-2 text-sm text-good">
+          {creer.data.crees} prospect(s) créé(s) avec le concurrent en place renseigné.{creer.data.dejaProspects > 0 && ` ${creer.data.dejaProspects} étaient déjà des prospects.`}
+        </p>
+      )}
+      {creer.error && <Erreur erreur={creer.error} />}
+
       {!emplacements.length ? (
         <Vide>Aucun emplacement : importez ceux d&apos;un concurrent dans Paramètres → Concurrents.</Vide>
       ) : (
@@ -251,15 +297,28 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-ink-2">
               <tr>
+                <th className="w-10 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    aria-label="Tout sélectionner"
+                    checked={tousCoches}
+                    disabled={!disponibles.length}
+                    onChange={() => setChoisis(tousCoches ? new Set() : new Set(disponibles.map((e) => e.id)))}
+                  />
+                </th>
                 <th className="px-4 py-3 font-medium">Lieu</th>
                 <th className="px-4 py-3 font-medium">Concurrent</th>
                 <th className="px-4 py-3 font-medium">Adresse</th>
                 <th className="px-4 py-3 font-medium">Ville</th>
+                <th className="px-4 py-3 font-medium">Prospect</th>
               </tr>
             </thead>
             <tbody>
               {filtres.slice(0, nb).map((e) => (
                 <tr key={e.id} className="border-t border-line">
+                  <td className="px-4 py-2.5">
+                    {!e.lieu && <input type="checkbox" aria-label={`Sélectionner ${e.nom}`} checked={choisis.has(e.id)} onChange={() => basculer(e.id)} />}
+                  </td>
                   <td className="px-4 py-2.5 font-medium">{e.nom}</td>
                   <td className="px-4 py-2.5">
                     {e.concurrent.nom}
@@ -269,6 +328,13 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
                   <td className="px-4 py-2.5">
                     {[e.codePostal, e.ville].filter(Boolean).join(" ") || "—"}
                     {e.latitude === null && <span className="block text-xs text-warn-ink">pas sur la carte</span>}
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {e.lieu ? (
+                      <Link href={`/lieux/${e.lieu.id}`} className="text-accent hover:underline">Voir le {e.lieu.statut === "PROSPECT" ? "prospect" : "lieu"}</Link>
+                    ) : (
+                      <button type="button" className="text-accent hover:underline" onClick={() => setChoisis(new Set([e.id]))}>Créer le prospect</button>
+                    )}
                   </td>
                 </tr>
               ))}
