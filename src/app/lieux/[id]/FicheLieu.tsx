@@ -15,7 +15,7 @@ import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/E
 import { SectionCommissions } from "@/components/SectionCommissions";
 import { PrevisionLieuSection } from "@/components/SectionPrevision";
 import { SectionPotentiel } from "@/components/Prospect";
-import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
+import { JournalEvenements, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
 import { ListeAlertes } from "@/components/ListeAlertes";
 import { Comportement } from "@/components/Entonnoir";
 import { BasculeHt, htDepuisTtc, usePreferenceHt } from "@/components/BasculeHt";
@@ -116,12 +116,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </>
       )}
 
-      {ongletActif === "stats" && voitVentes && (
-        <div className="mt-6">
-          <SectionContexte lieuId={id} />
-        </div>
-      )}
-
+      {/* Calendrier et météo : seulement dans Analyse (retour de Sébastien) ; la courbe garde vacances, fériés et météo en infobulle */}
       {/* Comportement des invités et projection, à part des statistiques (retour de Sébastien) */}
       {ongletActif === "comportement" && voitVentes && (
         <div className="space-y-6">
