@@ -1,8 +1,8 @@
 // Zones remplies par la borne au moment de la photo, posées au studio comme des éléments du cadre :
 // QR code (lien de la page souvenir), code de séance, date / heure de la prise de vue. Elles ne sont pas
 // dans l'image du cadre (masquées à l'export, voir useCanvasExport) : l'API lit leur position et leur
-// style dans le canvas enregistré et les écrit dans le config.json (`qrHoles`, `sessionCode`,
-// `dynamicTexts` — regie-selfizee-api src/config-evenement/composition.ts).
+// style dans le canvas enregistré et les écrit dans le config.json (`qrHoles`, `sessionCode`, et
+// `dynamicTexts` au format que la borne lit déjà — regie-selfizee-api src/config-evenement/composition.ts).
 
 export type TypeZoneBorne = "qr" | "code-seance" | "date" | "heure" | "date-heure";
 
@@ -70,6 +70,11 @@ export function reglerZoneBorne(o: any) {
   } else {
     // Le texte est écrit par la borne : on règle son style, pas son contenu
     o.set({ editable: false });
+    // Les textes dynamiques de la borne n'ont pas de rotation (le code de séance, si)
+    if (o._zoneBorne !== "code-seance") {
+      o.set({ lockRotation: true });
+      o.setControlsVisibility?.({ mtr: false });
+    }
   }
 }
 
