@@ -24,9 +24,10 @@ export function GraphiqueCA({
   serie: PointSerie[];
   serieN1?: PointSerie[];
   /** Repères verticaux (interventions SAV, événements…) : jour "AAAA-MM-JJ", libellé et étiquette courte */
-  reperes?: { jour: string; libelle: string; court?: string }[];
+  /** marketing : temps fort du calendrier marketing, dans sa propre couleur */
+  reperes?: { jour: string; libelle: string; court?: string; marketing?: boolean }[];
   /** Périodes grisées (vacances scolaires…) */
-  bandes?: { du: string; au: string; libelle: string }[];
+  bandes?: { du: string; au: string; libelle: string; marketing?: boolean }[];
   /** Ligne ajoutée à l'infobulle d'un jour (météo, férié…), en granularité jour */
   infosJour?: Record<string, string>;
   /** Montants HT (sinon TTC) : la série doit porter caHtCents */
@@ -82,7 +83,7 @@ export function GraphiqueCA({
                   data: reperes
                     .map((r) => ({ r, i: periodes.filter((p) => p <= r.jour).length - 1 }))
                     .filter(({ i }) => i >= 0)
-                    .map(({ r, i }) => ({ xAxis: i, name: r.libelle, court: r.court })),
+                    .map(({ r, i }) => ({ xAxis: i, name: r.libelle, court: r.court, ...(r.marketing ? { lineStyle: { color: j.viz2, type: "dashed", width: 1 }, label: { color: j.viz2 } } : {}) })),
                 }
               : undefined,
             markArea: bandes.length
@@ -93,7 +94,11 @@ export function GraphiqueCA({
                   data: bandes
                     .map((b) => ({ b, i: Math.max(0, periodes.filter((p) => p <= b.du).length - 1), k: periodes.filter((p) => p <= b.au).length - 1 }))
                     .filter(({ b, k }) => k >= 0 && b.au >= periodes[0] && b.du <= periodes[periodes.length - 1])
-                    .map(({ b, i, k }) => [{ xAxis: i, name: b.libelle }, { xAxis: k }]),
+                    .map(({ b, i, k }) => [
+                      // Période marketing (Coupe du monde…) : autre couleur, libellé en bas pour ne pas chevaucher les vacances
+                      { xAxis: i, name: b.libelle, ...(b.marketing ? { itemStyle: { color: j.viz2, opacity: 0.1 }, label: { position: "insideBottom", color: j.viz2 } } : {}) },
+                      { xAxis: k },
+                    ]),
                 }
               : undefined,
           },

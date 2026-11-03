@@ -213,6 +213,8 @@ export interface LieuListe {
   bornes: { id: number; identifiant: string; dernierHeartbeat: string | null; derniereVente: string | null; gamme: { id: number; libelle: string } }[];
   ca30jCents: number | null; // null : rôle sans accès au CA
   ventes30j: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface LieuFiche {
@@ -655,6 +657,24 @@ export interface ContexteLieu {
   geolocalise: boolean;
   effets: EffetsContexte;
   jours: JourContexte[];
+  /** Temps forts du calendrier marketing sur la plage */
+  marketing?: OccurrenceMarketing[];
+}
+
+export interface OccurrenceMarketing {
+  id: number;
+  nom: string;
+  du: string;
+  au: string;
+  annuel: boolean;
+}
+
+export interface EvenementMarketing {
+  id: number;
+  nom: string;
+  debut: string;
+  fin: string;
+  annuel: boolean;
 }
 
 export interface ContexteSegments {
@@ -893,6 +913,8 @@ export interface ElementTimeline {
   auteur?: string | null;
   ton?: string;
   commentaire?: CommentaireLieu;
+  /** Résolution d'une alerte : l'alerte à laquelle elle répond */
+  reponseA?: { titre: string; date: string; detail: string };
 }
 
 export interface MesMentions {

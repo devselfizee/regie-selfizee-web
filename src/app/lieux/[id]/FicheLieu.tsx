@@ -127,6 +127,11 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
           {l.statut === "ACTIF" && <PrevisionLieuSection lieuId={id} />}
           <div>
             <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
+            {stats.data && (
+              <div className="mb-6">
+                <ActiviteSansVente k={stats.data.kpis.courant} />
+              </div>
+            )}
             <Comportement lieuId={id} requete={qs({ du: filtres.du, au: filtres.au })} />
           </div>
         </div>
@@ -341,7 +346,7 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
           infosJour={sup.infosJour}
         />
         <p className="mt-2 text-xs text-ink-muted">
-          Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. Traits : {longue ? "" : "jours fériés, "}événements du journal
+          Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. En orange : calendrier marketing. Traits : {longue ? "" : "jours fériés, "}événements du journal
           {s.interventions.length > 0 && `, interventions SAV (${s.interventions.length})`}. La météo du jour est dans l&apos;infobulle (Météo-France, MET Norway).
         </p>
       </Section>
@@ -450,18 +455,21 @@ function Tableau({ entetes, lignes }: { entetes: string[]; lignes: ReactNode[][]
   );
 }
 
-/** Schéma 1.1 des bornes : ce qui ne fait pas de CA (offert, gratuit, expiré) et le CA à confirmer. */
+/**
+ * Hors chiffre d'affaires : seulement les ventes des cartes de test et le CA à confirmer (retour de Sébastien) ;
+ * le reste de l'activité sans vente est dans l'onglet Comportement (ActiviteSansVente).
+ */
 function ActiviteNonFacturee({ k }: { k: StatsLieu["kpis"]["courant"] }) {
-  const elements = [
-    k.nbOffertes ? `${nombre(k.nbOffertes)} offerte(s) : imprimée(s) sans débit` : null,
-    k.nbGratuites ? `${nombre(k.nbGratuites)} séance(s) gratuite(s)` : null,
-    k.tiragesNonFactures ? `${nombre(k.tiragesNonFactures)} tirage(s) non facturé(s)` : null,
-    k.nbExpirees ? `${nombre(k.nbExpirees)} paiement(s) expiré(s) : terminal sans réponse` : null,
-    k.tests?.nbVentes ? `${nombre(k.tests.nbVentes)} vente(s) avec les cartes de test (${euros(k.tests.caTtcCents)})` : null,
-    k.nbIncertaines ? `${euros(k.caIncertainTtcCents ?? 0)} de CA à l'enregistrement incertain (${nombre(k.nbIncertaines)} vente(s), à vérifier au rapprochement)` : null,
-  ].filter(Boolean);
-  if (!elements.length) return null;
-  return <p className="text-sm text-ink-2"><span className="font-medium text-ink">Hors chiffre d&apos;affaires :</span> {elements.join(" · ")}.</p>;
+  const tests = k.tests?.nbVentes ? `${nombre(k.tests.nbVentes)} vente(s) avec les cartes de test (${euros(k.tests.caTtcCents)})` : null;
+  // Le CA incertain est compté dans le CA : à confirmer au rapprochement, pas hors CA
+  const incertain = k.nbIncertaines ? `${euros(k.caIncertainTtcCents ?? 0)} d'enregistrement incertain (${nombre(k.nbIncertaines)} vente(s)), compté(s) mais à vérifier au rapprochement` : null;
+  if (!tests && !incertain) return null;
+  return (
+    <p className="text-sm text-ink-2">
+      {tests && <><span className="font-medium text-ink">Hors chiffre d&apos;affaires :</span> {tests}.{" "}</>}
+      {incertain && <><span className="font-medium text-ink">CA à confirmer :</span> {incertain}.</>}
+    </p>
+  );
 }
 
 /** Papier restant dans l'imprimante et ancienneté de l'information (dernier signe de vie qui l'a donnée) */
@@ -521,4 +529,26 @@ function enHt(s: StatsLieu): StatsLieu {
     formules: s.formules.map((f) => ({ ...f, caTtcCents: htDepuisTtc(f.caTtcCents), montantCents: f.montantCents === undefined ? undefined : htDepuisTtc(f.montantCents) })),
     meilleuresDates: s.meilleuresDates.map((d) => ({ ...d, caTtcCents: htDepuisTtc(d.caTtcCents) })),
   };
+}
+
+/** Activité sans vente : photos validées sans paiement, tirages offerts, paiements restés sans réponse */
+function ActiviteSansVente({ k }: { k: StatsLieu["kpis"]["courant"] }) {
+  const lignes = [
+    { libelle: "Séances sans action (photo validée sans paiement)", nb: k.nbGratuites ?? 0 },
+    { libelle: "Tirages offerts (imprimés sans débit)", nb: k.nbOffertes ?? 0 },
+    { libelle: "Tirages non facturés", nb: k.tiragesNonFactures ?? 0 },
+    { libelle: "Paiements expirés (terminal sans réponse)", nb: k.nbExpirees ?? 0 },
+  ];
+  return (
+    <Section titre="Activité sans vente">
+      <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+        {lignes.map((l) => (
+          <div key={l.libelle} className="flex justify-between gap-3 border-b border-line py-1">
+            <dt className="text-ink-2">{l.libelle}</dt>
+            <dd className="tabular font-medium">{nombre(l.nb)}</dd>
+          </div>
+        ))}
+      </dl>
+    </Section>
+  );
 }

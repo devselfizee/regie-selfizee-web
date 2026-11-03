@@ -10,10 +10,12 @@ import { useMoi, type Role } from "@/lib/session";
 const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/", libelle: "Tableau de bord", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/lieux", libelle: "Lieux", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
-  { href: "/lieux/carte", libelle: "Carte des lieux", roles: ["ADMIN", "COMMERCIAL"] },
+  { href: "/lieux/carte", libelle: "Analyse géographique", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/analyse", libelle: "Analyse", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/comportements", libelle: "Comportements", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/prospects", libelle: "Prospects", roles: ["ADMIN", "COMMERCIAL"] },
+  { href: "/monitoring", libelle: "Monitoring live", roles: ["ADMIN", "TECHNICIEN"] },
+  { href: "/papier", libelle: "Papier", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/alertes", libelle: "Alertes", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
   { href: "/mentions", libelle: "Mes mentions", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
   { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },

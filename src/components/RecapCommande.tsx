@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type RecapVente } from "@/lib/api";
-import { dateHeure, euros, GRATUITES, MOYENS } from "@/lib/format";
+import { dateHeure, euros, GRATUITES, libelleMoyen } from "@/lib/format";
 import { Badge, Chargement, Erreur } from "./Etat";
 
 // Récapitulatif d'une commande (demande de Sébastien, comme boothpay) : la photo, le paiement,
@@ -69,10 +69,10 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
             </div>
           </div>
           <div className="flex flex-wrap justify-end gap-1">
-            <Badge ton={statut.ton}>{statut.libelle}</Badge>
+            {!gratuite && <Badge ton={statut.ton}>{statut.libelle}</Badge>}
             {v.encaissement === "INCERTAIN" && <Badge ton="warn">À rapprocher</Badge>}
             {v.carteTest && <Badge ton="warn">Carte de test · {v.carteTest} : hors chiffres</Badge>}
-            {gratuite && <Badge ton="neutre">Gratuit{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>}
+            {gratuite && <Badge ton="neutre">Sans action{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>}
             {v.lieu?.parc === "CLIENT" && <Badge ton="neutre">Parc client</Badge>}
           </div>
         </div>
@@ -92,7 +92,7 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
             <span className="text-ink-muted"> · {v.borne.gamme.libelle}</span>
           </Info>
           <Info libelle="Paiement">
-            {MOYENS[v.moyenPaiement] ?? v.moyenPaiement}
+            {libelleMoyen(v.moyenPaiement, v.statut)}
             <span className="block text-xs text-ink-muted">{v.typeModule.libelle}{v.module?.identifiantPrestataire ? ` · TID ${v.module.identifiantPrestataire}` : ""}</span>
           </Info>
           <Info libelle="Carte">{v.carteFin ? <span className="font-mono">•••• {v.carteFin}</span> : <span className="text-ink-muted">—</span>}</Info>

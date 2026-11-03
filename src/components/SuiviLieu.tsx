@@ -43,7 +43,7 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
     onSuccess: rafraichir,
   });
 
-  const elements = (timeline.data ?? []).filter((e) => (filtre === "tout" ? true : filtre === "commentaires" ? e.type === "COMMENTAIRE" : e.type !== "COMMENTAIRE"));
+  const elements = (timeline.data ?? []).filter((e) => (filtre === "tout" ? true : filtre === "commentaires" ? e.type === "COMMENTAIRE" || !!(e.reponseA && e.detail) : e.type !== "COMMENTAIRE"));
 
   return (
     <div className="grid gap-6">
@@ -94,6 +94,8 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
                 <span aria-hidden className={`absolute -left-[5px] top-1.5 size-2.5 rounded-full ring-4 ring-surface ${TYPES[e.type]?.pastille ?? "bg-ink-muted"}`} />
                 {e.commentaire ? (
                   <Commentaire c={e.commentaire} personnes={personnes.data ?? []} onChange={rafraichir} />
+                ) : e.reponseA && e.detail ? (
+                  <ReponseAlerte e={e} />
                 ) : (
                   <div>
                     <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
@@ -110,6 +112,28 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
           </ol>
         )}
       </section>
+    </div>
+  );
+}
+
+/**
+ * Résolution d'une alerte avec un commentaire écrit à la main : mise en avant comme un commentaire,
+ * avec son auteur et l'alerte à laquelle elle répond (retour de Sébastien)
+ */
+function ReponseAlerte({ e }: { e: ElementTimeline }) {
+  const a = e.reponseA!;
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
+        <span className="font-medium text-ink">{e.auteur ?? "Quelqu'un"}</span>
+        <span>{dateHeure(e.date)}</span>
+        <span>· {e.titre.startsWith("Alerte ignorée") ? "a ignoré l'alerte" : "a résolu l'alerte"}</span>
+      </div>
+      <div className="mt-1 rounded-md border-l-4 border-accent bg-accent/5 px-3 py-2 text-sm whitespace-pre-wrap">{e.detail}</div>
+      <div className="mt-1.5 border-l-2 border-line pl-3 text-xs text-ink-2">
+        <span aria-hidden>↳ </span>en réponse à <span className="font-medium text-ink">{a.titre}</span> du {dateHeure(a.date)}
+        <span className="block text-ink-muted">{a.detail}</span>
+      </div>
     </div>
   );
 }
@@ -164,7 +188,7 @@ function Commentaire({ c, personnes, onChange }: { c: CommentaireLieu; personnes
           />
         </div>
       ) : (
-        <div className="mt-1 rounded-md bg-surface-2 px-3 py-2 text-sm whitespace-pre-wrap">{avecMentions(c.texte, mentionnes)}</div>
+        <div className="mt-1 rounded-md border-l-4 border-accent bg-accent/5 px-3 py-2 text-sm whitespace-pre-wrap">{avecMentions(c.texte, mentionnes)}</div>
       )}
     </div>
   );

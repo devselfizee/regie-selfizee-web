@@ -33,7 +33,8 @@ export const MOYENS: Record<string, string> = {
   ESPECES: "Espèces",
   MOBILE: "Téléphone",
   WEB: "Paiement en ligne (QR)",
-  AUCUN: "Gratuit",
+  // Photo validée sans passer par un paiement (mode gratuit, code staff, sans tirage…) : pas une vente (retour de Sébastien)
+  AUCUN: "Sans action",
   // Paiement par le terminal sans ticket rapproché : refus, annulation, expiration ou journal indisponible
   AUTRE: "Ticket non retrouvé",
 };
@@ -48,6 +49,12 @@ export const OPTIONS_MOYENS = [
   // Ni espèces (non gérées) ni téléphone (jamais envoyé : le terminal le voit comme du sans contact)
   ...["WEB", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
 ];
+
+/**
+ * Moyen de paiement affiché : sans ticket du terminal (AUTRE), une vente annulée ou refusée n'a pas de moyen
+ * connu (« — ») ; « Ticket non retrouvé » ne garde son sens que pour une vente acceptée.
+ */
+export const libelleMoyen = (moyen: string, statut: string) => (moyen === "AUTRE" && statut !== "ACCEPTEE" ? "—" : (MOYENS[moyen] ?? moyen));
 
 /** "il y a 3 h" — pour l'état des bornes */
 export function depuis(iso: string | null | undefined): string {

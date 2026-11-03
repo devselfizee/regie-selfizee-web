@@ -24,7 +24,7 @@ const resumeMeteo = (j: JourContexte) =>
 /** Superpositions de la courbe de CA : vacances (bandes), fériés et événements (repères), météo (infobulle). */
 export function superpositions(contexte: ContexteLieu | undefined, evenements: EvenementLieu[] | undefined) {
   const jours = contexte?.jours ?? [];
-  const bandes: { du: string; au: string; libelle: string }[] = [];
+  const bandes: { du: string; au: string; libelle: string; marketing?: boolean }[] = [];
   for (const j of jours) {
     const derniere = bandes[bandes.length - 1];
     if (!j.vacances) continue;
@@ -35,8 +35,11 @@ export function superpositions(contexte: ContexteLieu | undefined, evenements: E
   const infosJour = Object.fromEntries(
     jours.map((j) => [j.jour, [j.ferie && `Férié : ${j.ferie}`, resumeMeteo(j)].filter(Boolean).join(" · ")]).filter(([, v]) => v)
   );
-  const reperes = [
+  // Calendrier marketing : un jour → trait, une période → bande (retour de Sébastien)
+  for (const m of contexte?.marketing ?? []) if (m.du !== m.au) bandes.push({ du: m.du, au: m.au, libelle: m.nom, marketing: true });
+  const reperes: { jour: string; libelle: string; court: string; marketing?: boolean }[] = [
     ...jours.filter((j) => j.ferie).map((j) => ({ jour: j.jour, libelle: j.ferie!, court: "Férié" })),
+    ...(contexte?.marketing ?? []).filter((m) => m.du === m.au).map((m) => ({ jour: m.du, libelle: m.nom, court: m.nom, marketing: true })),
     ...(evenements ?? []).map((e) => ({ jour: e.debut, libelle: `${e.type.libelle} : ${e.libelle}`, court: e.type.libelle })),
   ];
   return { bandes, infosJour, reperes };

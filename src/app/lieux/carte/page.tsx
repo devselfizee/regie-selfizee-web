@@ -10,6 +10,7 @@ import { Reserve, useMoi } from "@/lib/session";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { CarteLieux, type PointCarte } from "@/components/CarteLieux";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
+import { libelleDepartement } from "@/lib/departements";
 
 interface LieuCarte {
   lieuId: number;
@@ -24,6 +25,7 @@ interface LieuCarte {
   caParJourOuvertCents: number | null;
   caPrecedentCents: number;
   evolution: number | null;
+  departement: string | null;
 }
 
 type Mesure = "ca" | "caJourOuvert" | "evolution";
@@ -131,7 +133,7 @@ function Carte() {
   return (
     <>
       <EnTete
-        titre="Carte des lieux"
+        titre="Analyse géographique"
         sousTitre={data ? `Du ${jour(data.periode.du)} au ${jour(data.periode.au)} · cliquez sur un lieu pour ouvrir sa fiche` : undefined}
       />
       <Filtres valeurs={filtres} onChange={setFiltres} />
@@ -186,7 +188,9 @@ function Carte() {
             </div>
           )}
 
-          <Section titre="Les mêmes données en tableau">
+          <ParDepartement lieux={data.lieux} />
+
+          <Section titre="Par lieu">
             {tries.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -222,5 +226,60 @@ function Carte() {
         </div>
       )}
     </>
+  );
+}
+
+/** Moyennes par département (retour de Sébastien) : CA moyen par lieu et par jour ouvert, évolution d'ensemble */
+function ParDepartement({ lieux }: { lieux: LieuCarte[] }) {
+  const groupes = new Map<string, { nb: number; ca: number; ventes: number; jours: number; precedent: number }>();
+  for (const l of lieux) {
+    const cle = l.departement ?? "";
+    const g = groupes.get(cle) ?? { nb: 0, ca: 0, ventes: 0, jours: 0, precedent: 0 };
+    g.nb++;
+    g.ca += l.caTtcCents;
+    g.ventes += l.nbVentes;
+    g.jours += l.joursOuverts;
+    g.precedent += l.caPrecedentCents;
+    groupes.set(cle, g);
+  }
+  const lignes = [...groupes].sort((a, b) => b[1].ca / b[1].nb - a[1].ca / a[1].nb);
+  if (!lignes.length) return null;
+  return (
+    <Section titre="Par département">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs text-ink-2">
+            <tr>
+              <th className="py-2 pr-3 font-medium">Département</th>
+              <th className="py-2 pr-3 text-right font-medium">Lieux</th>
+              <th className="py-2 pr-3 text-right font-medium">CA total</th>
+              <th className="py-2 pr-3 text-right font-medium">CA moyen par lieu</th>
+              <th className="py-2 pr-3 text-right font-medium">Ventes moyennes par lieu</th>
+              <th className="py-2 pr-3 text-right font-medium">CA moyen par jour ouvert</th>
+              <th className="py-2 text-right font-medium">Évolution</th>
+            </tr>
+          </thead>
+          <tbody className="tabular">
+            {lignes.map(([dep, g]) => {
+              const evolution = g.precedent ? (g.ca - g.precedent) / g.precedent : null;
+              return (
+                <tr key={dep} className="border-t border-line">
+                  <td className="py-2 pr-3 font-medium">{dep ? libelleDepartement(dep) : <span className="text-ink-muted">Code postal manquant</span>}</td>
+                  <td className="py-2 pr-3 text-right">{g.nb}</td>
+                  <td className="py-2 pr-3 text-right">{euros(g.ca)}</td>
+                  <td className="py-2 pr-3 text-right font-medium">{euros(Math.round(g.ca / g.nb))}</td>
+                  <td className="py-2 pr-3 text-right">{Math.round(g.ventes / g.nb)}</td>
+                  <td className="py-2 pr-3 text-right">{g.jours ? euros(Math.round(g.ca / g.jours)) : "—"}</td>
+                  <td className={`py-2 text-right ${evolution === null ? "text-ink-muted" : evolution >= 0 ? "text-good" : "text-bad"}`}>
+                    {evolution === null ? "—" : `${evolution > 0 ? "▲ +" : evolution < 0 ? "▼ " : ""}${pct(evolution)}`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 text-xs text-ink-muted">Moyennes sur les lieux actifs de chaque département pour la période et les filtres choisis. Par jour ouvert : CA du département ÷ jours d&apos;ouverture de ses lieux.</p>
+    </Section>
   );
 }

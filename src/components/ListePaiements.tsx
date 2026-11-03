@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type BorneListe, type LieuListe, type Vente } from "@/lib/api";
-import { dateHeure, euros, GRATUITES, MOYENS, nombre, OPTIONS_MOYENS } from "@/lib/format";
+import { dateHeure, euros, GRATUITES, libelleMoyen, nombre, OPTIONS_MOYENS } from "@/lib/format";
 import { versCents } from "@/lib/commissions";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "./Etat";
 import { Modale } from "./Modale";
 import { MenuExport } from "./BoutonExport";
 import { RecapCommande } from "./RecapCommande";
 import { ChoixLieu } from "./ChoixLieu";
+import { CalendrierVentes } from "./CalendrierVentes";
 
 const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "neutre" }> = {
   ACCEPTEE: { libelle: "Acceptée", ton: "ok" },
@@ -28,8 +29,6 @@ const TYPES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "ventes", libelle: "Ventes encaissées", aide: "Acceptées et débitées, et les remboursements" },
   { cle: "non_abouties", libelle: "Non abouties", aide: "Refusées, annulées, sans réponse du terminal, tirages offerts : aucun débit" },
   { cle: "remboursements", libelle: "Remboursements", aide: "Saisis ici, rattachés à leur vente" },
-  { cle: "gratuites", libelle: "Séances gratuites", aide: "Séances à 0 € : mode gratuit, code staff, sans tirage…" },
-  { cle: "tout", libelle: "Tout", aide: "Toutes les séances transmises par les bornes" },
 ];
 
 interface PagePaiements {
@@ -51,6 +50,8 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
   const [type, setType] = useState("paiements");
+  // Photos validées sans paiement (« sans action ») : hors des ventes, montrées seulement sur demande
+  const [sansAction, setSansAction] = useState(false);
   const [lieuIdChoisi, setLieuId] = useState("");
   const lieuId = lieuIdFixe ? String(lieuIdFixe) : lieuIdChoisi;
   const [borneId, setBorneId] = useState("");
@@ -59,6 +60,8 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
   const [parcChoisi, setParc] = useState("SELFIZEE");
   const parc = lieuIdFixe ? "" : parcChoisi;
   const [page, setPage] = useState(1);
+  // Liste ou calendrier du mois avec la synthèse de chaque jour (retour de Sébastien)
+  const [vue, setVue] = useState<"liste" | "calendrier">("liste");
   const [rembourser, setRembourser] = useState<Vente | null>(null);
   // Récapitulatif d'une commande : un clic sur la ligne
   const [recap, setRecap] = useState<string | null>(null);
@@ -69,7 +72,7 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
   };
   const recherche = useDeferredValue(q.trim());
   const query = qs({
-    q: recherche || undefined, du: du || undefined, au: au || undefined, type, lieuId: lieuId || undefined,
+    q: recherche || undefined, du: du || undefined, au: au || undefined, type, sansAction: sansAction ? "1" : undefined, lieuId: lieuId || undefined,
     borneId: borneId || undefined, moyenPaiement: moyen || undefined, parc: parc || undefined, cartes, page,
   });
   const { data, error, isPending, isFetching } = useQuery({
@@ -85,14 +88,44 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
   return (
     <>
       {lieuIdFixe ? (
-        <div className="mb-3 flex justify-end">
+        <div className="mb-3 flex justify-end gap-2">
+          <div className="flex rounded-md border border-line-strong bg-surface p-0.5" role="group" aria-label="Affichage">
+              {(["liste", "calendrier"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={vue === v}
+                  onClick={() => setVue(v)}
+                  className={`rounded px-3 py-1.5 text-sm font-medium ${vue === v ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+                >
+                  {v === "liste" ? "Liste" : "Calendrier"}
+                </button>
+              ))}
+            </div>
           <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ du: du || undefined, au: au || undefined, lieuId }) }]} />
         </div>
       ) : (
         <EnTete
           titre="Paiements"
           sousTitre="Tous les paiements remontés par les bornes. Cliquez sur une ligne pour le récapitulatif ; une vente se rembourse ici, la borne ne rembourse jamais."
-          actions={<MenuExport exports={[{ libelle: "Ventes", chemin: "/export/transactions", requete: qs({ du: du || undefined, au: au || undefined, lieuId: lieuId || undefined, parc: parc || undefined }) }]} />}
+          actions={
+            <>
+              <div className="flex rounded-md border border-line-strong bg-surface p-0.5" role="group" aria-label="Affichage">
+              {(["liste", "calendrier"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={vue === v}
+                  onClick={() => setVue(v)}
+                  className={`rounded px-3 py-1.5 text-sm font-medium ${vue === v ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
+                >
+                  {v === "liste" ? "Liste" : "Calendrier"}
+                </button>
+              ))}
+            </div>
+              <MenuExport exports={[{ libelle: "Ventes", chemin: "/export/transactions", requete: qs({ du: du || undefined, au: au || undefined, lieuId: lieuId || undefined, parc: parc || undefined }) }]} />
+            </>
+          }
         />
       )}
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -154,6 +187,10 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
           </label>
           )}
         </div>
+        <label className="flex items-center gap-2 text-sm text-ink-2 sm:col-span-2 lg:col-span-4">
+          <input type="checkbox" checked={sansAction} onChange={(e) => changer(setSansAction)(e.target.checked)} />
+          Afficher aussi toutes les photos validées sans paiement (sans action : mode gratuit, code staff, sans tirage…)
+        </label>
         {typeChoisi && !recherche && (
           <p className="text-xs text-ink-muted sm:col-span-2 lg:col-span-4">
             {typeChoisi.aide}.
@@ -164,16 +201,28 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
         {recherche && <p className="text-xs text-ink-muted sm:col-span-2 lg:col-span-4">Une recherche porte sur toutes les séances, quel que soit « Afficher ».</p>}
       </div>
 
-      {data && (
+      {vue === "calendrier" && (
+        <CalendrierVentes
+          lieuId={lieuIdFixe}
+          filtres={{ lieuId: lieuId || undefined, borneId: borneId || undefined, moyenPaiement: moyen || undefined, parc: parc || undefined, cartes }}
+          onJour={(j) => {
+            setDu(j);
+            setAu(j);
+            setPage(1);
+            setVue("liste");
+          }}
+        />
+      )}
+      {vue === "liste" && data && (
         <div className="mb-3 flex flex-wrap items-baseline gap-x-6 gap-y-1 text-sm">
           <span><strong className="tabular">{nombre(data.total)}</strong> ligne{data.total > 1 ? "s" : ""}{isFetching ? " · mise à jour…" : ""}</span>
           <span>Encaissé : <strong className="tabular">{euros(data.totaux.encaisseTtcCents)}</strong> TTC <span className="text-ink-muted">({nombre(data.totaux.nbVentes)} vente{data.totaux.nbVentes > 1 ? "s" : ""}{data.totaux.rembourseTtcCents > 0 ? `, ${euros(data.totaux.rembourseTtcCents)} remboursés déduits` : ""})</span></span>
         </div>
       )}
-      {error && <Erreur erreur={error} />}
-      {isPending && !error && <Chargement />}
-      {data && !data.lignes.length && <Vide>Aucun paiement ne correspond.</Vide>}
-      {data && data.lignes.length > 0 && (
+      {vue === "liste" && error && <Erreur erreur={error} />}
+      {vue === "liste" && isPending && !error && <Chargement />}
+      {vue === "liste" && data && !data.lignes.length && <Vide>Aucun paiement ne correspond.</Vide>}
+      {vue === "liste" && data && data.lignes.length > 0 && (
         <div className="carte overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-ink-2">
@@ -191,6 +240,7 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
             <tbody className="tabular">
               {data.lignes.map((v) => {
                 const statut = STATUTS[v.statut] ?? { libelle: v.statut, ton: "neutre" as const };
+                const aucuneAction = v.statut === "ACCEPTEE" && (v.moyenPaiement === "AUCUN" || v.montantTtcCents === 0);
                 const vendue = (v.statut === "ACCEPTEE" && !v.gratuite && v.moyenPaiement !== "AUCUN" && v.montantTtcCents > 0) || v.statut === "REMBOURSEE";
                 const remboursable = v.statut === "ACCEPTEE" && v.montantTtcCents > v.rembourseCents && v.moyenPaiement !== "AUCUN";
                 return (
@@ -220,7 +270,7 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
                       {v.lieu ? <> · <Link className="hover:underline" href={`/lieux/${v.lieu.id}`}>{v.lieu.enseigne}</Link></> : <span className="text-ink-muted"> · non affectée</span>}
                     </td>
                     <td className="px-4 py-3">
-                      {MOYENS[v.moyenPaiement] ?? v.moyenPaiement}
+                      {libelleMoyen(v.moyenPaiement, v.statut)}
                       <div className="text-xs text-ink-muted">
                         {v.typeModule.libelle}
                         {v.carteFin && <span className="font-mono"> · •••• {v.carteFin}</span>}
@@ -239,11 +289,11 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        <Badge ton={statut.ton}>{statut.libelle}</Badge>
+                        {!aucuneAction && <Badge ton={statut.ton}>{statut.libelle}</Badge>}
                         {v.encaissement === "INCERTAIN" && <Badge ton="warn">À rapprocher</Badge>}
                         {v.carteTest && <Badge ton="warn">Test · {v.carteTest}</Badge>}
-                        {(v.gratuite || (v.statut === "ACCEPTEE" && v.moyenPaiement === "AUCUN")) && (
-                          <Badge ton="neutre">Gratuit{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>
+                        {(v.gratuite || aucuneAction) && (
+                          <Badge ton="neutre">Sans action{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>
                         )}
                       </div>
                     </td>
@@ -267,7 +317,7 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
           </table>
         </div>
       )}
-      {data && pages > 1 && (
+      {vue === "liste" && data && pages > 1 && (
         <div className="mt-3 flex items-center justify-center gap-2 text-sm">
           <button type="button" className="bouton-second !py-1" disabled={page <= 1} onClick={() => setPage(page - 1)}>← Plus récents</button>
           <span className="text-ink-2 tabular">Page {page} / {pages}</span>
