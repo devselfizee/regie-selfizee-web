@@ -160,6 +160,11 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             <Info l="Raison sociale">{l.raisonSociale}{l.siret && <span className="text-ink-muted"> · {l.siret}</span>}</Info>
             <Info l="Adresse">{[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ") || "—"}</Info>
             <Info l="Ville principale">{l.antenne?.libelle ?? "—"}</Info>
+            {l.statut === "PROSPECT" && (
+              <Info l="Concurrent en place">
+                {l.concurrentEnPlace ? (l.concurrent ? `${l.concurrent.nom} (${l.concurrent.typeMateriel === "CABINE" ? "cabine" : "borne"})` : (l.concurrentNom ?? "Oui")) : l.concurrentEnPlace === false ? "Non" : "—"}
+              </Info>
+            )}
             <Info l="Vacances scolaires">{l.zoneScolaire ? (l.zoneScolaire === "CORSE" ? "Corse" : `Zone ${l.zoneScolaire}`) : <span className="text-ink-muted">code postal manquant</span>}</Info>
             <Info l="Papier">{l.papierSurPlace ? "Changé sur place par le lieu" : "Changé par Selfizee"}</Info>
             <Info l="Parc">{l.parc === "CLIENT" ? "Parc client (location financière)" : "Parc Selfizee"}</Info>

@@ -9,6 +9,7 @@ import { JOURS_SEMAINE } from "@/lib/format";
 import { useReferentiel } from "./Filtres";
 import { Chargement } from "./Etat";
 import { useMoi } from "@/lib/session";
+import { MATERIELS, useConcurrents } from "./Concurrents";
 
 // État du formulaire : tout en chaînes (champs HTML), converti à l'envoi.
 type Horaire = { jourSemaine: number; ouverture: string; fermeture: string };
@@ -24,6 +25,8 @@ interface Etat {
   capaciteAccueil: string; frequentationJour: string; frequentationSemaine: string;
   clienteleIds: number[];
   zoneGeoId: string; tailleCommuneId: string; concurrencePhoto: string; concurrencePhotoNotes: string;
+  // Prospect : concurrent déjà en place (oui / non / pas renseigné), choisi dans la liste ou saisi (concurrentId = "autre")
+  concurrentEnPlace: string; concurrentId: string; concurrentNom: string;
   interieurExterieur: string; emplacementZoneId: string; visibilite: string; eclairageId: string;
   dateSignature: string; dateInstallation: string; dureeContratMois: string;
   commercialId: string; antenneId: string; parc: string; papierSurPlace: string; origineLeadId: string; notes: string;
@@ -49,6 +52,9 @@ function depuisFiche(l?: LieuFiche, statut = "ACTIF"): Etat {
     zoneGeoId: s(l?.zoneGeoId), tailleCommuneId: s(l?.tailleCommuneId),
     concurrencePhoto: l?.concurrencePhoto === null || l?.concurrencePhoto === undefined ? "" : l.concurrencePhoto ? "oui" : "non",
     concurrencePhotoNotes: s(l?.concurrencePhotoNotes),
+    concurrentEnPlace: l?.concurrentEnPlace === null || l?.concurrentEnPlace === undefined ? "" : l.concurrentEnPlace ? "oui" : "non",
+    concurrentId: l?.concurrentId ? String(l.concurrentId) : l?.concurrentNom ? "autre" : "",
+    concurrentNom: s(l?.concurrentNom),
     interieurExterieur: s(l?.interieurExterieur), emplacementZoneId: s(l?.emplacementZoneId),
     visibilite: s(l?.visibilite), eclairageId: s(l?.eclairageId),
     dateSignature: jourIso(l?.dateSignature ?? null), dateInstallation: jourIso(l?.dateInstallation ?? null),
@@ -77,6 +83,9 @@ function versApi(e: Etat) {
     zoneGeoId: num(e.zoneGeoId), tailleCommuneId: num(e.tailleCommuneId),
     concurrencePhoto: e.concurrencePhoto === "" ? null : e.concurrencePhoto === "oui",
     concurrencePhotoNotes: txt(e.concurrencePhotoNotes),
+    concurrentEnPlace: e.concurrentEnPlace === "" ? null : e.concurrentEnPlace === "oui",
+    concurrentId: e.concurrentId && e.concurrentId !== "autre" ? Number(e.concurrentId) : null,
+    concurrentNom: e.concurrentId === "autre" ? txt(e.concurrentNom) : null,
     interieurExterieur: txt(e.interieurExterieur), emplacementZoneId: num(e.emplacementZoneId),
     visibilite: num(e.visibilite), eclairageId: num(e.eclairageId),
     dateSignature: txt(e.dateSignature), dateInstallation: txt(e.dateInstallation), dureeContratMois: num(e.dureeContratMois),
@@ -100,6 +109,9 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
   const client = useQueryClient();
   const moi = useMoi();
   const [e, setE] = useState<Etat>(() => depuisFiche(lieu, statut));
+  // Fiche prospect allégée (retour de Sébastien) : sans fréquentation, environnement, emplacement ni bloc commercial
+  const prospect = e.statut === "PROSPECT";
+  const concurrents = useConcurrents();
   const set = (patch: Partial<Etat>) => setE((prev) => ({ ...prev, ...patch }));
 
   const enregistrer = useMutation({
@@ -155,7 +167,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
     >
       <Bloc titre="Identité">
         {champ("enseigne", "Enseigne", { requis: true })}
-        {champ("raisonSociale", "Raison sociale", { requis: true })}
+        {champ("raisonSociale", "Raison sociale", { requis: !prospect, placeholder: prospect ? "Facultatif : l'enseigne sinon" : undefined })}
         {champ("siret", "SIRET", { placeholder: "14 chiffres" })}
         {select("statut", "Statut", [
           { value: "ACTIF", label: "Client" },
@@ -194,7 +206,33 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {select("standingId", "Standing", options("STANDING"))}
       </Bloc>
 
-      <Bloc titre="Fréquentation">
+      {prospect && (
+        <Bloc titre="Concurrent déjà en place ?">
+          <div className="flex flex-wrap items-center gap-4 text-sm sm:col-span-2 lg:col-span-3">
+            {[["oui", "Oui"], ["non", "Non"], ["", "Je ne sais pas"]].map(([v, l]) => (
+              <label key={v} className="flex items-center gap-2">
+                <input type="radio" name="concurrentEnPlace" checked={e.concurrentEnPlace === v} onChange={() => set({ concurrentEnPlace: v })} /> {l}
+              </label>
+            ))}
+          </div>
+          {e.concurrentEnPlace === "oui" && (
+            <>
+              <Champ libelle="Concurrent" erreur={erreurs.get("concurrentId")}>
+                <select className="champ" value={e.concurrentId} onChange={(ev) => set({ concurrentId: ev.target.value })}>
+                  <option value="">—</option>
+                  {(concurrents.data ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.nom} · {MATERIELS[c.typeMateriel].toLowerCase()}</option>
+                  ))}
+                  <option value="autre">Autre (saisir le nom)</option>
+                </select>
+              </Champ>
+              {e.concurrentId === "autre" && champ("concurrentNom", "Nom du concurrent", { requis: true })}
+            </>
+          )}
+        </Bloc>
+      )}
+
+      {!prospect && <Bloc titre="Fréquentation">
         {champ("capaciteAccueil", "Capacité d'accueil", { type: "number" })}
         {champ("frequentationJour", "Fréquentation estimée / jour", { type: "number" })}
         {champ("frequentationSemaine", "Fréquentation estimée / semaine", { type: "number" })}
@@ -218,9 +256,9 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
             })}
           </div>
         </div>
-      </Bloc>
+      </Bloc>}
 
-      <Bloc titre="Environnement">
+      {!prospect && <Bloc titre="Environnement">
         {select("zoneGeoId", "Zone", options("ZONE_GEO"))}
         {select("tailleCommuneId", "Taille de la commune", options("TAILLE_COMMUNE"))}
         {select("concurrencePhoto", "Concurrence photo à proximité", [
@@ -228,9 +266,9 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
           { value: "non", label: "Non" },
         ])}
         <div className="sm:col-span-2 lg:col-span-3">{champ("concurrencePhotoNotes", "Détail de la concurrence")}</div>
-      </Bloc>
+      </Bloc>}
 
-      <Bloc titre="Emplacement de la borne">
+      {!prospect && <Bloc titre="Emplacement de la borne">
         {select("interieurExterieur", "Intérieur / extérieur", [
           { value: "INTERIEUR", label: "Intérieur" },
           { value: "EXTERIEUR", label: "Extérieur" },
@@ -239,9 +277,9 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {select("emplacementZoneId", "Zone dans le lieu", options("EMPLACEMENT_ZONE"))}
         {select("visibilite", "Visibilité (1 à 5)", [1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: "★".repeat(n) + ` (${n})` })))}
         {select("eclairageId", "Éclairage", options("ECLAIRAGE"))}
-      </Bloc>
+      </Bloc>}
 
-      <Bloc titre="Commercial">
+      {!prospect && <Bloc titre="Commercial">
         {champ("dateSignature", "Date de signature", { type: "date" })}
         {champ("dateInstallation", "Date d'installation", { type: "date" })}
         {champ("dureeContratMois", "Durée du contrat (mois)", { type: "number" })}
@@ -257,7 +295,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
           { value: "OUI", label: "Sur place, par le lieu" },
         ], true)}
         {select("origineLeadId", "Origine du lead", options("ORIGINE_LEAD"))}
-      </Bloc>
+      </Bloc>}
 
       <Bloc titre="Activité" colonnes={1}>
         <div className="max-w-xs">

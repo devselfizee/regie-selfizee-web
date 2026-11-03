@@ -12,6 +12,10 @@ export interface PointCarte {
   /** Contenu de l'infobulle (texte) */
   titre: string;
   lignes: string[];
+  /** Taille du point (9 par défaut) */
+  rayon?: number;
+  /** Point d'information seul (emplacement d'un concurrent…) : pas de clic */
+  inerte?: boolean;
 }
 
 // Fond de carte : Plan IGN (Géoplateforme), service public, sans clé
@@ -101,14 +105,14 @@ export function CarteLieux({ points, onClic, hauteur = 560, zoomMax = 11 }: { po
         const marqueurs: { marqueur: ReturnType<typeof L.circleMarker>; base: [number, number]; ecart: [number, number] }[] = [];
         for (const p of points) {
           const marqueur = L.circleMarker([p.latitude, p.longitude], {
-            radius: 9,
+            radius: p.rayon ?? 9,
             color: "#ffffff", // liseré blanc : les points restent distincts quand ils se chevauchent
             weight: 2,
             fillColor: p.couleur,
             fillOpacity: 0.95,
           })
             .bindTooltip(`<strong>${echapper(p.titre)}</strong><br>${p.lignes.map(echapper).join("<br>")}`, { direction: "top", offset: [0, -6] })
-            .on("click", () => clic.current(p.id))
+            .on("click", () => !p.inerte && clic.current(p.id))
             .addTo(c);
           marqueurs.push({ marqueur, base: [p.latitude, p.longitude], ecart: ecarts.get(p.id) ?? [0, 0] });
         }

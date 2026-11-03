@@ -244,6 +244,10 @@ export interface LieuFiche {
   tailleCommuneId: number | null;
   concurrencePhoto: boolean | null;
   concurrencePhotoNotes: string | null;
+  concurrentEnPlace?: boolean | null;
+  concurrentId?: number | null;
+  concurrentNom?: string | null;
+  concurrent?: { id: number; nom: string; typeMateriel: "CABINE" | "BORNE" } | null;
   interieurExterieur: "INTERIEUR" | "EXTERIEUR" | "MIXTE" | null;
   emplacementZoneId: number | null;
   visibilite: number | null;
@@ -728,6 +732,34 @@ export interface Prospect {
   joursOuvertsAn: number | null;
   caAnnuelCents: number | null;
   estimation: EstimationProspect | null;
+  codePostal?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  /** Concurrent déjà en place : oui, non, ou null (pas renseigné) */
+  concurrentEnPlace?: boolean | null;
+  /** Concurrent connu (id) ou nom saisi à la main (id null, matériel inconnu) */
+  concurrent?: { id: number | null; nom: string; typeMateriel: "CABINE" | "BORNE" | null } | null;
+}
+
+export interface Concurrent {
+  id: number;
+  nom: string;
+  typeMateriel: "CABINE" | "BORNE";
+  siteWeb: string | null;
+  notes: string | null;
+  nbEmplacements: number;
+  nbLieux: number;
+}
+
+export interface EmplacementConcurrent {
+  id: number;
+  nom: string;
+  adresse: string | null;
+  codePostal: string | null;
+  ville: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  concurrent: { id: number; nom: string; typeMateriel: "CABINE" | "BORNE" };
 }
 
 export interface ListeProspects {
