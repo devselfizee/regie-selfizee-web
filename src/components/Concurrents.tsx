@@ -131,29 +131,68 @@ function Formulaire({ initial, onFini, onAnnuler }: { initial?: Concurrent; onFi
   );
 }
 
-/** Une ligne collée depuis Excel ou un CSV : nom ; adresse ; code postal ; ville (; latitude ; longitude) */
-function lireLignes(texte: string) {
-  return texte
-    .split(/\r?\n/)
-    .map((l) => l.split(/\t|;/).map((c) => c.trim()))
-    .filter((c) => c[0] && !/^nom$/i.test(c[0]))
-    .map(([nom, adresse, codePostal, ville, lat, lng]) => {
-      const latitude = lat ? Number(lat.replace(",", ".")) : NaN;
-      const longitude = lng ? Number(lng.replace(",", ".")) : NaN;
-      return {
-        nom,
-        adresse: adresse || null,
-        codePostal: codePostal || null,
-        ville: ville || null,
-        ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : {}),
-      };
-    });
+type LigneEmplacement = { nom: string; adresse: string | null; codePostal: string | null; ville: string | null; pays?: string | null; latitude?: number; longitude?: number };
+
+const PAYS = ["France", "Belgique", "Suisse", "Luxembourg", "Allemagne", "Italie", "Espagne", "Monaco", "Pays-Bas", "Royaume-Uni"];
+
+/**
+ * Texte collé → emplacements. Deux formats :
+ * - colonnes (Excel, CSV ; ou tabulations) : nom, adresse, code postal, ville (, latitude, longitude) ;
+ * - blocs copiés depuis le site d'un concurrent : le nom en majuscules, puis l'adresse sur une ou plusieurs lignes
+ *   (« Rue Denis Diderot, 31700 » / « Blagnac, France »).
+ */
+export function lireEmplacements(texte: string): LigneEmplacement[] {
+  const lignes = texte.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && l !== "+");
+  if (lignes.some((l) => /\t|;/.test(l))) {
+    return lignes
+      .map((l) => l.split(/\t|;/).map((c) => c.trim()))
+      .filter((c) => c[0] && !/^nom$/i.test(c[0]))
+      .map(([nom, adresse, codePostal, ville, lat, lng]) => {
+        const latitude = lat ? Number(lat.replace(",", ".")) : NaN;
+        const longitude = lng ? Number(lng.replace(",", ".")) : NaN;
+        return {
+          nom,
+          adresse: adresse || null,
+          codePostal: codePostal || null,
+          ville: ville || null,
+          ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : {}),
+        };
+      });
+  }
+  // Blocs : une ligne en majuscules ouvre un emplacement, les suivantes forment son adresse
+  const blocs: { nom: string; adresse: string[] }[] = [];
+  for (const l of lignes) {
+    const majuscules = /[A-Z]/.test(l) && l === l.toUpperCase();
+    if (majuscules || !blocs.length) blocs.push({ nom: l, adresse: [] });
+    else blocs[blocs.length - 1].adresse.push(l);
+  }
+  return blocs.map(({ nom, adresse }) => {
+    let texteAdresse = adresse.join(", ").replace(/\s+/g, " ");
+    let pays: string | null = null;
+    for (const p of PAYS) {
+      const m = new RegExp(`[,\\s-]+${p}\\s*$`, "i");
+      if (m.test(texteAdresse)) {
+        pays = p;
+        texteAdresse = texteAdresse.replace(m, "");
+      }
+    }
+    // Le dernier code postal à 4 ou 5 chiffres sépare la rue de la ville
+    const cp = [...texteAdresse.matchAll(/\b(\d{4,5})\b/g)].pop();
+    const nettoyer = (s: string) => s.replace(/^[\s,–-]+|[\s,–-]+$/g, "") || null;
+    return {
+      nom: nom.charAt(0) + nom.slice(1).toLowerCase(),
+      adresse: cp ? nettoyer(texteAdresse.slice(0, cp.index)) : nettoyer(texteAdresse),
+      codePostal: cp ? cp[1] : null,
+      ville: cp ? nettoyer(texteAdresse.slice(cp.index! + cp[1].length)) : null,
+      pays,
+    };
+  });
 }
 
 function ImportEmplacements({ concurrent, onFini }: { concurrent: Concurrent; onFini: () => void }) {
   const [texte, setTexte] = useState("");
   const [remplacer, setRemplacer] = useState(false);
-  const lignes = lireLignes(texte);
+  const lignes = lireEmplacements(texte);
   const importer = useMutation({
     mutationFn: () =>
       api<{ importes: number; places: number; introuvables: string[] }>(`/concurrents/${concurrent.id}/emplacements/import`, {
@@ -165,8 +204,9 @@ function ImportEmplacements({ concurrent, onFini }: { concurrent: Concurrent; on
     <div className="space-y-2 rounded-md border border-line p-3">
       <h3 className="text-sm font-semibold">Importer des emplacements de {concurrent.nom}</h3>
       <p className="text-xs text-ink-2">
-        Collez les lignes depuis Excel (colonnes : nom du lieu, adresse, code postal, ville, et si vous les avez latitude, longitude), une ligne par
-        emplacement. Sans position, l&apos;adresse est placée sur la carte automatiquement (adresses françaises).
+        Collez la liste copiée depuis le site du concurrent (le nom en majuscules puis l&apos;adresse, page après page), ou des lignes Excel
+        (nom, adresse, code postal, ville, et si vous les avez latitude, longitude). Vérifiez l&apos;aperçu avant d&apos;importer. Sans position,
+        l&apos;adresse est placée sur la carte automatiquement (adresses françaises).
       </p>
       <textarea
         className="champ min-h-40 font-mono text-xs"
@@ -174,6 +214,33 @@ function ImportEmplacements({ concurrent, onFini }: { concurrent: Concurrent; on
         value={texte}
         onChange={(e) => setTexte(e.target.value)}
       />
+      {lignes.length > 0 && !importer.data && (
+        <div className="overflow-x-auto">
+          <p className="mb-1 text-xs text-ink-2">Aperçu : {lignes.length} emplacement(s) reconnu(s){lignes.length > 8 ? ", les 8 premiers" : ""}</p>
+          <table className="w-full text-xs">
+            <thead className="text-left text-ink-2">
+              <tr>
+                <th className="py-1 pr-2 font-medium">Nom</th>
+                <th className="py-1 pr-2 font-medium">Adresse</th>
+                <th className="py-1 pr-2 font-medium">Code postal</th>
+                <th className="py-1 pr-2 font-medium">Ville</th>
+                <th className="py-1 font-medium">Pays</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lignes.slice(0, 8).map((l, i) => (
+                <tr key={i} className="border-t border-line">
+                  <td className="py-1 pr-2">{l.nom}</td>
+                  <td className="py-1 pr-2">{l.adresse ?? "—"}</td>
+                  <td className="py-1 pr-2">{l.codePostal ?? "—"}</td>
+                  <td className="py-1 pr-2">{l.ville ?? "—"}</td>
+                  <td className="py-1">{l.pays ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={remplacer} onChange={(e) => setRemplacer(e.target.checked)} /> Remplacer les {concurrent.nbEmplacements} emplacement(s) déjà connus
       </label>
