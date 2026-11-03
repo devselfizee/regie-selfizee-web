@@ -46,7 +46,7 @@ interface SigneDeVie {
   borne: { id: number; identifiant: string };
 }
 
-const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité" };
+const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité", CODES: "Codes de remise" };
 const STATUTS: Record<LotJournal["statut"], { ton: "ok" | "warn" | "crit"; libelle: string }> = {
   OK: { ton: "ok", libelle: "Accepté" },
   PARTIEL: { ton: "warn", libelle: "En partie refusé" },
