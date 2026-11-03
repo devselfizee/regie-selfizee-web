@@ -217,6 +217,8 @@ export interface LieuListe {
 
 export interface LieuFiche {
   id: number;
+  /** Zone de vacances scolaires d'après le code postal */
+  zoneScolaire?: "A" | "B" | "C" | "CORSE" | null;
   statut: string;
   parc: Parc;
   papierSurPlace: boolean;
@@ -592,7 +594,9 @@ export type Atteinte =
   | { statut: "NON_ATTEINT"; manqueCents: number };
 
 export interface PrevisionLieu {
-  mois: PrevisionResume & { jours: (JourPrevision & { ouvert: boolean })[] };
+  /** null : moins d'une semaine d'activité, pas encore de projection */
+  mois: (PrevisionResume & { jours: (JourPrevision & { ouvert: boolean })[] }) | null;
+  premiereVente?: string | null;
   commission: {
     periode: { debut: string; fin: string; libelle: string };
     base: "TTC" | "HT";

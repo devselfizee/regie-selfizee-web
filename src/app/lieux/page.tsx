@@ -11,7 +11,8 @@ import { peut, useMoi } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 
 const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "neutre" }> = {
-  ACTIF: { libelle: "Actif", ton: "ok" },
+  // « Actif » faisait penser à une borne connectée (retour de Sébastien) : c'est la relation commerciale
+  ACTIF: { libelle: "Client", ton: "ok" },
   SUSPENDU: { libelle: "Suspendu", ton: "warn" },
   RESILIE: { libelle: "Résilié", ton: "neutre" },
   PROSPECT: { libelle: "Prospect", ton: "neutre" },
@@ -101,7 +102,7 @@ export default function ListeLieux() {
         <label className="lg:col-start-7 lg:row-start-1">
           <span className="etiquette">Statut</span>
           <select id="lieux-statut" className="champ" value={statut} onChange={(e) => setStatut(e.target.value)}>
-            <option value="">Clients (hors prospects)</option>
+            <option value="">Tous (hors prospects)</option>
             {Object.entries(STATUTS).map(([k, s]) => (
               <option key={k} value={k}>{s.libelle}</option>
             ))}

@@ -17,7 +17,8 @@ import { PrevisionLieuSection } from "@/components/SectionPrevision";
 import { SectionPotentiel } from "@/components/Prospect";
 import { JournalEvenements, SectionContexte, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
 import { ListeAlertes } from "@/components/ListeAlertes";
-import { SectionParcours } from "@/components/Entonnoir";
+import { Comportement } from "@/components/Entonnoir";
+import { BasculeHt, htDepuisTtc, usePreferenceHt } from "@/components/BasculeHt";
 import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
@@ -29,6 +30,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const moi = useMoi();
   const voitVentesRole = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
+  const [ht, setHt] = usePreferenceHt();
   const [onglet, setOnglet] = useState<Onglet>(ONGLETS.some((o) => o.cle === ongletInitial) ? (ongletInitial as Onglet) : "stats");
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   // Le lieu est déjà choisi : pas de filtre de parc
@@ -53,7 +55,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "evenements" ? peut.administrer(moi.role) : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "evenements" ? peut.administrer(moi.role) : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -63,6 +65,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         sousTitre={[l.typeLieu.libelle, l.sousType?.libelle, l.ville, l.saisonnalite === "SAISONNIER" ? "saisonnier" : null].filter(Boolean).join(" · ")}
         actions={
           <>
+            {ongletActif === "stats" && voitVentes && <BasculeHt ht={ht} onChange={setHt} />}
             {voitVentes && (
               <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ ...filtres, parc: undefined, lieuId: id }) }]} />
             )}
@@ -108,14 +111,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
           <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
           {stats.error && <Erreur erreur={stats.error} />}
           {stats.isPending && !stats.error && <Chargement />}
-          {stats.data && <Statistiques s={stats.data} lieuId={id} horaires={l.horaires} />}
+          {stats.data && <Statistiques s={stats.data} lieuId={id} horaires={l.horaires} ht={ht} />}
         </>
-      )}
-
-      {ongletActif === "stats" && voitVentes && l.statut === "ACTIF" && (
-        <div className="mt-6">
-          <PrevisionLieuSection lieuId={id} />
-        </div>
       )}
 
       {ongletActif === "stats" && voitVentes && (
@@ -124,9 +121,14 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </div>
       )}
 
-      {ongletActif === "stats" && voitVentes && (
-        <div className="mt-6">
-          <SectionParcours lieuId={id} du={filtres.du} au={filtres.au} />
+      {/* Comportement des invités et projection, à part des statistiques (retour de Sébastien) */}
+      {ongletActif === "comportement" && voitVentes && (
+        <div className="space-y-6">
+          {l.statut === "ACTIF" && <PrevisionLieuSection lieuId={id} />}
+          <div>
+            <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
+            <Comportement lieuId={id} requete={qs({ du: filtres.du, au: filtres.au })} />
+          </div>
         </div>
       )}
 
@@ -152,6 +154,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             <Info l="Raison sociale">{l.raisonSociale}{l.siret && <span className="text-ink-muted"> · {l.siret}</span>}</Info>
             <Info l="Adresse">{[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ") || "—"}</Info>
             <Info l="Ville principale">{l.antenne?.libelle ?? "—"}</Info>
+            <Info l="Vacances scolaires">{l.zoneScolaire ? (l.zoneScolaire === "CORSE" ? "Corse" : `Zone ${l.zoneScolaire}`) : <span className="text-ink-muted">code postal manquant</span>}</Info>
             <Info l="Papier">{l.papierSurPlace ? "Changé sur place par le lieu" : "Changé par Selfizee"}</Info>
             <Info l="Parc">{l.parc === "CLIENT" ? "Parc client (location financière)" : "Parc Selfizee"}</Info>
             <Info l="Standing">{l.standing?.libelle ?? "—"}</Info>
@@ -269,9 +272,10 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "ventes" | "infos" | "suivi" | "commissions" | "evenements";
+type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "evenements";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
+  { cle: "comportement", libelle: "Comportement" },
   { cle: "ventes", libelle: "Ventes" },
   { cle: "infos", libelle: "Informations" },
   { cle: "suivi", libelle: "Suivi" },
@@ -288,11 +292,17 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
   );
 }
 
-function Statistiques({ s, lieuId, horaires }: { s: StatsLieu; lieuId: number; horaires: LieuFiche["horaires"] }) {
+function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId: number; horaires: LieuFiche["horaires"]; ht: boolean }) {
+  // En HT : montants convertis à 20 % de TVA quand l'API ne donne que le TTC (le CA des KPI et de la courbe, lui, est exact)
+  const s = ht ? enHt(brut) : brut;
+  const suffixe = ht ? "HT" : "TTC";
   const { courant: c, precedente: p } = s.kpis;
   const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);
   const evenements = useEvenements(lieuId);
   const sup = superpositions(contexte.data, evenements.data);
+  // Jours fériés : seulement sur une semaine ou un mois (retour de Sébastien), illisibles sur plusieurs mois ; les vacances restent
+  const longue = (new Date(s.periode.au).getTime() - new Date(s.periode.du).getTime()) / 86_400_000 + 1 > 31;
+  const reperesCalendrier = longue ? sup.reperes.filter((x) => x.court !== "Férié") : sup.reperes;
   if (!c.nbVentes && !c.nbRefusees) {
     return (
       <div className="carte p-4">
@@ -303,26 +313,35 @@ function Statistiques({ s, lieuId, horaires }: { s: StatsLieu; lieuId: number; h
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCouleur teinte="vert" icone="billet" libelle="CA TTC" valeur={eurosRond(c.caTtcCents)} detail={`HT : ${eurosRond(c.caHtCents)}`} courant={c.caTtcCents} precedente={p.caTtcCents} />
+        <KpiCouleur
+          teinte="vert"
+          icone="billet"
+          libelle={`CA ${suffixe}`}
+          valeur={eurosRond(ht ? c.caHtCents : c.caTtcCents)}
+          detail={ht ? `TTC : ${eurosRond(c.caTtcCents)}` : `HT : ${eurosRond(c.caHtCents)}`}
+          courant={ht ? c.caHtCents : c.caTtcCents}
+          precedente={ht ? p.caHtCents : p.caTtcCents}
+        />
         <KpiCouleur teinte="bleu" icone="image" libelle="Ventes" valeur={nombre(c.nbVentes)} detail={`${nombre(c.photosAchetees)} photos achetées`} courant={c.nbVentes} precedente={p.nbVentes} />
-        <KpiCouleur teinte="rose" icone="sac" libelle="Panier moyen" valeur={euros(c.panierMoyenCents)} detail="TTC par vente" courant={c.panierMoyenCents} precedente={p.panierMoyenCents} />
+        <KpiCouleur teinte="rose" icone="sac" libelle="Panier moyen" valeur={euros(c.panierMoyenCents)} detail={`${suffixe} par vente`} courant={c.panierMoyenCents} precedente={p.panierMoyenCents} />
         <KpiCouleur teinte="orange" icone="pourcent" libelle="Refus / annulations" valeur={pct(c.tauxRefus)} detail={`${nombre(c.nbRefusees)} refus · ${nombre(c.nbAnnulees)} annulation${c.nbAnnulees > 1 ? "s" : ""}`} />
       </div>
 
       <ActiviteNonFacturee k={c} />
 
-      <Section titre="Chiffre d'affaires TTC">
+      <Section titre={`Chiffre d'affaires ${suffixe}`}>
         <GraphiqueCA
+          ht={ht}
           du={s.periode.du}
           au={s.periode.au}
           granularite={s.granularite}
           serie={s.serie}
-          reperes={[...s.interventions.map((i) => ({ jour: i.jour, libelle: `Intervention ${i.borne} : ${i.motif}`, court: "SAV" })), ...sup.reperes]}
+          reperes={[...s.interventions.map((i) => ({ jour: i.jour, libelle: `Intervention ${i.borne} : ${i.motif}`, court: "SAV" })), ...reperesCalendrier]}
           bandes={sup.bandes}
           infosJour={sup.infosJour}
         />
         <p className="mt-2 text-xs text-ink-muted">
-          Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. Traits : jours fériés, événements du journal
+          Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. Traits : {longue ? "" : "jours fériés, "}événements du journal
           {s.interventions.length > 0 && `, interventions SAV (${s.interventions.length})`}. La météo du jour est dans l&apos;infobulle (Météo-France, MET Norway).
         </p>
       </Section>
@@ -487,4 +506,19 @@ function EmplacementLieu({ l }: { l: LieuFiche }) {
       </a>
     </div>
   );
+}
+
+/** Statistiques du lieu en HT : le CA est exact (KPI, courbe) ; le reste n'existe qu'en TTC, converti à 20 % de TVA */
+function enHt(s: StatsLieu): StatsLieu {
+  const k = <K extends StatsLieu["kpis"]["courant"]>(x: K): K => ({ ...x, panierMoyenCents: x.nbVentes ? Math.round(x.caHtCents / x.nbVentes) : 0 });
+  return {
+    ...s,
+    kpis: { ...s.kpis, courant: k(s.kpis.courant), precedente: k(s.kpis.precedente), n1: k(s.kpis.n1) },
+    heatmap: s.heatmap.map((h) => ({ ...h, caTtcCents: htDepuisTtc(h.caTtcCents) })),
+    joursSemaine: s.joursSemaine.map((j) => ({ ...j, caTtcCents: htDepuisTtc(j.caTtcCents), caMoyenCents: htDepuisTtc(j.caMoyenCents) })),
+    moyensPaiement: s.moyensPaiement.map((m) => ({ ...m, caTtcCents: htDepuisTtc(m.caTtcCents) })),
+    modulesPaiement: s.modulesPaiement.map((m) => ({ ...m, caTtcCents: htDepuisTtc(m.caTtcCents) })),
+    formules: s.formules.map((f) => ({ ...f, caTtcCents: htDepuisTtc(f.caTtcCents), montantCents: f.montantCents === undefined ? undefined : htDepuisTtc(f.montantCents) })),
+    meilleuresDates: s.meilleuresDates.map((d) => ({ ...d, caTtcCents: htDepuisTtc(d.caTtcCents) })),
+  };
 }

@@ -14,10 +14,10 @@ import { depuis, euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/forma
 const jourHeureCourtFmt = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
 const jourHeureCourt = (iso: string) => jourHeureCourtFmt.format(new Date(iso)).replace(",", "");
 import { KpiCouleur } from "@/components/KpiCouleur";
+import { BasculeHt, usePreferenceHt } from "@/components/BasculeHt";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
-import { SectionParcours } from "@/components/Entonnoir";
 import { dernierWeekEnd } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
@@ -43,7 +43,7 @@ const PERIODES: { cle: string; libelle: string; calcul?: () => { du: Date; au: D
   { cle: "jour", libelle: "Aujourd'hui", calcul: () => ({ du: aujourdhui(), au: aujourdhui() }) },
   { cle: "hier", libelle: "Hier", calcul: () => ({ du: plusJours(aujourdhui(), -1), au: plusJours(aujourdhui(), -1) }) },
   // Celui en cours le samedi et le dimanche, sinon le précédent (jamais celui à venir)
-  { cle: "we", libelle: "Dernier week-end", calcul: () => dernierWeekEnd(aujourdhui()) },
+  { cle: "we", libelle: "Ce week-end", calcul: () => dernierWeekEnd(aujourdhui()) },
   { cle: "7j", libelle: "7 derniers jours", calcul: () => ({ du: plusJours(aujourdhui(), -6), au: aujourdhui() }) },
   { cle: "30j", libelle: "30 derniers jours", calcul: () => ({ du: plusJours(aujourdhui(), -29), au: aujourdhui() }) },
   { cle: "semaine", libelle: "Cette semaine", calcul: () => ({ du: lundi(aujourdhui()), au: aujourdhui() }) },
@@ -81,15 +81,6 @@ const granulariteAuto = (du: string, au: string): Granularite => {
   return jours <= 31 ? "jour" : jours <= 120 ? "semaine" : "mois";
 };
 
-// Préférence HT / TTC gardée sur ce navigateur
-const CLE_HT = "regie_tdb_ht";
-const lireHt = () => {
-  try {
-    return localStorage.getItem(CLE_HT) === "1";
-  } catch {
-    return false;
-  }
-};
 
 function VueGlobale() {
   const [cle, setCle] = useState("jour");
@@ -97,16 +88,8 @@ function VueGlobale() {
   const [lieuId, setLieuId] = useState("");
   // Parc Selfizee par défaut : les clients en location financière à part (demande de Sébastien)
   const [parc, setParc] = useState("SELFIZEE");
-  const [ht, setHtEtat] = useState(lireHt);
+  const [ht, setHt] = usePreferenceHt();
   const [granularite, setGranularite] = useState<Granularite | null>(null);
-  const setHt = (v: boolean) => {
-    setHtEtat(v);
-    try {
-      localStorage.setItem(CLE_HT, v ? "1" : "0");
-    } catch {
-      /* stockage indisponible : la préférence vaut pour la visite */
-    }
-  };
 
   const choisie = PERIODES.find((p) => p.cle === cle);
   const { du, au } = choisie?.calcul ? (({ du, au }) => ({ du: ymd(du), au: ymd(au) }))(choisie.calcul()) : perso;
@@ -129,19 +112,7 @@ function VueGlobale() {
         sousTitre={`${du === au ? `Le ${jour(du)}` : `Du ${jour(du)} au ${jour(au)}`}${isFetching ? " · mise à jour…" : ""}`}
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="flex rounded-md border border-line-strong bg-surface p-0.5" role="group" aria-label="Montants">
-              {[false, true].map((v) => (
-                <button
-                  key={String(v)}
-                  type="button"
-                  aria-pressed={ht === v}
-                  onClick={() => setHt(v)}
-                  className={`rounded px-3 py-1.5 text-sm font-medium ${ht === v ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
-                >
-                  {v ? "HT" : "TTC"}
-                </button>
-              ))}
-            </div>
+            <BasculeHt ht={ht} onChange={setHt} />
             <select id="tdb-parc" aria-label="Parc" className="champ !w-auto" value={parc} onChange={(e) => setParc(e.target.value)} disabled={!!lieuId}>
               <option value="SELFIZEE">Parc Selfizee</option>
               <option value="CLIENT">Parc client</option>
@@ -360,8 +331,6 @@ function Contenu({
       </div>
 
       {/* Compléments : commissions, prévisions, état du parc */}
-      <SectionParcours du={data.periode.du} au={data.periode.au} />
-
       <PrevisionGlobaleSection />
 
       <Section

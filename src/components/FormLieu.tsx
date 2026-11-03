@@ -158,7 +158,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {champ("raisonSociale", "Raison sociale", { requis: true })}
         {champ("siret", "SIRET", { placeholder: "14 chiffres" })}
         {select("statut", "Statut", [
-          { value: "ACTIF", label: "Actif" },
+          { value: "ACTIF", label: "Client" },
           { value: "SUSPENDU", label: "Suspendu" },
           { value: "RESILIE", label: "Résilié" },
           { value: "PROSPECT", label: "Prospect" },

@@ -80,7 +80,7 @@ export function HeatmapHoraire({ cellules, horaires = [] }: { cellules: StatsLie
   return <Graphique option={option} hauteur={300} description="Chiffre d'affaires par jour de la semaine et par heure (heures fermées hachurées)" />;
 }
 
-/** CA moyen par jour de semaine (CA du jour ÷ nombre de ces jours dans la période). */
+/** CA moyen par jour de semaine : CA de ces jours ÷ nombre de ces jours où la borne a vendu. */
 export function JoursSemaine({ jours }: { jours: StatsLieu["joursSemaine"] }) {
   const option = useCallback(
     (j: Jetons) => ({
@@ -90,7 +90,7 @@ export function JoursSemaine({ jours }: { jours: StatsLieu["joursSemaine"] }) {
         axisPointer: { type: "shadow" },
         formatter: (items: { dataIndex: number }[]) => {
           const d = jours[items[0].dataIndex];
-          return `<b>${JOURS_SEMAINE[d.jourSemaine]}</b><br>CA moyen : ${euros(d.caMoyenCents)}<br>Total : ${euros(d.caTtcCents)} · ${nombre(d.nbVentes)} ventes`;
+          return `<b>${JOURS_SEMAINE[d.jourSemaine]}</b><br>CA moyen : ${euros(d.caMoyenCents)} par jour d'activité<br>${nombre(d.joursAvecVente)} ${JOURS_SEMAINE[d.jourSemaine].toLowerCase()}(s) avec des ventes<br>Total : ${euros(d.caTtcCents)} · ${nombre(d.nbVentes)} ventes`;
         },
       },
       xAxis: axeCategorie(j, jours.map((d) => JOURS_COURTS[d.jourSemaine])),

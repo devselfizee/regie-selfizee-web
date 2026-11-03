@@ -49,10 +49,16 @@ const Etat = ({ a }: { a: Atteinte }) =>
 export function PrevisionLieuSection({ lieuId }: { lieuId: number }) {
   const { data: p, error } = useQuery({ queryKey: ["previsions", "lieu", lieuId], queryFn: () => api<PrevisionLieu>(`/previsions/lieux/${lieuId}`), staleTime: 5 * 60_000 });
   return (
-    <Section titre={p ? `Prévision ${libelleMois(p.mois.du)}` : "Prévision du mois"}>
+    <Section titre={p?.mois ? `Prévision ${libelleMois(p.mois.du)}` : "Prévision du mois"}>
       {error && <Erreur erreur={error} />}
       {!p && !error && <Chargement />}
-      {p && (
+      {p && !p.mois && (
+        <p className="text-sm text-ink-2">
+          La projection s&apos;affiche après une semaine d&apos;activité
+          {p.premiereVente ? ` (première vente le ${jour(p.premiereVente)})` : " : aucune vente pour l'instant"}.
+        </p>
+      )}
+      {p?.mois && (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-4">
             <ResumePrevision p={p.mois} />
