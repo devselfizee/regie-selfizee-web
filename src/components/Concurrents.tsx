@@ -141,6 +141,32 @@ const PAYS = ["France", "Belgique", "Suisse", "Luxembourg", "Allemagne", "Italie
  * - blocs copiés depuis le site d'un concurrent : le nom en majuscules, puis l'adresse sur une ou plusieurs lignes
  *   (« Rue Denis Diderot, 31700 » / « Blagnac, France »).
  */
+/** Adresse complète sur une ligne → rue, code postal, ville et pays (« Rue Denis Diderot, 31700 Blagnac, France ») */
+function decouperAdresse(texte: string): Pick<LigneEmplacement, "adresse" | "codePostal" | "ville" | "pays"> {
+  let reste = texte.replace(/\s+/g, " ").trim();
+  let pays: string | null = null;
+  for (const p of PAYS) {
+    const m = new RegExp(`[,\\s-]+${p}\\s*$`, "i");
+    if (m.test(reste)) {
+      pays = p;
+      reste = reste.replace(m, "");
+    }
+  }
+  // Le dernier code postal à 4 ou 5 chiffres sépare la rue de la ville
+  const cp = [...reste.matchAll(/\b(\d{4,5})\b/g)].pop();
+  const nettoyer = (s: string) => s.replace(/^[\s,–-]+|[\s,–-]+$/g, "") || null;
+  if (!cp) return { adresse: nettoyer(reste), codePostal: null, ville: null, pays };
+  // Paris sans ville après le code postal (« … - 75011 »)
+  const ville = nettoyer(reste.slice(cp.index! + cp[1].length)) ?? (/^75\d{3}$/.test(cp[1]) ? "Paris" : null);
+  return { adresse: nettoyer(reste.slice(0, cp.index)), codePostal: cp[1], ville, pays: pays ?? (cp[1].length === 5 && ville ? "France" : null) };
+}
+
+/**
+ * Texte collé → emplacements. Deux formats :
+ * - colonnes (Excel, CSV ; ou tabulations) : nom, adresse, code postal, ville (, latitude, longitude) ; une adresse complète
+ *   dans la seule colonne adresse est découpée (script de copie de la liste d'un concurrent) ;
+ * - blocs copiés depuis le site d'un concurrent : le nom en majuscules, puis l'adresse sur une ou plusieurs lignes.
+ */
 export function lireEmplacements(texte: string): LigneEmplacement[] {
   const lignes = texte.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && l !== "+");
   if (lignes.some((l) => /\t|;/.test(l))) {
@@ -152,9 +178,7 @@ export function lireEmplacements(texte: string): LigneEmplacement[] {
         const longitude = lng ? Number(lng.replace(",", ".")) : NaN;
         return {
           nom,
-          adresse: adresse || null,
-          codePostal: codePostal || null,
-          ville: ville || null,
+          ...(adresse && !codePostal && !ville ? decouperAdresse(adresse) : { adresse: adresse || null, codePostal: codePostal || null, ville: ville || null }),
           ...(Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : {}),
         };
       });
@@ -166,27 +190,7 @@ export function lireEmplacements(texte: string): LigneEmplacement[] {
     if (majuscules || !blocs.length) blocs.push({ nom: l, adresse: [] });
     else blocs[blocs.length - 1].adresse.push(l);
   }
-  return blocs.map(({ nom, adresse }) => {
-    let texteAdresse = adresse.join(", ").replace(/\s+/g, " ");
-    let pays: string | null = null;
-    for (const p of PAYS) {
-      const m = new RegExp(`[,\\s-]+${p}\\s*$`, "i");
-      if (m.test(texteAdresse)) {
-        pays = p;
-        texteAdresse = texteAdresse.replace(m, "");
-      }
-    }
-    // Le dernier code postal à 4 ou 5 chiffres sépare la rue de la ville
-    const cp = [...texteAdresse.matchAll(/\b(\d{4,5})\b/g)].pop();
-    const nettoyer = (s: string) => s.replace(/^[\s,–-]+|[\s,–-]+$/g, "") || null;
-    return {
-      nom: nom.charAt(0) + nom.slice(1).toLowerCase(),
-      adresse: cp ? nettoyer(texteAdresse.slice(0, cp.index)) : nettoyer(texteAdresse),
-      codePostal: cp ? cp[1] : null,
-      ville: cp ? nettoyer(texteAdresse.slice(cp.index! + cp[1].length)) : null,
-      pays,
-    };
-  });
+  return blocs.map(({ nom, adresse }) => ({ nom: nom.charAt(0) + nom.slice(1).toLowerCase(), ...decouperAdresse(adresse.join(", ")) }));
 }
 
 function ImportEmplacements({ concurrent, onFini }: { concurrent: Concurrent; onFini: () => void }) {
