@@ -4,6 +4,7 @@
 import { getCheckerCanvas } from "../index";
 import { CUSTOM_PROPS } from "../types";
 import { loadCanvasState } from "./canvasDB";
+import { creerZonesBorneDuGabarit, reglerZoneBorne } from "@/studio/regie/zonesBorne";
 
 // Module-level guard: fabric global defaults/prototype controls are mutated
 // only once, not on every createCanvas() call.
@@ -229,7 +230,10 @@ export function createShootZones(
   canvasHeight: number,
   BLEED_PX: number,
 ) {
-  gabarit.photoZones.forEach((zone: any, idx: number) => {
+  // Copies (Régie : miniatures de la carte souvenir) : même numéro que la zone qu'elles reprennent
+  let originaux = 0;
+  gabarit.photoZones.forEach((zone: any) => {
+    const numero = zone.copieDe ?? ++originaux;
     const zoneLeft = BLEED_PX + (zone.x / 100) * canvasWidth;
     const zoneTop = BLEED_PX + (zone.y / 100) * canvasHeight;
     const zoneW = (zone.w / 100) * canvasWidth;
@@ -265,12 +269,13 @@ export function createShootZones(
     });
     (rect as any)._isShootZone = true;
     (rect as any)._shootBorderRadius = 0;
-    (rect as any)._shootIndex = idx + 1;
+    (rect as any)._shootIndex = numero;
+    if (zone.copieDe) (rect as any)._shootCopie = true;
     (rect as any)._shootLocked = true;
     canvas.add(rect);
 
     if (gabarit.photoZones.length > 1) {
-      const label = new fabric.FabricText(`#${idx + 1}`, {
+      const label = new fabric.FabricText(`#${numero}`, {
         left: zoneLeft + 8,
         top: zoneTop + 6,
         originX: "left",
@@ -288,6 +293,26 @@ export function createShootZones(
       canvas.add(label);
     }
   });
+  creerZonesBorneDuGabarit(canvas, fabric, gabarit.zonesBorne, canvasWidth, canvasHeight, BLEED_PX);
+}
+
+// ── Numérotation des zones photo ──
+
+/**
+ * Renumérote les zones photo dans l'ordre du canvas (#1, #2…). Les copies (`_shootCopie`, Régie :
+ * miniatures de la carte souvenir) ne comptent pas : chacune suit la zone dont elle reprend la photo ;
+ * celle d'une zone supprimée passe à 0 (ignorée à la génération du config.json).
+ */
+export function renumeroterShoots(shoots: any[]) {
+  const nouveaux = new Map<number, number>();
+  shoots.filter((s) => !s._shootCopie).forEach((s, i) => {
+    if (!nouveaux.has(s._shootIndex)) nouveaux.set(s._shootIndex, i + 1);
+    s._shootIndex = i + 1;
+  });
+  shoots.filter((s) => s._shootCopie).forEach((c) => {
+    c._shootIndex = nouveaux.get(c._shootIndex) ?? 0;
+  });
+  shoots.forEach((s) => s._shootLabel?.set({ text: s._shootIndex ? `#${s._shootIndex}` : "#–" }));
 }
 
 // ── Text zone guides ──
@@ -372,6 +397,7 @@ export function reapplyCustomProps(canvas: any, jsonObj?: any) {
     if (o._isShootLabel || o._isTextGuide || o._isDesignAreaBg) {
       o.set({ visible: true, selectable: false, evented: false, excludeFromExport: true });
     }
+    if (o._zoneBorne) reglerZoneBorne(o);
     if (o._locked && !o._isShootZone) {
       o.set({
         lockMovementX: true,

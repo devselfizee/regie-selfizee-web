@@ -1,3 +1,5 @@
+import type { ZoneBorne } from "@/studio/regie/zonesBorne";
+
 /**
  * Format & gabarit definitions for the frame creation wizard.
  *
@@ -16,6 +18,8 @@ export interface PhotoZone {
   y: number;
   w: number;
   h: number;
+  /** Régie : copie de la zone n (même photo), comme les miniatures de la carte souvenir */
+  copieDe?: number;
 }
 
 export interface TextZone {
@@ -31,6 +35,8 @@ export interface Gabarit {
   name: string;
   photoZones: PhotoZone[];
   textZones: TextZone[];
+  /** Régie : zones remplies par la borne (QR, code de séance, date…), posées à la création */
+  zonesBorne?: ZoneBorne[];
 }
 
 export interface Format {
@@ -46,12 +52,17 @@ export interface Format {
   /** Numeric format id from the legacy Selfizee CakePHP booth — used to
    *  match this local format with the external catalogue's `format_id`. */
   formatBoothId?: number | null;
+  /** Régie : où poser un modèle du catalogue (en % de la page) quand il ne couvre qu'une partie du format */
+  zoneModeles?: { x: number; y: number; w: number; h: number };
   gabarits: Gabarit[];
 }
 
 /* ═══════════════════════════════════════════
    FORMAT DEFINITIONS
    ═══════════════════════════════════════════ */
+
+/** Zone en pixels d'une page 1240×1844 (10x15 portrait), en % comme les autres zones. */
+const px = (x: number, y: number, w: number, h: number) => ({ x: (x / 1240) * 100, y: (y / 1844) * 100, w: (w / 1240) * 100, h: (h / 1844) * 100 });
 
 export const FORMATS: Format[] = [
   {
@@ -138,6 +149,36 @@ export const FORMATS: Format[] = [
           { x: 8, y: 74, w: 84, h: 22 },
         ],
         textZones: [],
+      },
+    ],
+  },
+  {
+    // Régie : la bandelette du kit nightlife sur toute sa page 10x15 (1240×1844), coupée en deux par la
+    // borne : la bande à gauche (zone vue par l'invité), la carte souvenir à droite avec les miniatures
+    // des 4 photos, le QR et le code de séance. Positions du kit (strip_frame.png). Les modèles
+    // « marque-page » du catalogue se posent sur la bande.
+    id: "bandelette-carte",
+    formatBoothId: 3,
+    name: "Bandelette + carte souvenir",
+    poses: "4 poses",
+    aspectRatio: 1240 / 1844,
+    widthPx: 1240,
+    heightPx: 1844,
+    orientation: "portrait",
+    zoneModeles: { x: 0, y: 0, w: 50, h: 100 },
+    gabarits: [
+      {
+        id: "bc-4",
+        name: "4 photos + carte souvenir",
+        photoZones: [
+          ...[78, 476, 874, 1272].map((y) => px(37, y, 538, 383)),
+          ...[447, 661, 875, 1089].map((y, i) => ({ ...px(791, y, 282, 200), copieDe: i + 1 })),
+        ],
+        textZones: [],
+        zonesBorne: [
+          { type: "qr", ...px(832, 1520, 200, 200) },
+          { type: "code-seance", ...px(656, 1770, 154, 28), couleur: "#f0c400", align: "left" },
+        ],
       },
     ],
   },

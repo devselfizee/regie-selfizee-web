@@ -447,9 +447,13 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wrapper: any = raw && typeof raw === "object" && raw.data && typeof raw.data === "object" ? raw.data : raw;
     const externalFormatId = Number(wrapper?.format_id);
-    const matchedFormat: Format | undefined = externalFormatId
-      ? FORMATS.find((f) => f.formatBoothId != null && Number(f.formatBoothId) === externalFormatId)
-      : undefined;
+    // Régie : le format courant d'abord (la bandelette + carte souvenir prend les modèles « marque-page »
+    // sur sa bande), sinon le premier format de ce numéro booth
+    const matchedFormat: Format | undefined = !externalFormatId
+      ? undefined
+      : Number(currentFormat.formatBoothId) === externalFormatId
+        ? currentFormat
+        : FORMATS.find((f) => f.formatBoothId != null && Number(f.formatBoothId) === externalFormatId);
     const matchedGabarit = matchedFormat?.gabarits[0];
     const needsFormatSwitch =
       !!matchedFormat && !!matchedGabarit && matchedFormat.id !== currentFormat.id && !!onSelect;
@@ -460,7 +464,12 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
     // brings its own background (cadre rect) AND its own shoot zones (creu_<n>)
     // — keeping the studio's auto-created shoots would duplicate them.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const toRemove = canvas.getObjects().filter((o: any) => !o._isTextGuide && !o._isDesignAreaBg);
+    // Régie : un format qui pose le modèle sur une partie de la page (zoneModeles) garde le reste — la
+    // carte souvenir de la bandelette : miniatures (copies), QR, code de séance, et leurs étiquettes
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const garde = (o: any) => !!currentFormat.zoneModeles && (o._isSolidBg || o._shootCopie || o._zoneBorne || (o._isShootLabel && o._shootZone?._shootCopie));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const toRemove = canvas.getObjects().filter((o: any) => !o._isTextGuide && !o._isDesignAreaBg && !garde(o));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     toRemove.forEach((o: any) => canvas.remove(o));
 
@@ -493,8 +502,14 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
     const targetBleed = targetDims ? targetDims.BLEED_PX : (bleedPx || 0);
     const targetBufferW = targetDesignW + 2 * targetBleed;
     const targetBufferH = targetDesignH + 2 * targetBleed;
-    const fitScaleX = targetDesignW / cadreW;
-    const fitScaleY = targetDesignH / cadreH;
+    // Partie de la page où poser le modèle (Régie : la bande de la bandelette + carte souvenir)
+    const zm = matchedFormat?.zoneModeles ?? { x: 0, y: 0, w: 100, h: 100 };
+    const zoneX = (zm.x / 100) * targetDesignW;
+    const zoneY = (zm.y / 100) * targetDesignH;
+    const zoneW = (zm.w / 100) * targetDesignW;
+    const zoneH = (zm.h / 100) * targetDesignH;
+    const fitScaleX = zoneW / cadreW;
+    const fitScaleY = zoneH / cadreH;
     console.log("[catalogue][debug] dims & scale", {
       sourceCadre: { width: cadreW, height: cadreH },
       target: { designW: targetDesignW, designH: targetDesignH, bleed: targetBleed, bufferW: targetBufferW, bufferH: targetBufferH },
@@ -624,8 +639,8 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
         }
         // Positions: scale relative to the cadre origin per axis, then
         // shift into the print area (past the bleed margin).
-        obj.left = (obj.left || 0) * fitScaleX + targetBleed;
-        obj.top = (obj.top || 0) * fitScaleY + targetBleed;
+        obj.left = (obj.left || 0) * fitScaleX + targetBleed + zoneX;
+        obj.top = (obj.top || 0) * fitScaleY + targetBleed + zoneY;
 
         // Shoot zones from the booth ship with their own solid fill (often
         // rgb(250, 250, 250) or white). The studio identifies a photo
@@ -662,6 +677,12 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
             noScaleCache: true,
           });
         }
+        if (obj._isSolidBg && matchedFormat?.zoneModeles) {
+          // Régie : le fond du modèle n'habille que sa partie de la page (la bande) ; le fond de la page,
+          // gardé, reste le seul fond (repère des couleurs de fond et de l'enregistrement)
+          obj._isSolidBg = false;
+          obj.set({ selectable: false, evented: false, hoverCursor: "default" });
+        }
         if (obj._isSolidBg) {
           // Stretch the cadre rect to EXACTLY cover the studio's design
           // area. Source aspect ratios may not perfectly match
@@ -671,10 +692,10 @@ export function PanelModeles({ currentFormat, currentGabarit, onSelect, canvasRe
           // area edge-to-edge — the cadre is a backdrop, its source
           // width/height/scale don't need to be preserved.
           obj.set({
-            left: targetBleed,
-            top: targetBleed,
-            width: targetDesignW,
-            height: targetDesignH,
+            left: targetBleed + zoneX,
+            top: targetBleed + zoneY,
+            width: zoneW,
+            height: zoneH,
             scaleX: 1,
             scaleY: 1,
             selectable: false,

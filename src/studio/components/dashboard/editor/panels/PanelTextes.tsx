@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { FONT_LIST, FONT_CATEGORIES, loadGoogleFont, searchFonts, type FontCategory, type CustomFont, loadCustomFontFace, setCustomFonts as setSharedCustomFonts, subscribeCustomFonts, fetchCustomFontsFromApi } from "./fonts";
 import { toast } from "../../Toast";
 import { apiUrl } from "@/studio/lib/api";
+import { LIBELLES_ZONES_BORNE, type TypeZoneBorne } from "@/studio/regie/zonesBorne";
 
 /* ═══════════════════════════════════════════════════════════════
    Text style presets — add text with effects pre-applied
@@ -527,8 +528,10 @@ const TEXT_COMBO_PRESETS: TextComboPreset[] = [
   },
 ];
 
-export function PanelTextes({ onAddText, onAddCurvedText, onAddTextCombo }: {
+export function PanelTextes({ onAddText, onAddCurvedText, onAddTextCombo, onAddZoneBorne }: {
   onAddText: (text: string, size: number, weight: string, font: string, offsetY?: number, extraProps?: Record<string, any>) => void;
+  /** Régie : ajoute une zone remplie par la borne (QR, code de séance, date…) */
+  onAddZoneBorne?: (type: TypeZoneBorne) => void;
   onAddCurvedText?: (...args: any[]) => void;
   onAddTextCombo?: (layers: any[]) => void;
 }) {
@@ -775,6 +778,28 @@ export function PanelTextes({ onAddText, onAddCurvedText, onAddTextCombo }: {
         <button onClick={() => { addRecentFont("Inter"); onAddText("Texte", 18, "normal", "Inter"); }}
           className="flex-1 py-1.5 rounded-lg text-gray-500 font-medium text-xs bg-gray-50 border border-gray-200 hover:border-gray-400 transition-all active:scale-[0.97]">Corps de texte</button>
       </div>
+
+      {/* ── Régie : infos écrites par la borne au moment de la photo ── */}
+      {onAddZoneBorne && (
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#4f46e5]">Infos imprimées par la borne</p>
+          <p className="mt-0.5 text-[10px] leading-snug text-gray-500">
+            Placez-les et choisissez leur style : la borne les remplit à chaque photo. Elles n&apos;apparaissent pas dans l&apos;image du cadre.
+          </p>
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            {(Object.keys(LIBELLES_ZONES_BORNE) as TypeZoneBorne[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onAddZoneBorne(t)}
+                className={`rounded-lg border border-indigo-100 bg-white py-1.5 text-xs font-medium text-[#4f46e5] transition-all hover:border-[#4f46e5] active:scale-[0.97] ${t === "qr" ? "col-span-2" : ""}`}
+              >
+                + {LIBELLES_ZONES_BORNE[t]}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Text combos (Canva-style multi-layer) ── */}
       {onAddTextCombo && (

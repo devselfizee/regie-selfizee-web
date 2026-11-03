@@ -36,12 +36,14 @@ export function useTypeFormats(typeSlug?: string) {
           heightPx: f.heightPx,
           orientation: f.orientation === "portrait" ? "portrait" : "landscape",
           formatBoothId: f.formatBoothId ?? null,
+          zoneModeles: f.zoneModeles,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           gabarits: (f.gabarits || []).map((g: any) => ({
             id: g.id,
             name: g.name,
             photoZones: Array.isArray(g.photoZones) ? g.photoZones : [],
             textZones: Array.isArray(g.textZones) ? g.textZones : [],
+            zonesBorne: Array.isArray(g.zonesBorne) ? g.zonesBorne : undefined,
           })),
         }));
         setFormats(filtrerFormats(fmts));

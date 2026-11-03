@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { stabilizeBlobSrc, getCheckerCanvas } from "../canvas/canvasUtils";
 import { CUSTOM_PROPS } from "../types";
+import { renumeroterShoots } from "../canvas/canvasSetup";
 import { useEditorStore } from "../store/editorStore";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -82,10 +83,7 @@ export function useObjectActions({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const remaining = canvas.getObjects().filter((o: any) => o._isShootZone);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        remaining.forEach((shoot: any, i: number) => {
-          shoot._shootIndex = i + 1;
-          if (shoot._shootLabel) shoot._shootLabel.set({ text: `#${i + 1}` });
-        });
+        renumeroterShoots(remaining);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         canvas.getObjects().filter((o: any) => o._isShootLabel).forEach((lbl: any) => {
           if (!remaining.includes(lbl._shootZone)) canvas.remove(lbl);
@@ -152,10 +150,7 @@ export function useObjectActions({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allShoots = canvas.getObjects().filter((o: any) => o._isShootZone || o._shootIndex);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      allShoots.forEach((shoot: any, idx: number) => {
-        shoot._shootIndex = idx + 1;
-        if (shoot._shootLabel) shoot._shootLabel.set({ text: `#${idx + 1}` });
-      });
+      renumeroterShoots(allShoots);
       if (allShoots.length > 1) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         for (const shoot of allShoots) {
@@ -368,10 +363,7 @@ export function useObjectActions({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const allShoots = canvas.getObjects().filter((o: any) => o._isShootZone || o._shootIndex);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        allShoots.forEach((shoot: any, idx: number) => {
-          shoot._shootIndex = idx + 1;
-          if (shoot._shootLabel) shoot._shootLabel.set({ text: `#${idx + 1}` });
-        });
+        renumeroterShoots(allShoots);
         if (allShoots.length > 1) {
           for (const shoot of allShoots) {
             if (!shoot._shootLabel) {

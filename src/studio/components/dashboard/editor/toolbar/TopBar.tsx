@@ -83,7 +83,8 @@ function TopBarComponent(props: TopBarProps) {
     const canvas = fabricRef?.current;
     if (!canvas) return;
     const update = () => {
-      setShootCount(canvas.getObjects().filter((o: any) => o._isShootZone).length);
+      // Les copies (miniatures de la carte souvenir) reprennent une photo, elles n'en ajoutent pas
+      setShootCount(canvas.getObjects().filter((o: any) => o._isShootZone && !o._shootCopie).length);
     };
     update();
     canvas.on("object:added", update);

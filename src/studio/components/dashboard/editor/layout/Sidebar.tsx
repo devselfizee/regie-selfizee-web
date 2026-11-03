@@ -15,6 +15,7 @@ import {
 } from "..";
 import { useEditorStore } from "../store/editorStore";
 import type { Format, Gabarit } from "@/studio/lib/gabarits";
+import { ajouterZoneBorne } from "@/studio/regie/zonesBorne";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -177,7 +178,14 @@ function SidebarComponent(props: SidebarProps) {
                 canvasRef={fabricRef}
               />
             )}
-            {activeTab === "textes" && <PanelTextes onAddText={addText} onAddCurvedText={addCurvedText} onAddTextCombo={addTextCombo} />}
+            {activeTab === "textes" && (
+              <PanelTextes
+                onAddText={addText}
+                onAddCurvedText={addCurvedText}
+                onAddTextCombo={addTextCombo}
+                onAddZoneBorne={(t) => ajouterZoneBorne(fabricRef?.current, t, canvasWidth, canvasHeight, BLEED_PX)}
+              />
+            )}
             {activeTab === "formes" && <PanelFormes onAddShape={addShape} />}
             {activeTab === "photos" && <PanelPhotos canvasRef={fabricRef} canvasWidth={canvasWidth} canvasHeight={canvasHeight} bleedPx={BLEED_PX} />}
             {activeTab === "upload" && <PanelUpload onUploadClick={() => fileInputRef?.current?.click()} uploadHistory={uploadHistory} onReAdd={(dataUrl: any) => addImageToCanvas(dataUrl, false)} onDelete={(id: any) => saveUploadHistory(uploadHistory.filter((u: any) => u.id !== id))} />}

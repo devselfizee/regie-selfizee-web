@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { renumeroterShoots } from "../canvas/canvasSetup";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function PanelCalques({ canvasRef, selectedObj, onForceUpdate }: { canvasRef: React.MutableRefObject<any>; selectedObj: any; onForceUpdate?: () => void }) {
@@ -138,10 +139,7 @@ export function PanelCalques({ canvasRef, selectedObj, onForceUpdate }: { canvas
     canvas.remove(obj); canvas.discardActiveObject(); canvas.requestRenderAll();
     // Re-number remaining shoots
     const remainingShoots = canvas.getObjects().filter((o: any) => o._isShootZone || o._shootIndex);
-    remainingShoots.forEach((shoot: any, i: number) => {
-      shoot._shootIndex = i + 1;
-      if (shoot._shootLabel) shoot._shootLabel.set({ text: `#${i + 1}` });
-    });
+    renumeroterShoots(remainingShoots);
     // If only 1 shoot remains, remove its label
     if (remainingShoots.length === 1 && remainingShoots[0]._shootLabel) {
       canvas.remove(remainingShoots[0]._shootLabel);
@@ -381,13 +379,11 @@ export function PanelCalques({ canvasRef, selectedObj, onForceUpdate }: { canvas
                       if (cloned._isShootZone) {
                         const fabric = await import("fabric");
                         const allShoots = canvas.getObjects().filter((o: any) => o._isShootZone);
-                        allShoots.forEach((shoot: any, idx: number) => {
-                          shoot._shootIndex = idx + 1;
-                          if (shoot._shootLabel) {
-                            shoot._shootLabel.set({ text: `#${idx + 1}` });
-                          } else {
+                        renumeroterShoots(allShoots);
+                        allShoots.forEach((shoot: any) => {
+                          if (!shoot._shootLabel) {
                             // Create missing label
-                            const lbl = new fabric.FabricText(`#${idx + 1}`, {
+                            const lbl = new fabric.FabricText(`#${shoot._shootIndex}`, {
                               left: (shoot.left || 0) + 8, top: (shoot.top || 0) + 6,
                               originX: "left", originY: "top",
                               fontSize: 16, fontFamily: "sans-serif", fontWeight: "bold",

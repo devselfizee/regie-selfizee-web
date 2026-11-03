@@ -835,7 +835,8 @@ export function useShapeFactory({
       // Count existing shoot zones for numbering
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const existingShoots = canvas.getObjects().filter((o: any) => o._isShootZone);
-      const shootIndex = existingShoots.length + 1;
+      // Les copies (miniatures de la carte souvenir) ne comptent pas comme des photos
+      const shootIndex = existingShoots.filter((o: any) => !o._shootCopie).length + 1;
 
       const zoneW = canvasWidth * 0.4;
       const zoneH = canvasHeight * 0.5;

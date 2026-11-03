@@ -476,6 +476,8 @@ export function useCanvasExport({
         o.set("visible", false);
       }
       if (o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", false);
+      // Régie : QR, code de séance, date… sont écrits par la borne, pas dans l'image du cadre
+      if (o._zoneBorne) o.set("visible", false);
       // Preview fills/persons must not appear in the bare-cadre PNG export.
       // excludeFromExport only affects toObject/JSON, so toggle visibility.
       if (o._isPreviewLayer) o.set("visible", false);
@@ -576,7 +578,7 @@ export function useCanvasExport({
       if (designBgObj) designBgObj.excludeFromExport = true;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       canvas.getObjects().forEach((o: any) => {
-        if (o._isShootZone || o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", true);
+        if (o._isShootZone || o._zoneBorne || o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", true);
         if (o._isPreviewLayer) o.set("visible", true);
       });
       canvas.requestRenderAll();
@@ -714,6 +716,8 @@ export function useCanvasExport({
           o.set("visible", false);
         }
         if (o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", false);
+      // Régie : QR, code de séance, date… sont écrits par la borne, pas dans l'image du cadre
+      if (o._zoneBorne) o.set("visible", false);
         // Saved cadre should not carry preview-mode fills/persons.
         if (o._isPreviewLayer) o.set("visible", false);
       });
@@ -921,7 +925,7 @@ export function useCanvasExport({
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       canvas.getObjects().forEach((o: any) => {
-        if (o._isShootZone || o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", true);
+        if (o._isShootZone || o._zoneBorne || o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", true);
         if (o._isPreviewLayer) o.set("visible", true);
       });
       canvas.requestRenderAll();
@@ -930,7 +934,8 @@ export function useCanvasExport({
         name: format.name,
         formatId: format.id,
         gabaritId: gabarit.id,
-        shootCount: shootZones.length,
+        // Photos distinctes : les copies (miniatures de la carte souvenir) reprennent une photo
+        shootCount: canvas.getObjects().filter((o: any) => o._isShootZone && !o._shootCopie).length,
         imageDataUrl: finalDataUrl,
         thumbnailDataUrl: thumbDataUrl,
         canvasState: canvasJson,
@@ -987,7 +992,7 @@ export function useCanvasExport({
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       canvas.getObjects().forEach((o: any) => {
-        if (o._isShootZone || o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", true);
+        if (o._isShootZone || o._zoneBorne || o._isTextGuide || o._isShootLabel || o._isPenOverlay || o._isPenPreview || o._isFeatherPreview || o._isGuideline || o._isDesignAreaBg) o.set("visible", true);
         if (o._isPreviewLayer) o.set("visible", true);
       });
       canvas.requestRenderAll();
