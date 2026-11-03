@@ -108,9 +108,11 @@ export function MarginCheckModal(props: any) {
 
           {/* Preview */}
           {marginCheckPreview && (
-            <div className="relative rounded-lg overflow-hidden border border-gray-200 shadow-sm mb-4">
+            // Hauteur bornée : en pleine largeur, un format portrait (10x15, bandelette) faisait près de
+            // 1000 px de haut et repoussait la liste des éléments hors de la fenêtre
+            <div className="relative flex justify-center rounded-lg overflow-hidden border border-gray-200 shadow-sm mb-4 bg-gray-50 p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={marginCheckPreview} alt="Aperçu des marges" className="w-full h-auto" />
+              <img src={marginCheckPreview} alt="Aperçu des marges" className="block max-h-[42vh] w-auto max-w-full object-contain" />
             </div>
           )}
 
