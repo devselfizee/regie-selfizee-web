@@ -17,8 +17,9 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     libelle: "Pilotage",
     liens: [
       { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/lieux/carte", libelle: "Carte des lieux", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
+      { href: "/lieux/carte", libelle: "Analyse géographique", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", roles: ["ADMIN", "COMMERCIAL"] },
+      { href: "/comportements", libelle: "Comportements", icone: "Footprints", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
       { href: "/mentions", libelle: "Mes mentions", icone: "AtSign", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
@@ -29,6 +30,8 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     liens: [
       { href: "/lieux", libelle: "Lieux", icone: "MapPin", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
       { href: "/bornes", libelle: "Bornes", icone: "Monitor", roles: ["ADMIN", "TECHNICIEN"] },
+      { href: "/monitoring", libelle: "Monitoring live", icone: "Activity", roles: ["ADMIN", "TECHNICIEN"] },
+      { href: "/papier", libelle: "Papier", icone: "Printer", roles: ["ADMIN", "TECHNICIEN"] },
       { href: "/imports", libelle: "Imports", icone: "Upload", roles: ["ADMIN", "TECHNICIEN"] },
       { href: "/journal", libelle: "Journal des bornes", icone: "ScrollText", roles: ["ADMIN", "TECHNICIEN"] },
     ],
@@ -38,6 +41,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     liens: [
       { href: "/reversements", libelle: "Commissions", icone: "Banknote", roles: ["ADMIN"] },
       { href: "/paiements", libelle: "Paiements", icone: "Receipt", roles: ["ADMIN"] },
+      { href: "/codes", libelle: "Codes de remise", icone: "Ticket", roles: ["ADMIN"] },
       { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", roles: ["ADMIN"] },
       { href: "/rentabilite", libelle: "Rentabilité", icone: "TrendingUp", roles: ["ADMIN"] },
     ],
