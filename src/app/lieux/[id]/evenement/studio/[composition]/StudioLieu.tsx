@@ -37,7 +37,7 @@ function Chargeur({ lieuId, compositionId, eid }: { lieuId: number; compositionI
 
   const composition = fiche.data?.reglages.gabarits.choisis.find((c) => c.id === compositionId);
   const retour = (
-    <Link href={`${chemins.page}?ecran=gabarits`} className="bouton-second">← Fiche événement</Link>
+    <Link href={chemins.page} className="bouton-second">← Fiche événement</Link>
   );
   if (fiche.error || cadre.error) {
     return (

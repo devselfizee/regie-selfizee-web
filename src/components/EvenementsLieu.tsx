@@ -9,8 +9,8 @@ import { dateHeure, jour } from "@/lib/format";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
 
 // Événements de la borne d'un lieu (CDC page souvenir § 13) : celui par défaut et les autres (Halloween,
-// Noël, une soirée…), chacun avec son code. Onglet « Événements » de la fiche lieu, et création d'un
-// événement depuis cet onglet ou depuis la fiche événement.
+// Noël, une soirée…), chacun avec son code. Bloc « Événements » de l'onglet Configuration de la fiche lieu,
+// et création d'un événement depuis ce bloc ou depuis la fiche événement.
 
 export type Periode = "en-cours" | "a-venir" | "passe";
 const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" }); // AAAA-MM-JJ
@@ -83,16 +83,16 @@ export function FormNouvelEvenement({ lieuId, onAnnuler }: { lieuId: number; onA
 
 function Publication({ version, publieeLe, modifie, enregistre = true }: { version: number; publieeLe: string | null; modifie: boolean; enregistre?: boolean }) {
   if (!enregistre) return <span className="text-ink-muted">Pas encore enregistré</span>;
-  if (!version) return <Badge ton="neutre">Jamais publié</Badge>;
+  if (!version) return <Badge ton="neutre">Pas encore créé</Badge>;
   return (
     <span className="flex flex-wrap items-center gap-1">
-      <span className="tabular">v{version} · {dateHeure(publieeLe)}</span>
+      <span className="tabular">Créé · v{version} du {dateHeure(publieeLe)}</span>
       {modifie && <Badge ton="warn">Modifié depuis</Badge>}
     </span>
   );
 }
 
-/** Onglet « Événements » de la fiche lieu : tous les événements de la borne, et la création d'un nouveau. */
+/** Bloc « Événements » de l'onglet Configuration : tous les événements de la borne, et la création d'un nouveau. */
 export function EvenementsLieu({ lieuId }: { lieuId: number }) {
   const defaut = useQuery({ queryKey: ["evenement-lieu", lieuId, "habituel"], queryFn: () => api<FicheEvenementLieu>(`/lieux/${lieuId}/evenement`) });
   const liste = useQuery({ queryKey: ["evenements-ponctuels", lieuId], queryFn: () => api<EvenementPonctuel[]>(`/lieux/${lieuId}/evenements-ponctuels`) });
@@ -108,11 +108,11 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
 
   return (
     <Section
-      titre="Événements de la borne"
+      titre="Événements"
       actions={!creation && <button type="button" className="bouton" onClick={() => setCreation(true)}>+ Nouvel événement</button>}
     >
       <p className="mb-3 text-sm text-ink-2">
-        Chaque événement a son code, ses cadres, son thème et ses tarifs. Pour en installer un, tapez son code sur la borne ; pour revenir à
+        Chaque événement a son code, ses créations graphiques et ses tarifs. Pour en installer un, tapez son code sur la borne ; pour revenir à
         l&apos;événement par défaut, retapez le sien.
       </p>
       {creation && <div className="mb-4"><FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} /></div>}
@@ -124,7 +124,7 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
               <th className="py-2 pr-3 font-medium">Code</th>
               <th className="py-2 pr-3 font-medium">Dates</th>
               <th className="py-2 pr-3 font-medium">Période</th>
-              <th className="py-2 pr-3 font-medium">Publication</th>
+              <th className="py-2 pr-3 font-medium">État</th>
               <th />
             </tr>
           </thead>

@@ -75,7 +75,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
       : null);
   const vue: Etape = cadre && !loading && !fmt && etape === "editeur" ? "depart" : etape;
 
-  const versFiche = () => router.push(`${pageRetour}?ecran=gabarits`);
+  const versFiche = () => router.push(pageRetour);
 
   const choisirFormat = (f: Format) => {
     setEffectif(null);

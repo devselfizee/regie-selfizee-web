@@ -942,3 +942,13 @@ export interface TarifsLieu {
   base: GrilleTarifs;
   effective: { grille: GrilleTarifs; origine: OrigineGrille };
 }
+
+/** Infos du lieu pour la borne, reprises par tous ses événements (Configuration → Infos du lieu). */
+export type InfosLieuBorne = Pick<ReglagesEvenement["lieu"], "nom" | "ville" | "avisGoogleUrl" | "instagram" | "tiktok" | "hashtag" | "assistance">;
+export interface ReponseInfosBorne {
+  infos: InfosLieuBorne;
+  /** Faux tant qu'elles n'ont pas été enregistrées sur le lieu (reprises de l'événement par défaut) */
+  enregistrees: boolean;
+  /** Horaires de la fiche du lieu (toute l'année) : la borne se met en veille en dehors */
+  horaires: FicheEvenementLieu["horaires"];
+}

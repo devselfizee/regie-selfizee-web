@@ -22,7 +22,7 @@ import { BasculeHt, htDepuisTtc, usePreferenceHt } from "@/components/BasculeHt"
 import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
-import { EvenementsLieu } from "@/components/EvenementsLieu";
+import { ConfigurationLieu } from "@/components/ConfigurationLieu";
 import { TarifsDuLieu } from "@/components/GrilleTarifs";
 import type { Alerte } from "@/lib/api";
 
@@ -31,7 +31,9 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const voitVentesRole = peut.voirVentes(moi.role);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const [ht, setHt] = usePreferenceHt();
-  const [onglet, setOnglet] = useState<Onglet>(ONGLETS.some((o) => o.cle === ongletInitial) ? (ongletInitial as Onglet) : "stats");
+  // « evenements » : ancien nom de l'onglet Configuration (liens déjà partagés)
+  const demande = ongletInitial === "evenements" ? "configuration" : ongletInitial;
+  const [onglet, setOnglet] = useState<Onglet>(ONGLETS.some((o) => o.cle === demande) ? (demande as Onglet) : "stats");
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   // Le lieu est déjà choisi : pas de filtre de parc
   const query = qs({ ...filtres, parc: undefined });
@@ -55,7 +57,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "evenements" ? peut.administrer(moi.role) : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "configuration" ? peut.administrer(moi.role) : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -69,7 +71,6 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             {voitVentes && (
               <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ ...filtres, parc: undefined, lieuId: id }) }]} />
             )}
-            {peut.administrer(moi.role) && <Link href={`/lieux/${id}/evenement`} className="bouton-second">Fiche événement (borne)</Link>}
             {peut.gererLieux(moi.role) && <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>}
           </>
         }
@@ -149,7 +150,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
-      {ongletActif === "evenements" && <EvenementsLieu lieuId={id} />}
+      {ongletActif === "configuration" && <ConfigurationLieu lieuId={id} />}
 
       {ongletActif === "infos" && (
       <>
@@ -277,7 +278,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "evenements";
+type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
   { cle: "comportement", libelle: "Comportement" },
@@ -285,7 +286,8 @@ const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "infos", libelle: "Informations" },
   { cle: "suivi", libelle: "Suivi" },
   { cle: "commissions", libelle: "Commissions" },
-  { cle: "evenements", libelle: "Événements" },
+  // La borne du lieu : infos et tarif repris par chaque événement, puis les événements
+  { cle: "configuration", libelle: "Configuration" },
 ];
 
 function Info({ l, children }: { l: string; children: ReactNode }) {
