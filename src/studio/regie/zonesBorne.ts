@@ -90,9 +90,11 @@ export function creerZoneBorne(
   let o;
   if (type === "qr") {
     const taille = Math.min(largeur, hauteur);
-    // Sans contour : la taille du groupe est exactement celle du QR
-    const fond = new fabric.Rect({ left: 0, top: 0, width: taille, height: taille, originX: "left", originY: "top", fill: "#ffffff", strokeWidth: 0 });
-    const modules = new fabric.Path(traceQr(taille), { left: 0, top: 0, originX: "left", originY: "top", fill: "#111827", fillRule: "evenodd", strokeWidth: 0 });
+    // Comme la borne le pose (mémo du 03/11) : carré blanc à coins arrondis, marge blanche de 1/12 du côté.
+    // Sans contour : la taille du groupe est exactement celle de la zone `qrHoles`
+    const marge = taille / 12;
+    const fond = new fabric.Rect({ left: 0, top: 0, width: taille, height: taille, rx: marge, ry: marge, originX: "left", originY: "top", fill: "#ffffff", strokeWidth: 0 });
+    const modules = new fabric.Path(traceQr(taille - 2 * marge), { left: marge, top: marge, originX: "left", originY: "top", fill: "#111827", fillRule: "evenodd", strokeWidth: 0 });
     o = new fabric.Group([fond, modules], { left, top, originX: "left", originY: "top" });
   } else {
     // Hauteur de ligne fabric : 1,16 × la taille de police
