@@ -154,9 +154,10 @@ export const FORMATS: Format[] = [
   },
   {
     // Régie : la bandelette du kit nightlife sur toute sa page 10x15 (1240×1844), coupée en deux par la
-    // borne : la bande à gauche (zone vue par l'invité), la carte souvenir à droite avec les miniatures
-    // des 4 photos, le QR et le code de séance. Positions du kit (strip_frame.png). Les modèles
-    // « marque-page » du catalogue se posent sur la bande.
+    // borne : la bande à gauche (zone vue par l'invité) avec les 4 photos, la carte souvenir à droite
+    // avec le QR et le code de séance. Positions du kit (strip_frame.png), sans ses miniatures de la carte
+    // (pas demandées ; `copieDe` permettrait de les remettre). Les modèles « marque-page » du catalogue se
+    // posent sur la bande.
     id: "bandelette-carte",
     formatBoothId: 3,
     name: "Bandelette + carte souvenir",
@@ -170,10 +171,7 @@ export const FORMATS: Format[] = [
       {
         id: "bc-4",
         name: "4 photos + carte souvenir",
-        photoZones: [
-          ...[78, 476, 874, 1272].map((y) => px(37, y, 538, 383)),
-          ...[447, 661, 875, 1089].map((y, i) => ({ ...px(791, y, 282, 200), copieDe: i + 1 })),
-        ],
+        photoZones: [78, 476, 874, 1272].map((y) => px(37, y, 538, 383)),
         textZones: [],
         zonesBorne: [
           { type: "qr", ...px(832, 1520, 200, 200) },

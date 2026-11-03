@@ -12,7 +12,7 @@ export const FORMATS_KIT: Record<GabaritEvenement, RestrictionStudio & { libelle
     formats: [{ id: "bandelette-carte", gabarits: ["bc-4"] }],
     poses: 4,
     qrObligatoire: true,
-    note: "Vous dessinez la page entière : la bande à gauche, la carte souvenir à droite (miniatures des photos, QR code, code de séance).",
+    note: "Vous dessinez la page entière : la bande et ses 4 photos à gauche, la carte souvenir à droite (QR code, code de séance).",
   },
   pola: { libelle: "Pola 1 pose", formats: [{ id: "polaroid" }, { id: "carte-postale-portrait" }], poses: 1 },
   planche: { libelle: "Planche 4 poses", formats: [{ id: "polaroid-multishoot", gabarits: ["polm-4"] }], poses: 4 },
