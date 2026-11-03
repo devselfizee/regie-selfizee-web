@@ -38,7 +38,7 @@ function Prospects() {
   const emplacements = useQuery({
     queryKey: ["emplacements-concurrents", concurrentId, materiel],
     queryFn: () => api<EmplacementConcurrent[]>(`/concurrents/emplacements${qs({ concurrentId: concurrentId && concurrentId !== "autre" ? concurrentId : undefined, typeMateriel: materiel || undefined })}`),
-    enabled: vue === "carte" && voirEmplacements,
+    enabled: voirEmplacements,
   });
 
   const garde = (p: Prospect) =>
@@ -130,17 +130,15 @@ function Prospects() {
             <option value="BORNE">Borne</option>
           </select>
         </label>
-        {vue === "carte" && (
-          <label className="flex items-end gap-2 pb-2 text-sm">
-            <input type="checkbox" checked={voirEmplacements} onChange={(e) => setVoirEmplacements(e.target.checked)} />
-            Emplacements des concurrents
-          </label>
-        )}
+        <label className="flex items-end gap-2 pb-2 text-sm">
+          <input type="checkbox" checked={voirEmplacements} onChange={(e) => setVoirEmplacements(e.target.checked)} />
+          Emplacements des concurrents
+        </label>
       </div>
 
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
-      {data && !data.prospects.length && vue === "liste" && <Vide>Aucun prospect. Créez une fiche lieu avec le statut « Prospect ».</Vide>}
+      {data && !data.prospects.length && vue === "liste" && <Vide>Aucun prospect pour l&apos;instant. Créez une fiche lieu avec le statut « Prospect ».</Vide>}
       {data && data.prospects.length > 0 && !prospects.length && vue === "liste" && <Vide>Aucun prospect ne correspond à ces filtres.</Vide>}
 
       {data && vue === "carte" && (
@@ -227,6 +225,62 @@ function Prospects() {
           </div>
         </>
       )}
+      {vue === "liste" && voirEmplacements && <ListeEmplacements emplacements={emplacements.data} chargement={emplacements.isPending} />}
     </>
+  );
+}
+
+/** Vue liste : les emplacements connus des concurrents (importés dans Paramètres → Concurrents), avec une recherche */
+function ListeEmplacements({ emplacements, chargement }: { emplacements: EmplacementConcurrent[] | undefined; chargement: boolean }) {
+  const [q, setQ] = useState("");
+  const [nb, setNb] = useState(100);
+  if (chargement) return <Chargement />;
+  if (!emplacements) return null;
+  const n = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const filtres = q.trim() ? emplacements.filter((e) => n([e.nom, e.ville, e.codePostal, e.adresse, e.concurrent.nom].filter(Boolean).join(" ")).includes(n(q.trim()))) : emplacements;
+  return (
+    <section className="mt-6">
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+        <h2 className="text-base font-semibold">Emplacements des concurrents ({filtres.length})</h2>
+        <input className="champ !w-72" placeholder="Rechercher un nom, une ville, un code postal…" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {!emplacements.length ? (
+        <Vide>Aucun emplacement : importez ceux d&apos;un concurrent dans Paramètres → Concurrents.</Vide>
+      ) : (
+        <div className="carte overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-ink-2">
+              <tr>
+                <th className="px-4 py-3 font-medium">Lieu</th>
+                <th className="px-4 py-3 font-medium">Concurrent</th>
+                <th className="px-4 py-3 font-medium">Adresse</th>
+                <th className="px-4 py-3 font-medium">Ville</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtres.slice(0, nb).map((e) => (
+                <tr key={e.id} className="border-t border-line">
+                  <td className="px-4 py-2.5 font-medium">{e.nom}</td>
+                  <td className="px-4 py-2.5">
+                    {e.concurrent.nom}
+                    <span className="block text-xs text-ink-muted">{MATERIELS[e.concurrent.typeMateriel]}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-ink-2">{e.adresse ?? "—"}</td>
+                  <td className="px-4 py-2.5">
+                    {[e.codePostal, e.ville].filter(Boolean).join(" ") || "—"}
+                    {e.latitude === null && <span className="block text-xs text-warn-ink">pas sur la carte</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtres.length > nb && (
+            <div className="border-t border-line p-3 text-center">
+              <button type="button" className="bouton-second" onClick={() => setNb(nb + 200)}>Afficher plus ({filtres.length - nb} restants)</button>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
