@@ -20,6 +20,8 @@ export interface PhotoZone {
   h: number;
   /** Régie : copie de la zone n (même photo), comme les miniatures de la carte souvenir */
   copieDe?: number;
+  /** Régie : quart de tour de la photo dans sa zone (degrés, sens horaire) : bande couchée */
+  rotation?: 90 | 180 | 270;
 }
 
 export interface TextZone {
@@ -172,6 +174,21 @@ export const FORMATS: Format[] = [
         name: "4 photos + carte souvenir",
         photoZones: [
           ...[78, 476, 874, 1272].map((y) => px(37, y, 538, 383)),
+          ...[447, 661, 875, 1089].map((y, i) => ({ ...px(791, y, 282, 200), copieDe: i + 1 })),
+        ],
+        textZones: [],
+        zonesBorne: [
+          { type: "qr", ...px(832, 1520, 200, 200) },
+          { type: "code-seance", ...px(656, 1770, 154, 28), couleur: "#f0c400", align: "left" },
+        ],
+      },
+      {
+        // Bande couchée (façon Tabobine) : à lire après un quart de tour horaire, 4 photos côte à côte et
+        // un bandeau en bas (bord droit de la bande). La 1re photo est en bas de la page.
+        id: "bcc-4",
+        name: "Bande couchée + carte souvenir",
+        photoZones: [
+          ...[1378, 928, 478, 28].map((y) => ({ ...px(30, y, 460, 436), rotation: 270 as const })),
           ...[447, 661, 875, 1089].map((y, i) => ({ ...px(791, y, 282, 200), copieDe: i + 1 })),
         ],
         textZones: [],

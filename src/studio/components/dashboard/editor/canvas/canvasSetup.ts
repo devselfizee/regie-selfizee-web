@@ -271,11 +271,13 @@ export function createShootZones(
     (rect as any)._shootBorderRadius = 0;
     (rect as any)._shootIndex = numero;
     if (zone.copieDe) (rect as any)._shootCopie = true;
+    // Régie : photo tournée dans sa zone (bande couchée), transmise à la borne (`rotation` du trou)
+    if (zone.rotation) (rect as any)._rotationPhoto = zone.rotation;
     (rect as any)._shootLocked = true;
     canvas.add(rect);
 
     if (gabarit.photoZones.length > 1) {
-      const label = new fabric.FabricText(`#${numero}`, {
+      const label = new fabric.FabricText(zone.rotation ? `#${numero} ↻ photo couchée` : `#${numero}`, {
         left: zoneLeft + 8,
         top: zoneTop + 6,
         originX: "left",
@@ -312,7 +314,7 @@ export function renumeroterShoots(shoots: any[]) {
   shoots.filter((s) => s._shootCopie).forEach((c) => {
     c._shootIndex = nouveaux.get(c._shootIndex) ?? 0;
   });
-  shoots.forEach((s) => s._shootLabel?.set({ text: s._shootIndex ? `#${s._shootIndex}` : "#–" }));
+  shoots.forEach((s) => s._shootLabel?.set({ text: (s._shootIndex ? `#${s._shootIndex}` : "#–") + (s._rotationPhoto ? " ↻ photo couchée" : "") }));
 }
 
 // ── Text zone guides ──

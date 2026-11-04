@@ -842,7 +842,7 @@ export interface RecapVente extends Vente {
 }
 
 // Fiche événement d'un lieu (config de la borne, CDC page souvenir § 13). Montants en centimes.
-export type GabaritEvenement = "bandelette" | "pola" | "planche" | "carte" | "paysage";
+export type GabaritEvenement = "bandelette" | "pola" | "planche" | "carte" | "paysage" | "bandelette-couchee";
 export type LotJeu = "free" | "pct50" | "pct30" | "none";
 /** Une composition de l'écran de choix de la borne : un gabarit du kit (le même peut revenir : 8 polas…) */
 export interface CompositionEvenement {

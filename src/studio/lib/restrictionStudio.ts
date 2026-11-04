@@ -12,6 +12,8 @@ export interface RestrictionStudio {
   formats: { id: string; gabarits?: string[] }[];
   /** Nombre de poses du gabarit du kit. */
   poses: number;
+  /** `false` : pas de modèle du catalogue (leurs photos ne suivent pas ce gabarit, ex. bande couchée). */
+  catalogue?: boolean;
 }
 
 let courante: RestrictionStudio | null = null;
@@ -43,5 +45,6 @@ export function formatPermis(formatId: string): boolean {
 /** Un modèle du catalogue (format booth) est-il permis ? */
 export function modelePermis(formatBoothId: number): boolean {
   if (!courante) return true;
+  if (courante.catalogue === false) return false;
   return filtrerFormats(FORMATS).some((f) => f.formatBoothId != null && Number(f.formatBoothId) === formatBoothId);
 }

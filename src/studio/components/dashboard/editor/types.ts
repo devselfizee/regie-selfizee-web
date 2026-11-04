@@ -75,7 +75,7 @@ export const MAX_HISTORY = 50;
 export const CUSTOM_PROPS = [
   "_isShootZone", "_shootLocked", "_shootBorderRadius", "_shootIndex",
   // Régie : copie d'une zone photo (miniature) et zones remplies par la borne (QR, code, date…)
-  "_shootCopie", "_zoneBorne",
+  "_shootCopie", "_zoneBorne", "_rotationPhoto",
   "_isShootLabel", "_isTextGuide", "_isGradientBg", "_isSolidBg",
   "_isBgImage", "_isDesignAreaBg", "_locked", "_customName", "_dashStyle", "_borderStyle", "_fadeDir", "_fadeSize",
   "_fadeOpacity", "_fadeOffset", "_individualCorners", "_radiusTL",

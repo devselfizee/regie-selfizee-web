@@ -173,7 +173,9 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
             {kit.note && <p className="mb-8 text-center text-xs text-ink-muted">{kit.note}</p>}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <Depart titre="Modèle vierge" texte="Une page vierge au bon format, à personnaliser de A à Z." onClick={partirVierge} disabled={loading} />
-              <Depart titre="Catalogue Selfizee" texte="Les modèles prêts à l'emploi, seulement ceux de ce format." onClick={() => setEtape("catalogue")} disabled={loading} />
+              {kit.catalogue !== false && (
+                <Depart titre="Catalogue Selfizee" texte="Les modèles prêts à l'emploi, seulement ceux de ce format." onClick={() => setEtape("catalogue")} disabled={loading} />
+              )}
             </div>
           </div>
         )}

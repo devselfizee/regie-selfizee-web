@@ -74,6 +74,26 @@ export function IllustrationGabarit({ gabarit, className = "" }: { gabarit: Gaba
       </>,
       "Bandelette 4 poses et carte souvenir avec QR",
     );
+  if (gabarit === "bandelette-couchee")
+    return svg(
+      124,
+      184,
+      <>
+        {/* Bande à lire couchée : photos tournées d'un quart de tour, bandeau sur le bord droit */}
+        {[6, 50, 94, 138].map((y) => (
+          <g key={y} transform={`rotate(-90 ${5 + 23} ${y + 20})`}>
+            <Photo x={5 + 23 - 20} y={y + 20 - 23} w={40} h={46} />
+          </g>
+        ))}
+        <rect x={52} y={4} width={7} height={176} rx={1} fill={ENCRE} fillOpacity={0.55} />
+        <Coupe x={62} h={184} />
+        <Lignes x={70} y={18} largeurs={[40, 32]} />
+        {[45, 66, 87, 108].map((y) => <Photo key={`m${y}`} x={79} y={y} w={28} h={20} />)}
+        <Qr x={82} y={136} s={22} />
+        <Lignes x={70} y={170} largeurs={[28]} />
+      </>,
+      "Bandelette couchée 4 poses et carte souvenir avec QR",
+    );
   if (gabarit === "pola")
     return svg(
       124,
