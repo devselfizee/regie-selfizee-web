@@ -302,6 +302,7 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
 function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId: number; horaires: LieuFiche["horaires"]; ht: boolean }) {
   // En HT : montants convertis à 20 % de TVA quand l'API ne donne que le TTC (le CA des KPI et de la courbe, lui, est exact)
   const s = ht ? enHt(brut) : brut;
+  const voitBornes = peut.gererBornes(useMoi().role);
   const suffixe = ht ? "HT" : "TTC";
   const { courant: c, precedente: p } = s.kpis;
   const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);
@@ -402,7 +403,10 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
           lignes={s.bornes.map((b) => {
             const d = b.disponibilite;
             return [
-              <span key="b">{b.identifiant} <span className="text-xs text-ink-muted">{b.gamme}</span></span>,
+              <span key="b">
+                {voitBornes ? <Link className="font-medium text-accent hover:underline" href={`/bornes/${b.borneId}`}>{b.identifiant}</Link> : b.identifiant}{" "}
+                <span className="text-xs text-ink-muted">{b.gamme}</span>
+              </span>,
               !b.dernierHeartbeat ? <span key="d" className="text-ink-muted" title="La borne n’a encore rien envoyé à Régie">pas encore synchronisée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
               d.coupures ? `${d.coupures} (max ${duree(d.plusLongueCoupureMin)})` : "—",
               d.pannes ? `${d.pannes} · ${duree(d.minutesPanne)}` : "—",
