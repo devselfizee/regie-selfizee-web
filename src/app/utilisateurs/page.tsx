@@ -95,7 +95,7 @@ function Utilisateurs() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Modifier</button>
+                      <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Changer l&apos;accès</button>
                       {u.id !== moi.id && (
                         <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => basculer.mutate(u)}>
                           {u.isActive ? "Désactiver" : "Réactiver"}
@@ -111,7 +111,7 @@ function Utilisateurs() {
       )}
 
       <Modale
-        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Modifier l'utilisateur"}
+        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Accès de l'utilisateur"}
         ouverte={edition !== null}
         onFermer={() => setEdition(null)}
       >
@@ -125,9 +125,6 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
   const client = useQueryClient();
   const [f, setF] = useState({
     email: u?.email ?? "",
-    prenom: u?.prenom ?? "",
-    nom: u?.nom ?? "",
-    telephone: u?.telephone ?? "",
     role: (u?.role ?? "COMMERCIAL") as Role,
     lieuId: u?.lieuId ? String(u.lieuId) : "",
   });
@@ -138,10 +135,8 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
   });
   const enregistrer = useMutation({
     mutationFn: () => {
+      // Seul l'accès se règle ici : nom, prénom et téléphone viennent de Keycloak à la connexion
       const corps = {
-        prenom: f.prenom,
-        nom: f.nom,
-        telephone: f.telephone || null,
         role: f.role,
         lieuId: f.role === "PARTENAIRE" && f.lieuId ? Number(f.lieuId) : null,
       };
@@ -157,24 +152,22 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
 
   return (
     <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); enregistrer.mutate(); }}>
-      <label className="block">
-        <span className="etiquette">E-mail (celui du compte Keycloak) *</span>
-        <input className="champ" type="email" required disabled={Boolean(u)} value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-      </label>
-      <div className="grid grid-cols-2 gap-2">
+      {u ? (
+        <div className="rounded-md bg-surface-2 p-3 text-sm">
+          <div className="font-medium">{[u.prenom, u.nom].filter(Boolean).join(" ")}</div>
+          <div className="text-ink-2">{u.email}</div>
+          {u.telephone && <div className="text-ink-2">{u.telephone}</div>}
+          <p className="mt-1 text-xs text-ink-muted">
+            {u.dejaConnecte ? "Identité reprise du compte Keycloak à chaque connexion : elle se modifie dans Keycloak, pas ici." : "Nom et téléphone repris de Keycloak à sa première connexion."}
+          </p>
+        </div>
+      ) : (
         <label className="block">
-          <span className="etiquette">Prénom</span>
-          <input className="champ" value={f.prenom} onChange={(e) => setF({ ...f, prenom: e.target.value })} />
+          <span className="etiquette">E-mail (celui du compte Keycloak) *</span>
+          <input className="champ" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+          <span className="mt-1 block text-xs text-ink-muted">Nom, prénom et téléphone seront repris de Keycloak à sa première connexion.</span>
         </label>
-        <label className="block">
-          <span className="etiquette">Nom *</span>
-          <input className="champ" required value={f.nom} onChange={(e) => setF({ ...f, nom: e.target.value })} />
-        </label>
-      </div>
-      <label className="block">
-        <span className="etiquette">Téléphone (alertes SMS)</span>
-        <input className="champ" value={f.telephone} onChange={(e) => setF({ ...f, telephone: e.target.value })} />
-      </label>
+      )}
       <fieldset>
         <legend className="etiquette">Rôle *</legend>
         <div className="space-y-1">
