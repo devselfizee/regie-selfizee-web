@@ -762,6 +762,8 @@ export interface EmplacementConcurrent {
   concurrent: { id: number; nom: string; typeMateriel: "CABINE" | "BORNE" };
   /** Fiche prospect créée depuis cet emplacement */
   lieu?: { id: number; statut: string } | null;
+  /** Catégorie du lieu (type de lieu : bar, boîte de nuit…), null = à catégoriser */
+  typeLieu: { id: number; libelle: string } | null;
 }
 
 export interface ListeProspects {

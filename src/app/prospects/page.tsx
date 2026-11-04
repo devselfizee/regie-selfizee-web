@@ -34,20 +34,29 @@ function Prospects() {
   const [concurrentId, setConcurrentId] = useState("");
   const [materiel, setMateriel] = useState("");
   const [voirEmplacements, setVoirEmplacements] = useState(true);
+  // Catégorie du lieu (bar, boîte de nuit…) ; "0" = emplacements sans catégorie
+  const [categorie, setCategorie] = useState("");
+  const { data: ref } = useReferentiel();
+  const typesLieu = (ref?.listes.TYPE_LIEU ?? []).filter((t) => t.actif);
+  const libelleCategorie = typesLieu.find((t) => String(t.id) === categorie)?.libelle;
   const { data, error, isPending } = useQuery({ queryKey: ["prospects"], queryFn: () => api<ListeProspects>("/prospects") });
   const concurrents = useConcurrents();
   const emplacements = useQuery({
-    queryKey: ["emplacements-concurrents", concurrentId, materiel],
-    queryFn: () => api<EmplacementConcurrent[]>(`/concurrents/emplacements${qs({ concurrentId: concurrentId && concurrentId !== "autre" ? concurrentId : undefined, typeMateriel: materiel || undefined })}`),
+    queryKey: ["emplacements-concurrents", concurrentId, materiel, categorie],
+    queryFn: () =>
+      api<EmplacementConcurrent[]>(
+        `/concurrents/emplacements${qs({ concurrentId: concurrentId && concurrentId !== "autre" ? concurrentId : undefined, typeMateriel: materiel || undefined, typeLieuId: categorie || undefined })}`
+      ),
     enabled: voirEmplacements,
   });
 
   const garde = (p: Prospect) =>
     (enPlace === "" || (enPlace === "oui" ? p.concurrentEnPlace === true : enPlace === "non" ? p.concurrentEnPlace === false : p.concurrentEnPlace == null)) &&
     (concurrentId === "" || (concurrentId === "autre" ? !!p.concurrent && p.concurrent.id === null : String(p.concurrent?.id) === concurrentId)) &&
-    (materiel === "" || p.concurrent?.typeMateriel === materiel);
+    (materiel === "" || p.concurrent?.typeMateriel === materiel) &&
+    (categorie === "" || (categorie === "0" ? !p.typeLieu : p.typeLieu === libelleCategorie));
   const prospects = (data?.prospects ?? []).filter(garde);
-  const filtre = enPlace || concurrentId || materiel;
+  const filtre = enPlace || concurrentId || materiel || categorie;
 
   const points: PointCarte[] = [
     ...(voirEmplacements ? emplacements.data ?? [] : [])
@@ -61,7 +70,7 @@ function Prospects() {
         rayon: 6,
         inerte: true,
         titre: `${e.concurrent.nom} · ${e.nom}`,
-        lignes: [MATERIELS[e.concurrent.typeMateriel], [e.adresse, e.codePostal, e.ville].filter(Boolean).join(" ")],
+        lignes: [[MATERIELS[e.concurrent.typeMateriel], e.typeLieu?.libelle].filter(Boolean).join(" · "), [e.adresse, e.codePostal, e.ville].filter(Boolean).join(" ")],
       })),
     ...prospects
       .filter((p) => p.latitude != null && p.longitude != null)
@@ -105,7 +114,7 @@ function Prospects() {
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="mb-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <label>
           <span className="etiquette">Concurrent en place</span>
           <select className="champ" value={enPlace} onChange={(e) => setEnPlace(e.target.value)}>
@@ -129,6 +138,14 @@ function Prospects() {
             <option value="">Tous</option>
             <option value="CABINE">Cabine</option>
             <option value="BORNE">Borne</option>
+          </select>
+        </label>
+        <label>
+          <span className="etiquette">Catégorie du lieu</span>
+          <select className="champ" value={categorie} onChange={(e) => setCategorie(e.target.value)}>
+            <option value="">Toutes</option>
+            {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+            <option value="0">À catégoriser</option>
           </select>
         </label>
         <label className="flex items-end gap-2 pb-2 text-sm">
@@ -244,12 +261,22 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
   const [typeLieuId, setTypeLieuId] = useState("");
   const creer = useMutation({
     mutationFn: (ids: number[]) =>
-      api<{ crees: number; dejaProspects: number }>("/concurrents/emplacements/prospects", { method: "POST", json: { ids, typeLieuId: Number(typeLieuId) } }),
+      api<{ crees: number; dejaProspects: number }>("/concurrents/emplacements/prospects", { method: "POST", json: { ids, typeLieuId: typeLieuId ? Number(typeLieuId) : null } }),
     onSuccess: () => {
       setChoisis(new Set());
       client.invalidateQueries({ queryKey: ["prospects"] });
       client.invalidateQueries({ queryKey: ["emplacements-concurrents"] });
     },
+  });
+  // Catégorie corrigée à la main, et première passe automatique d'après le nom
+  const categoriser = useMutation({
+    mutationFn: ({ id, typeLieuId }: { id: number; typeLieuId: number | null }) =>
+      api(`/concurrents/emplacements/${id}`, { method: "PATCH", json: { typeLieuId } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["emplacements-concurrents"] }),
+  });
+  const auto = useMutation({
+    mutationFn: () => api<{ categorises: number; restants: number }>("/concurrents/emplacements/categoriser", { method: "POST" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["emplacements-concurrents"] }),
   });
   if (chargement) return <Chargement />;
   if (!emplacements) return null;
@@ -259,25 +286,43 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
   const tousCoches = disponibles.length > 0 && disponibles.every((e) => choisis.has(e.id));
   const basculer = (id: number) => setChoisis((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   const typesLieu = (ref?.listes.TYPE_LIEU ?? []).filter((t) => t.actif);
+  const sansCategorie = emplacements.filter((e) => !e.typeLieu).length;
+  // Le type choisi ne sert qu'aux emplacements sélectionnés sans catégorie
+  const choisisSansCategorie = emplacements.filter((e) => choisis.has(e.id) && !e.typeLieu).length;
 
   return (
     <section className="mt-6">
       <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-base font-semibold">Emplacements des concurrents ({filtres.length})</h2>
-        <input className="champ !w-72" placeholder="Rechercher un nom, une ville, un code postal…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="flex flex-wrap items-end gap-2">
+          {sansCategorie > 0 && (
+            <button type="button" className="bouton-second" disabled={auto.isPending} onClick={() => auto.mutate()} title="Bar, club, centre commercial… d'après le nom ; à vérifier ensuite">
+              {auto.isPending ? "Catégorisation…" : `Catégoriser automatiquement (${sansCategorie} sans catégorie)`}
+            </button>
+          )}
+          <input className="champ !w-72" placeholder="Rechercher un nom, une ville, un code postal…" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
       </div>
+      {auto.data && (
+        <p className="mb-2 text-sm text-good">
+          {auto.data.categorises} emplacement(s) catégorisé(s) d&apos;après leur nom.{auto.data.restants > 0 && ` ${auto.data.restants} restent à catégoriser à la main (filtre « À catégoriser »).`}
+        </p>
+      )}
+      {(auto.error || categoriser.error) && <Erreur erreur={auto.error ?? categoriser.error} />}
 
       {choisis.size > 0 && (
         <div className="mb-2 flex flex-wrap items-end gap-2 rounded-md bg-accent/5 p-3 text-sm">
           <span className="self-center font-medium">{choisis.size} emplacement(s) sélectionné(s)</span>
-          <label>
-            <span className="etiquette">Type de lieu des prospects *</span>
-            <select className="champ" value={typeLieuId} onChange={(e) => setTypeLieuId(e.target.value)}>
-              <option value="">—</option>
-              {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-            </select>
-          </label>
-          <button type="button" className="bouton" disabled={!typeLieuId || creer.isPending} onClick={() => creer.mutate([...choisis])}>
+          {choisisSansCategorie > 0 && (
+            <label>
+              <span className="etiquette">Type de lieu pour les {choisisSansCategorie} sans catégorie *</span>
+              <select className="champ" value={typeLieuId} onChange={(e) => setTypeLieuId(e.target.value)}>
+                <option value="">—</option>
+                {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+              </select>
+            </label>
+          )}
+          <button type="button" className="bouton" disabled={(choisisSansCategorie > 0 && !typeLieuId) || creer.isPending} onClick={() => creer.mutate([...choisis])}>
             {creer.isPending ? "Création…" : `Créer ${choisis.size} prospect${choisis.size > 1 ? "s" : ""}`}
           </button>
           <button type="button" className="bouton-second" onClick={() => setChoisis(new Set())}>Annuler</button>
@@ -307,6 +352,7 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
                   />
                 </th>
                 <th className="px-4 py-3 font-medium">Lieu</th>
+                <th className="px-4 py-3 font-medium">Catégorie</th>
                 <th className="px-4 py-3 font-medium">Concurrent</th>
                 <th className="px-4 py-3 font-medium">Adresse</th>
                 <th className="px-4 py-3 font-medium">Ville</th>
@@ -320,6 +366,17 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
                     {!e.lieu && <input type="checkbox" aria-label={`Sélectionner ${e.nom}`} checked={choisis.has(e.id)} onChange={() => basculer(e.id)} />}
                   </td>
                   <td className="px-4 py-2.5 font-medium">{e.nom}</td>
+                  <td className="px-4 py-2.5">
+                    <select
+                      className={`champ !py-1 text-sm ${e.typeLieu ? "" : "text-warn-ink"}`}
+                      aria-label={`Catégorie de ${e.nom}`}
+                      value={e.typeLieu?.id ?? ""}
+                      onChange={(ev) => categoriser.mutate({ id: e.id, typeLieuId: ev.target.value ? Number(ev.target.value) : null })}
+                    >
+                      <option value="">À catégoriser</option>
+                      {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+                    </select>
+                  </td>
                   <td className="px-4 py-2.5">
                     {e.concurrent.nom}
                     <span className="block text-xs text-ink-muted">{MATERIELS[e.concurrent.typeMateriel]}</span>
