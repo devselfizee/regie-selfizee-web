@@ -12,6 +12,7 @@ import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 import { dates } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
 import { Modale } from "@/components/Modale";
+import { FilAriane } from "@/components/FilAriane";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : créations graphiques, tarifs et options, puis
 // « Créer l'événement » (la version que la borne charge avec son code) et le zip à télécharger.
@@ -157,17 +158,7 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
     <div className="pb-4">
       {/* En-tête : où l'on est, ce que c'est, l'action principale */}
       <header className="mb-6">
-        <div className="mb-3">
-          <nav aria-label="Fil d'Ariane">
-            <ol className="flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">
-              <li><Link href={`/lieux/${lieuId}`} className="hover:text-ink hover:underline">{enseigne}</Link></li>
-              <li aria-hidden>›</li>
-              <li><Link href={`/lieux/${lieuId}?onglet=configuration`} className="hover:text-ink hover:underline">Configuration</Link></li>
-              <li aria-hidden>›</li>
-              <li aria-current="page" className="font-medium text-ink-2">{titre}</li>
-            </ol>
-          </nav>
-        </div>
+        <FilAriane lieuId={lieuId} enseigne={enseigne} page={titre} />
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">

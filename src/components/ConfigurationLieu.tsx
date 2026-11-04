@@ -65,6 +65,11 @@ function TarifDuLieu({ lieuId }: { lieuId: number }) {
       <ul className="flex flex-wrap gap-2">
         {g.paliers.map((p) => (
           <li key={p.de} className={`rounded-lg border px-3 py-2 ${g.palierMisEnAvant === p.de ? "border-accent bg-accent/5" : "border-line"}`}>
+            {g.palierMisEnAvant === p.de && (
+              <span className="mb-1 block text-[0.7rem] font-semibold uppercase tracking-wide text-accent" title="Palier mis en avant sur l'écran d'offre de la borne">
+                ★ {g.libelleMisEnAvant || "Mis en avant"}
+              </span>
+            )}
             <span className="block text-xs text-ink-2">{p.de === 1 ? "1 tirage" : `Dès ${p.de} tirages`}</span>
             <span className="tabular font-semibold">{euros(p.prixCents)}</span>
             <span className="text-xs text-ink-2"> / tirage</span>

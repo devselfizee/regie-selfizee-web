@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type InfosLieuBorne, type LieuFiche, type ReponseInfosBorne } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
+import { FilAriane } from "@/components/FilAriane";
 import { JOURS_SEMAINE } from "@/lib/format";
 
 // Configuration → Infos du lieu : nom affiché, ville, avis et réseaux, assistance, horaires. Renseignées
@@ -45,7 +46,6 @@ function Formulaire({ lieuId, enseigne, donnees }: { lieuId: number; enseigne: s
   const maj = (p: Partial<InfosLieuBorne>) => setI((x) => ({ ...x, ...p }));
   const majAssistance = (p: Partial<InfosLieuBorne["assistance"]>) => setI((x) => ({ ...x, assistance: { ...x.assistance, ...p } }));
   const modifie = !donnees.enregistrees || JSON.stringify(i) !== JSON.stringify(donnees.infos);
-  const retour = `/lieux/${lieuId}?onglet=configuration`;
 
   const enregistrer = useMutation({
     mutationFn: () => api<ReponseInfosBorne>(`/lieux/${lieuId}/infos-borne`, { method: "PUT", json: { infos: i } }),
@@ -63,16 +63,14 @@ function Formulaire({ lieuId, enseigne, donnees }: { lieuId: number; enseigne: s
         enregistrer.mutate();
       }}
     >
+      <FilAriane lieuId={lieuId} enseigne={enseigne} page="Infos du lieu" />
       <EnTete
-        titre={`Infos du lieu · ${enseigne}`}
+        titre="Infos du lieu"
         sousTitre="Reprises par chaque événement de la borne : l'accueil de la borne, la page souvenir et les mails."
         actions={
-          <>
-            <Link href={retour} className="bouton-second">← Configuration</Link>
-            <button type="submit" className="bouton" disabled={!i.nom.trim() || !modifie || enregistrer.isPending}>
-              {enregistrer.isPending ? "Enregistrement…" : "Enregistrer"}
-            </button>
-          </>
+          <button type="submit" className="bouton" disabled={!i.nom.trim() || !modifie || enregistrer.isPending}>
+            {enregistrer.isPending ? "Enregistrement…" : "Enregistrer"}
+          </button>
         }
       />
       {!donnees.enregistrees && (
