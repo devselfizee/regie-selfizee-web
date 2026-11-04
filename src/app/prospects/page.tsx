@@ -268,35 +268,6 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
       client.invalidateQueries({ queryKey: ["emplacements-concurrents"] });
     },
   });
-  // Catégorie corrigée à la main, et première passe automatique d'après le nom
-  const categoriser = useMutation({
-    mutationFn: ({ id, typeLieuId }: { id: number; typeLieuId: number | null }) =>
-      api(`/concurrents/emplacements/${id}`, { method: "PATCH", json: { typeLieuId } }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["emplacements-concurrents"] }),
-  });
-  const auto = useMutation({
-    mutationFn: () => api<{ categorises: number; restants: number }>("/concurrents/emplacements/categoriser", { method: "POST" }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["emplacements-concurrents"] }),
-  });
-  // Vérification sur Google Places (type, note, avis), par lots tant qu'il en reste
-  const google = useQuery({ queryKey: ["emplacements-google"], queryFn: () => api<{ configure: boolean; restants: number }>("/concurrents/emplacements/google") });
-  const [verif, setVerif] = useState<{ enCours: boolean; traites: number; trouves: number; categorises: number; erreur: unknown }>({ enCours: false, traites: 0, trouves: 0, categorises: 0, erreur: null });
-  const verifierSurGoogle = async () => {
-    let cumul = { traites: 0, trouves: 0, categorises: 0 };
-    setVerif({ enCours: true, ...cumul, erreur: null });
-    try {
-      for (;;) {
-        const r = await api<{ traites: number; trouves: number; categorises: number; restants: number }>("/concurrents/emplacements/google", { method: "POST", json: { lot: 20 } });
-        cumul = { traites: cumul.traites + r.traites, trouves: cumul.trouves + r.trouves, categorises: cumul.categorises + r.categorises };
-        setVerif({ enCours: r.restants > 0 && r.traites > 0, ...cumul, erreur: null });
-        if (!r.restants || !r.traites) break;
-      }
-    } catch (erreur) {
-      setVerif({ enCours: false, ...cumul, erreur });
-    }
-    client.invalidateQueries({ queryKey: ["emplacements-concurrents"] });
-    client.invalidateQueries({ queryKey: ["emplacements-google"] });
-  };
   if (chargement) return <Chargement />;
   if (!emplacements) return null;
   const n = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -305,7 +276,6 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
   const tousCoches = disponibles.length > 0 && disponibles.every((e) => choisis.has(e.id));
   const basculer = (id: number) => setChoisis((s) => { const c = new Set(s); if (c.has(id)) c.delete(id); else c.add(id); return c; });
   const typesLieu = (ref?.listes.TYPE_LIEU ?? []).filter((t) => t.actif);
-  const sansCategorie = emplacements.filter((e) => !e.typeLieu).length;
   // Le type choisi ne sert qu'aux emplacements sélectionnés sans catégorie
   const choisisSansCategorie = emplacements.filter((e) => choisis.has(e.id) && !e.typeLieu).length;
 
@@ -313,37 +283,8 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
     <section className="mt-6">
       <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-base font-semibold">Emplacements des concurrents ({filtres.length})</h2>
-        <div className="flex flex-wrap items-end gap-2">
-          {google.data?.configure && google.data.restants > 0 && (
-            <button type="button" className="bouton" disabled={verif.enCours} onClick={verifierSurGoogle} title="Catégorie, note et avis d'après la fiche Google du lieu">
-              {verif.enCours ? `Vérification sur Google… ${verif.traites} / ${verif.traites + google.data.restants}` : `Vérifier sur Google (${google.data.restants})`}
-            </button>
-          )}
-          {sansCategorie > 0 && (
-            <button type="button" className="bouton-second" disabled={auto.isPending} onClick={() => auto.mutate()} title="Bar, club, centre commercial… d'après le nom ; à vérifier ensuite">
-              {auto.isPending ? "Catégorisation…" : `Catégoriser automatiquement (${sansCategorie} sans catégorie)`}
-            </button>
-          )}
-          <input className="champ !w-72" placeholder="Rechercher un nom, une ville, un code postal…" value={q} onChange={(e) => setQ(e.target.value)} />
-        </div>
+        <input className="champ !w-72" placeholder="Rechercher un nom, une ville, un code postal…" value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
-      {auto.data && (
-        <p className="mb-2 text-sm text-good">
-          {auto.data.categorises} emplacement(s) catégorisé(s) d&apos;après leur nom.{auto.data.restants > 0 && ` ${auto.data.restants} restent à catégoriser à la main (filtre « À catégoriser »).`}
-        </p>
-      )}
-      {(auto.error || categoriser.error) && <Erreur erreur={auto.error ?? categoriser.error} />}
-      {verif.traites > 0 && (
-        <p className="mb-2 text-sm text-good">
-          Google : {verif.traites} emplacement(s) vérifié(s), {verif.trouves} retrouvé(s), {verif.categorises} catégorisé(s).
-          {verif.enCours && " Ne fermez pas la page avant la fin."}
-        </p>
-      )}
-      {verif.erreur != null && <Erreur erreur={verif.erreur} />}
-      {google.data && !google.data.configure && (
-        <p className="mb-2 text-xs text-ink-muted">Vérification sur Google indisponible : clé GOOGLE_PLACES_API_KEY à ajouter dans l&apos;API.</p>
-      )}
-
       {choisis.size > 0 && (
         <div className="mb-2 flex flex-wrap items-end gap-2 rounded-md bg-accent/5 p-3 text-sm">
           <span className="self-center font-medium">{choisis.size} emplacement(s) sélectionné(s)</span>
@@ -401,25 +342,9 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
                   </td>
                   <td className="px-4 py-2.5">
                     <span className="font-medium">{e.nom}</span>
-                    {e.googlePlaceId ? (
-                      <a href={e.googleUrl ?? undefined} target="_blank" rel="noreferrer" className="block text-xs text-ink-muted hover:underline" title={e.googleNom ?? undefined}>
-                        Google{e.googleNote !== null && ` · ★ ${e.googleNote.toLocaleString("fr-FR")}`}{e.googleNbAvis !== null && ` (${e.googleNbAvis} avis)`}
-                        {e.googleType && ` · ${e.googleType.replace(/_/g, " ")}`}
-                      </a>
-                    ) : (
-                      e.googleVerifieLe && <span className="block text-xs text-warn-ink">introuvable sur Google</span>
-                    )}
                   </td>
                   <td className="px-4 py-2.5">
-                    <select
-                      className={`champ !py-1 text-sm ${e.typeLieu ? "" : "text-warn-ink"}`}
-                      aria-label={`Catégorie de ${e.nom}`}
-                      value={e.typeLieu?.id ?? ""}
-                      onChange={(ev) => categoriser.mutate({ id: e.id, typeLieuId: ev.target.value ? Number(ev.target.value) : null })}
-                    >
-                      <option value="">À catégoriser</option>
-                      {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
-                    </select>
+                    {e.typeLieu?.libelle ?? <span className="text-warn-ink">À catégoriser</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     {e.concurrent.nom}
