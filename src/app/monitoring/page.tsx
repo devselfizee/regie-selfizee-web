@@ -36,9 +36,19 @@ function Monitoring() {
   if (isPending) return <Chargement />;
 
   const bornes = data.bornes.filter((b) => b.lieu || b.enLigne);
-  const aRegler = bornes.filter((b) => b.etat === "eteinte_anormale" || b.etat === "alerte");
+  // Le lieu ouvre plus tard dans la journée d'exploitation (jusqu'à 6 h demain) : la borne doit être allumée ce jour
+  const finJournee = new Date(data.debutJournee).getTime() + 86_400_000;
+  const ouvreCeJour = (b: BorneSupervisee) => b.lieuOuvert || (!!b.prochaineOuverture && new Date(b.prochaineOuverture).getTime() < finJournee);
+  // Cinq blocs (retour de Sébastien, 04/11/2026)
+  const manquantes = bornes.filter((b) => !b.enLigne && b.lieuOuvert);
+  const aAllumer = bornes
+    .filter((b) => !b.enLigne && !b.lieuOuvert && ouvreCeJour(b))
+    .sort((a, b) => (a.prochaineOuverture ?? "").localeCompare(b.prochaineOuverture ?? ""));
+  const attendues = bornes.filter((b) => b.enLigne && ouvreCeJour(b));
+  const enTrop = bornes.filter((b) => b.enLigne && !ouvreCeJour(b));
+  const eteintes = bornes.filter((b) => !b.enLigne && !ouvreCeJour(b));
   const connectees = bornes.filter((b) => b.enLigne);
-  const eteintes = bornes.filter((b) => b.etat === "eteinte");
+  const aRegler = bornes.filter((b) => b.etat === "eteinte_anormale" || b.etat === "alerte");
   const ca = bornes.reduce((s, b) => s + b.journee.caTtcCents, 0);
   const ventes = bornes.reduce((s, b) => s + b.journee.ventes, 0);
 
@@ -57,11 +67,17 @@ function Monitoring() {
       </div>
 
       <div className="space-y-6">
-        <Section titre={`À régler (${aRegler.length})`}>
-          {aRegler.length ? <Tableau bornes={aRegler} onDetail={setDetail} /> : <Vide>Rien à signaler : toutes les bornes des lieux ouverts sont en ligne, sans erreur.</Vide>}
+        <Section titre={`Devraient être connectées, ne le sont pas (${manquantes.length})`}>
+          {manquantes.length ? <Tableau bornes={manquantes} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Rien à signaler : toutes les bornes des lieux ouverts sont en ligne.</Vide>}
         </Section>
-        <Section titre={`Connectées (${connectees.length})`}>
-          {connectees.length ? <Tableau bornes={connectees} onDetail={setDetail} /> : <Vide>Aucune borne connectée.</Vide>}
+        <Section titre={`À allumer ce jour, pas encore allumées (${aAllumer.length})`}>
+          {aAllumer.length ? <Tableau bornes={aAllumer} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Aucune autre ouverture prévue aujourd&apos;hui.</Vide>}
+        </Section>
+        <Section titre={`Connectées comme prévu (${attendues.length})`}>
+          {attendues.length ? <Tableau bornes={attendues} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Aucune borne connectée parmi celles prévues aujourd&apos;hui.</Vide>}
+        </Section>
+        <Section titre={`Allumées sans utilisation prévue aujourd'hui (${enTrop.length})`}>
+          {enTrop.length ? <Tableau bornes={enTrop} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Aucune.</Vide>}
         </Section>
         <Section
           titre={`Éteintes, lieu fermé (${eteintes.length})`}
@@ -73,7 +89,7 @@ function Monitoring() {
             )
           }
         >
-          {voirEteintes ? <Tableau bornes={eteintes} onDetail={setDetail} /> : <p className="text-sm text-ink-2">Normal : leur lieu est fermé en ce moment.</p>}
+          {voirEteintes ? <Tableau bornes={eteintes} onDetail={setDetail} finJournee={finJournee} /> : <p className="text-sm text-ink-2">Normal : leur lieu est fermé en ce moment.</p>}
         </Section>
       </div>
 
@@ -98,7 +114,7 @@ const Point = ({ ok }: { ok: boolean | null }) => (
   <span className={`inline-block h-2 w-2 rounded-full ${ok === null ? "bg-ink-muted" : ok ? "bg-good" : "bg-bad"}`} aria-hidden />
 );
 
-function Tableau({ bornes, onDetail }: { bornes: BorneSupervisee[]; onDetail: (b: BorneSupervisee) => void }) {
+function Tableau({ bornes, onDetail, finJournee }: { bornes: BorneSupervisee[]; onDetail: (b: BorneSupervisee) => void; finJournee: number }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -124,7 +140,11 @@ function Tableau({ bornes, onDetail }: { bornes: BorneSupervisee[]; onDetail: (b
                 <span className="block text-xs text-ink-2">{b.identifiant} · {b.gamme}</span>
               </td>
               <td className="py-2 pr-3">
-                <Badge ton={ETATS[b.etat].ton}>{ETATS[b.etat].libelle}</Badge>
+                {b.etat === "eteinte" && b.prochaineOuverture && new Date(b.prochaineOuverture).getTime() < finJournee ? (
+                  <Badge ton="warn">Pas encore allumée</Badge>
+                ) : (
+                  <Badge ton={ETATS[b.etat].ton}>{ETATS[b.etat].libelle}</Badge>
+                )}
                 {b.erreurs.length > 0 && <span className="block text-xs text-bad">{b.erreurs.map((e) => e.code).join(", ")}</span>}
                 {!b.lieuOuvert && b.lieu && b.prochaineOuverture && <span className="block text-xs text-ink-muted">ouvre {dateHeure(b.prochaineOuverture)}</span>}
               </td>
