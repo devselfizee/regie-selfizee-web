@@ -399,13 +399,18 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
 
       <Section titre="Bornes sur la période">
         <Tableau
-          entetes={["Borne", "Disponibilité", "Coupures", "Pannes déclarées", "Papier restant", "Dernière vente", "Dernier signal"]}
+          entetes={["Borne", "Sur le lieu", "Disponibilité", "Coupures", "Pannes déclarées", "Papier restant", "Dernière vente", "Dernier signal"]}
           lignes={s.bornes.map((b) => {
             const d = b.disponibilite;
             return [
               <span key="b">
                 {voitBornes ? <Link className="font-medium text-accent hover:underline" href={`/bornes/${b.borneId}`}>{b.identifiant}</Link> : b.identifiant}{" "}
                 <span className="text-xs text-ink-muted">{b.gamme}</span>
+              </span>,
+              // Affectation de la borne au lieu : depuis quand (et jusqu'à quand si elle en est partie)
+              <span key="a">
+                {b.fin ? `du ${date(b.debut)} au ${date(b.fin)}` : `depuis le ${date(b.debut)}`}
+                {!b.fin && <span className="block text-xs text-ink-muted">{anciennete(b.debut)}</span>}
               </span>,
               !b.dernierHeartbeat ? <span key="d" className="text-ink-muted" title="La borne n’a encore rien envoyé à Régie">pas encore synchronisée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
               d.coupures ? `${d.coupures} (max ${duree(d.plusLongueCoupureMin)})` : "—",
@@ -419,6 +424,17 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
       </Section>
     </div>
   );
+}
+
+/** Depuis combien de temps la borne est sur le lieu : « 12 jours », « 5 mois », « 2 ans et 3 mois » */
+function anciennete(debut: string) {
+  const jours = Math.floor((Date.now() - new Date(debut).getTime()) / 86_400_000);
+  if (jours < 1) return "depuis aujourd'hui";
+  if (jours < 60) return `${jours} jour${jours > 1 ? "s" : ""}`;
+  const mois = Math.floor(jours / 30.44);
+  if (mois < 24) return `${mois} mois`;
+  const reste = mois % 12;
+  return `${Math.floor(mois / 12)} ans${reste ? ` et ${reste} mois` : ""}`;
 }
 
 /** « 2 h 05 » ou « 45 min » */
