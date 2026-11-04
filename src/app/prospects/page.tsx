@@ -278,6 +278,25 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
     mutationFn: () => api<{ categorises: number; restants: number }>("/concurrents/emplacements/categoriser", { method: "POST" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["emplacements-concurrents"] }),
   });
+  // Vérification sur Google Places (type, note, avis), par lots tant qu'il en reste
+  const google = useQuery({ queryKey: ["emplacements-google"], queryFn: () => api<{ configure: boolean; restants: number }>("/concurrents/emplacements/google") });
+  const [verif, setVerif] = useState<{ enCours: boolean; traites: number; trouves: number; categorises: number; erreur: unknown }>({ enCours: false, traites: 0, trouves: 0, categorises: 0, erreur: null });
+  const verifierSurGoogle = async () => {
+    let cumul = { traites: 0, trouves: 0, categorises: 0 };
+    setVerif({ enCours: true, ...cumul, erreur: null });
+    try {
+      for (;;) {
+        const r = await api<{ traites: number; trouves: number; categorises: number; restants: number }>("/concurrents/emplacements/google", { method: "POST", json: { lot: 20 } });
+        cumul = { traites: cumul.traites + r.traites, trouves: cumul.trouves + r.trouves, categorises: cumul.categorises + r.categorises };
+        setVerif({ enCours: r.restants > 0 && r.traites > 0, ...cumul, erreur: null });
+        if (!r.restants || !r.traites) break;
+      }
+    } catch (erreur) {
+      setVerif({ enCours: false, ...cumul, erreur });
+    }
+    client.invalidateQueries({ queryKey: ["emplacements-concurrents"] });
+    client.invalidateQueries({ queryKey: ["emplacements-google"] });
+  };
   if (chargement) return <Chargement />;
   if (!emplacements) return null;
   const n = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -295,6 +314,11 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
       <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
         <h2 className="text-base font-semibold">Emplacements des concurrents ({filtres.length})</h2>
         <div className="flex flex-wrap items-end gap-2">
+          {google.data?.configure && google.data.restants > 0 && (
+            <button type="button" className="bouton" disabled={verif.enCours} onClick={verifierSurGoogle} title="Catégorie, note et avis d'après la fiche Google du lieu">
+              {verif.enCours ? `Vérification sur Google… ${verif.traites} / ${verif.traites + google.data.restants}` : `Vérifier sur Google (${google.data.restants})`}
+            </button>
+          )}
           {sansCategorie > 0 && (
             <button type="button" className="bouton-second" disabled={auto.isPending} onClick={() => auto.mutate()} title="Bar, club, centre commercial… d'après le nom ; à vérifier ensuite">
               {auto.isPending ? "Catégorisation…" : `Catégoriser automatiquement (${sansCategorie} sans catégorie)`}
@@ -309,6 +333,16 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
         </p>
       )}
       {(auto.error || categoriser.error) && <Erreur erreur={auto.error ?? categoriser.error} />}
+      {verif.traites > 0 && (
+        <p className="mb-2 text-sm text-good">
+          Google : {verif.traites} emplacement(s) vérifié(s), {verif.trouves} retrouvé(s), {verif.categorises} catégorisé(s).
+          {verif.enCours && " Ne fermez pas la page avant la fin."}
+        </p>
+      )}
+      {verif.erreur != null && <Erreur erreur={verif.erreur} />}
+      {google.data && !google.data.configure && (
+        <p className="mb-2 text-xs text-ink-muted">Vérification sur Google indisponible : clé GOOGLE_PLACES_API_KEY à ajouter dans l&apos;API.</p>
+      )}
 
       {choisis.size > 0 && (
         <div className="mb-2 flex flex-wrap items-end gap-2 rounded-md bg-accent/5 p-3 text-sm">
@@ -365,7 +399,17 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
                   <td className="px-4 py-2.5">
                     {!e.lieu && <input type="checkbox" aria-label={`Sélectionner ${e.nom}`} checked={choisis.has(e.id)} onChange={() => basculer(e.id)} />}
                   </td>
-                  <td className="px-4 py-2.5 font-medium">{e.nom}</td>
+                  <td className="px-4 py-2.5">
+                    <span className="font-medium">{e.nom}</span>
+                    {e.googlePlaceId ? (
+                      <a href={e.googleUrl ?? undefined} target="_blank" rel="noreferrer" className="block text-xs text-ink-muted hover:underline" title={e.googleNom ?? undefined}>
+                        Google{e.googleNote !== null && ` · ★ ${e.googleNote.toLocaleString("fr-FR")}`}{e.googleNbAvis !== null && ` (${e.googleNbAvis} avis)`}
+                        {e.googleType && ` · ${e.googleType.replace(/_/g, " ")}`}
+                      </a>
+                    ) : (
+                      e.googleVerifieLe && <span className="block text-xs text-warn-ink">introuvable sur Google</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2.5">
                     <select
                       className={`champ !py-1 text-sm ${e.typeLieu ? "" : "text-warn-ink"}`}

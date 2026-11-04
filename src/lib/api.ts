@@ -764,6 +764,16 @@ export interface EmplacementConcurrent {
   lieu?: { id: number; statut: string } | null;
   /** Catégorie du lieu (type de lieu : bar, boîte de nuit…), null = à catégoriser */
   typeLieu: { id: number; libelle: string } | null;
+  /** Corrigée à la main : Google ne la remplace pas */
+  categorieManuelle: boolean;
+  /** Lieu retrouvé sur Google Places (googleVerifieLe sans googlePlaceId = introuvable) */
+  googlePlaceId: string | null;
+  googleNom: string | null;
+  googleType: string | null;
+  googleNote: number | null;
+  googleNbAvis: number | null;
+  googleUrl: string | null;
+  googleVerifieLe: string | null;
 }
 
 export interface ListeProspects {
