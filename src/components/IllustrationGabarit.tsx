@@ -66,9 +66,11 @@ export function IllustrationGabarit({ gabarit, className = "" }: { gabarit: Gaba
       <>
         {[6, 49, 92, 135].map((y) => <Photo key={y} x={5} y={y} w={52} h={39} />)}
         <Coupe x={62} h={184} />
-        <Lignes x={70} y={24} largeurs={[40, 32, 36]} />
-        <Qr x={78} y={112} s={32} />
-        <Lignes x={70} y={162} largeurs={[28]} />
+        <Lignes x={70} y={18} largeurs={[40, 32]} />
+        {/* Carte souvenir : miniatures des 4 photos, QR et code de séance (positions du kit / 10) */}
+        {[45, 66, 87, 108].map((y) => <Photo key={`m${y}`} x={79} y={y} w={28} h={20} />)}
+        <Qr x={82} y={136} s={22} />
+        <Lignes x={70} y={170} largeurs={[28]} />
       </>,
       "Bandelette 4 poses et carte souvenir avec QR",
     );
