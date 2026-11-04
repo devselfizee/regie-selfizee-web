@@ -94,6 +94,8 @@ export function IllustrationGabarit({ gabarit, className = "" }: { gabarit: Gaba
       </>,
       "Planche, quatre photos",
     );
+  if (gabarit === "paysage")
+    return svg(184, 124, <Photo x={5} y={5} w={174} h={114} />, "Photo 10x15 paysage, pleine page");
   return svg(
     244,
     184,

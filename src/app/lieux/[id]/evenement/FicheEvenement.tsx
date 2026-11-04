@@ -433,6 +433,7 @@ const GABARITS: { cle: GabaritEvenement; nom: string; detail: string; qr: boolea
   { cle: "bandelette", nom: "Bandelette 4 poses + carte souvenir", detail: "10x15 coupé en deux ; QR et code photo sur la carte.", qr: true },
   { cle: "pola", nom: "Pola 1 pose", detail: "10x15, une grande photo.", qr: false },
   { cle: "planche", nom: "Planche 4 poses", detail: "10x15, quatre cases carrées.", qr: false },
+  { cle: "paysage", nom: "Photo 10x15 paysage", detail: "15x10 à l'horizontale, une photo pleine page.", qr: false },
   { cle: "carte", nom: "Photo 10x15 + deux cartes à QR", detail: "Ruban 15x20 obligatoire ; même QR sur les deux cartes, une pour chaque invité.", qr: true },
 ];
 
