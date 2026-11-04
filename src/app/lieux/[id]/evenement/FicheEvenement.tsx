@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type EvenementPonctuel, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
+import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, Erreur, Section } from "@/components/Etat";
 import { dateHeure, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
-import { dates, periode, trier } from "@/components/EvenementsLieu";
+import { dates } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
 import { Modale } from "@/components/Modale";
 
@@ -157,7 +157,7 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
     <div className="pb-4">
       {/* En-tête : où l'on est, ce que c'est, l'action principale */}
       <header className="mb-6">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="mb-3">
           <nav aria-label="Fil d'Ariane">
             <ol className="flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">
               <li><Link href={`/lieux/${lieuId}`} className="hover:text-ink hover:underline">{enseigne}</Link></li>
@@ -167,7 +167,6 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
               <li aria-current="page" className="font-medium text-ink-2">{titre}</li>
             </ol>
           </nav>
-          <ChoixEvenement lieuId={lieuId} eid={eid} />
         </div>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -702,41 +701,6 @@ function MenuCarte({ libelle, actions }: { libelle: string; actions: ActionCarte
         </div>
       )}
     </div>
-  );
-}
-
-// ─── Choix de l'événement ───────────────────────────────────
-
-/**
- * Passer d'un événement du lieu à l'autre : une liste déroulante discrète (en cours et à venir d'abord,
- * passés ensuite), seulement s'il y en a d'autres ; la vue d'ensemble et la création sont dans l'onglet
- * « Configuration » du lieu (fil d'Ariane).
- */
-function ChoixEvenement({ lieuId, eid }: { lieuId: number; eid?: number }) {
-  const router = useRouter();
-  const liste = useQuery({ queryKey: ["evenements-ponctuels", lieuId], queryFn: () => api<EvenementPonctuel[]>(`/lieux/${lieuId}/evenements-ponctuels`) });
-  if (!liste.data?.length) return null;
-  const tries = trier(liste.data);
-  const actuels = tries.filter((e) => periode(e) !== "passe");
-  const passes = tries.filter((e) => periode(e) === "passe");
-  const option = (e: EvenementPonctuel) => (
-    <option key={e.id} value={e.id}>
-      {e.nom} · {dates(e)}
-    </option>
-  );
-  return (
-    <label className="flex items-center gap-2 whitespace-nowrap text-sm text-ink-muted">
-      Autre événement
-      <select
-        className="champ w-auto max-w-72 !py-1.5"
-        value={eid ?? ""}
-        onChange={(e) => router.push(cheminsEvenement(lieuId, e.target.value ? Number(e.target.value) : null).page)}
-      >
-        <option value="">Événement par défaut</option>
-        {actuels.length > 0 && <optgroup label="En cours et à venir">{actuels.map(option)}</optgroup>}
-        {passes.length > 0 && <optgroup label="Passés">{passes.map(option)}</optgroup>}
-      </select>
-    </label>
   );
 }
 
