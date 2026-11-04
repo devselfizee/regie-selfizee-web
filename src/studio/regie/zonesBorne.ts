@@ -1,5 +1,7 @@
 // Zones remplies par la borne au moment de la photo, posées au studio comme des éléments du cadre :
-// QR code (lien de la page souvenir), code de séance, date / heure de la prise de vue. Elles ne sont pas
+// QR code (lien de la page souvenir), code photo (le code de séance, qui sert à réimprimer : `sessionCode`),
+// date / heure de la prise de vue. Dans l'éditeur, elles se distinguent des textes ordinaires : contour
+// ambre en pointillés et étiquette « ⚡ DATE », « ⚡ CODE PHOTO »… (jamais exportés). Elles ne sont pas
 // dans l'image du cadre (masquées à l'export, voir useCanvasExport) : l'API lit leur position et leur
 // style dans le canvas enregistré et les écrit dans le config.json (`qrHoles`, `sessionCode`, et
 // `dynamicTexts` au format que la borne lit déjà — regie-selfizee-api src/config-evenement/composition.ts).
@@ -19,7 +21,7 @@ export interface ZoneBorne {
 
 export const LIBELLES_ZONES_BORNE: Record<TypeZoneBorne, string> = {
   qr: "QR code",
-  "code-seance": "Code de séance",
+  "code-seance": "Code photo",
   date: "Date",
   heure: "Heure",
   "date-heure": "Date et heure",
@@ -28,8 +30,58 @@ export const LIBELLES_ZONES_BORNE: Record<TypeZoneBorne, string> = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const estZoneBorne = (o: any): boolean => Boolean(o?._zoneBorne);
 
-// Fond léger des textes de la borne dans l'éditeur : on voit que ce sont des emplacements
-const FOND_REPERE = "rgba(79, 70, 229, 0.12)";
+// Repère des zones dynamiques dans l'éditeur : ambre, pour ne pas les confondre avec un texte ordinaire
+// ni avec la sélection (indigo)
+const AMBRE = "#f59e0b";
+const FOND_REPERE = "rgba(245, 158, 11, 0.2)";
+const ETIQUETTES: Record<TypeZoneBorne, string> = {
+  qr: "QR CODE",
+  "code-seance": "CODE PHOTO",
+  date: "DATE",
+  heure: "HEURE",
+  "date-heure": "DATE ET HEURE",
+};
+
+/**
+ * Contour pointillé et étiquette « ⚡ … » au-dessus de la zone, à taille constante à l'écran. Dessinés
+ * avec l'objet : une zone masquée (exports, vignette) ne les montre pas.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dessinerRepere(o: any, ctx: CanvasRenderingContext2D) {
+  const w = o.width ?? 0;
+  const h = o.height ?? 0;
+  const zoom = o.canvas?.getZoom?.() || 1;
+  const sx = Math.abs(o.scaleX ?? 1) || 1;
+  const sy = Math.abs(o.scaleY ?? 1) || 1;
+  const px = 1 / zoom;
+  ctx.save();
+  // Sans l'échelle de l'objet : unités = pixels du canvas
+  ctx.scale(1 / sx, 1 / sy);
+  const l = w * sx;
+  const hh = h * sy;
+  ctx.lineWidth = 1.5 * px;
+  ctx.setLineDash([5 * px, 3 * px]);
+  ctx.strokeStyle = AMBRE;
+  ctx.strokeRect(-l / 2, -hh / 2, l, hh);
+  ctx.setLineDash([]);
+  const taille = 10 * px;
+  const marge = 4 * px;
+  ctx.font = `700 ${taille}px Arial, sans-serif`;
+  const texte = `⚡ ${ETIQUETTES[o._zoneBorne as TypeZoneBorne] ?? "DYNAMIQUE"}`;
+  const largeur = ctx.measureText(texte).width + 2 * marge;
+  const hauteur = taille + 2 * marge;
+  const x = -l / 2;
+  const y = -hh / 2 - hauteur - 2 * px;
+  ctx.fillStyle = AMBRE;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, largeur, hauteur, 3 * px);
+  else ctx.rect(x, y, largeur, hauteur);
+  ctx.fill();
+  ctx.fillStyle = "#1a1d2b";
+  ctx.textBaseline = "middle";
+  ctx.fillText(texte, x + marge, y + hauteur / 2 + 0.5 * px);
+  ctx.restore();
+}
 
 /** Le texte d'exemple affiché dans l'éditeur (la borne écrit la vraie valeur). */
 function exemple(type: TypeZoneBorne): string {
@@ -63,14 +115,26 @@ function traceQr(taille: number): string {
 /** Réglages d'une zone de la borne : à poser à la création et à chaque rechargement du canvas. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function reglerZoneBorne(o: any) {
+  // Repère dessiné avec l'objet, hors de ses bords : pas de cache (il le couperait)
+  o.set({ objectCaching: false });
+  if (!o.__repereBorne) {
+    o.__repereBorne = true;
+    const dessiner = o.drawObject;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    o.drawObject = function (ctx: CanvasRenderingContext2D, ...reste: any[]) {
+      dessiner.call(this, ctx, ...reste);
+      if (!reste[0]) dessinerRepere(this, ctx); // pas quand l'objet sert de masque
+    };
+  }
   if (o._zoneBorne === "qr") {
     // Un QR reste carré et droit (qrHoles n'a pas de rotation)
     o.set({ lockRotation: true, lockScalingFlip: true, lockSkewingX: true, lockSkewingY: true });
     o.setControlsVisibility?.({ mt: false, mb: false, ml: false, mr: false, mtr: false });
   } else {
-    // Le texte est écrit par la borne : on règle son style, pas son contenu
-    o.set({ editable: false });
-    // Les textes dynamiques de la borne n'ont pas de rotation (le code de séance, si)
+    // Le texte est écrit par la borne : on règle son style, pas son contenu ; fond ambre (aussi sur les
+    // cadres enregistrés avant ce repère)
+    o.set({ editable: false, backgroundColor: FOND_REPERE });
+    // Les textes dynamiques de la borne n'ont pas de rotation (le code photo, si)
     if (o._zoneBorne !== "code-seance") {
       o.set({ lockRotation: true });
       o.setControlsVisibility?.({ mtr: false });

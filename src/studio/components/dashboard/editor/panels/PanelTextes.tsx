@@ -530,7 +530,7 @@ const TEXT_COMBO_PRESETS: TextComboPreset[] = [
 
 export function PanelTextes({ onAddText, onAddCurvedText, onAddTextCombo, onAddZoneBorne }: {
   onAddText: (text: string, size: number, weight: string, font: string, offsetY?: number, extraProps?: Record<string, any>) => void;
-  /** Régie : ajoute une zone remplie par la borne (QR, code de séance, date…) */
+  /** Régie : ajoute une zone dynamique, remplie par la borne (QR, code photo, date…) */
   onAddZoneBorne?: (type: TypeZoneBorne) => void;
   onAddCurvedText?: (...args: any[]) => void;
   onAddTextCombo?: (layers: any[]) => void;
@@ -779,12 +779,12 @@ export function PanelTextes({ onAddText, onAddCurvedText, onAddTextCombo, onAddZ
           className="flex-1 py-1.5 rounded-lg text-gray-500 font-medium text-xs bg-gray-50 border border-gray-200 hover:border-gray-400 transition-all active:scale-[0.97]">Corps de texte</button>
       </div>
 
-      {/* ── Régie : infos écrites par la borne au moment de la photo ── */}
+      {/* ── Régie : zones dynamiques, écrites par la borne au moment de la photo ── */}
       {onAddZoneBorne && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-2.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#4f46e5]">Infos imprimées par la borne</p>
-          <p className="mt-0.5 text-[10px] leading-snug text-gray-500">
-            Placez-les et choisissez leur style : la borne les remplit à chaque photo. Elles n&apos;apparaissent pas dans l&apos;image du cadre.
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">⚡ Zones dynamiques</p>
+          <p className="mt-0.5 text-[10px] leading-snug text-gray-600">
+            Remplies par la borne à chaque photo : placez-les et choisissez leur style. Contour ambre dans l&apos;éditeur ; absentes de l&apos;image du cadre.
           </p>
           <div className="mt-2 grid grid-cols-2 gap-1.5">
             {(Object.keys(LIBELLES_ZONES_BORNE) as TypeZoneBorne[]).map((t) => (
@@ -792,7 +792,7 @@ export function PanelTextes({ onAddText, onAddCurvedText, onAddTextCombo, onAddZ
                 key={t}
                 type="button"
                 onClick={() => onAddZoneBorne(t)}
-                className={`rounded-lg border border-indigo-100 bg-white py-1.5 text-xs font-medium text-[#4f46e5] transition-all hover:border-[#4f46e5] active:scale-[0.97] ${t === "qr" ? "col-span-2" : ""}`}
+                className={`rounded-lg border border-dashed border-amber-400 bg-white py-1.5 text-xs font-medium text-amber-900 transition-all hover:border-solid hover:border-amber-500 hover:bg-amber-100 active:scale-[0.97] ${t === "qr" ? "col-span-2" : ""}`}
               >
                 + {LIBELLES_ZONES_BORNE[t]}
               </button>

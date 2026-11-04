@@ -122,7 +122,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
   const enregistrer = async (p: FrameSavePayload) => {
     // Sans QR, l'invité ne peut pas récupérer sa photo : sur la bandelette, le dessin recouvre celui du kit
     if (kit.qrObligatoire && !(JSON.parse(p.canvasState).objects ?? []).some((o: { _zoneBorne?: string }) => o._zoneBorne === "qr")) {
-      throw new Error("Ajoutez le QR code (Textes → Infos imprimées par la borne) : sans lui, l'invité ne peut pas récupérer sa photo.");
+      throw new Error("Ajoutez le QR code (Textes → Zones dynamiques) : sans lui, l'invité ne peut pas récupérer sa photo.");
     }
     // Un modèle du catalogue peut avoir un autre nombre de poses : à ajuster avant d'enregistrer
     if (p.shootCount !== kit.poses) {
