@@ -5,6 +5,7 @@ import React from "react";
 import { useEditorStore } from "../store/editorStore";
 import { randomId } from "../canvas/canvasUtils";
 import { apiUrl } from "@/studio/lib/api";
+import { jeton } from "@/lib/auth";
 import { useLoadingClick } from "../hooks/useLoadingClick";
 import { ThumbSpinner } from "./ThumbSpinner";
 
@@ -186,9 +187,11 @@ export function PanelIA({ canvasRef, canvasWidth, canvasHeight, bleedPx = 0 }: {
         body.referenceImages = references;
       }
 
+      // Régie : jeton Keycloak, vérifié par la route (génération payante réservée aux admins)
+      const t = await jeton();
       const res = await fetch(apiUrl("/api/generate-image"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(t ? { Authorization: `Bearer ${t}` } : {}) },
         credentials: "include",
         body: JSON.stringify(body),
         signal: controller.signal,
