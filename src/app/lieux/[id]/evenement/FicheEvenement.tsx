@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type EvenementPonctuel, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
@@ -11,6 +11,7 @@ import { dateHeure, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 import { dates, periode, trier } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
+import { Modale } from "@/components/Modale";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : créations graphiques, tarifs et options, puis
 // « Créer l'événement » (la version que la borne charge avec son code) et le zip à télécharger.
@@ -99,6 +100,28 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
     if (aEnregistrer) await enregistrer.mutateAsync();
     router.push(`/lieux/${lieuId}/evenement/studio/${compositionId}${eid ? `?e=${eid}` : ""}`);
   };
+  // « Dupliquer » un format : une composition du même gabarit juste après, avec une copie de son cadre
+  // (côté API, rendu compris). La fiche est enregistrée d'abord : l'API ne copie que vers une composition
+  // enregistrée.
+  const dupliquer = useMutation({
+    mutationFn: async (source: string) => {
+      const { choisis, accueil } = r.gabarits;
+      const i = choisis.findIndex((c) => c.id === source);
+      const id = nouvelId(choisis[i].gabarit, choisis.map((c) => c.id));
+      const nouveaux = [...choisis.slice(0, i + 1), { id, gabarit: choisis[i].gabarit }, ...choisis.slice(i + 1)];
+      const avecAccueil = accueil.includes(source) ? nouveaux.map((c) => c.id).filter((x) => x === id || accueil.includes(x)) : accueil;
+      const reglages = { ...r, gabarits: { ...r.gabarits, choisis: nouveaux, accueil: avecAccueil } };
+      const f = await api<FicheEvenementLieu>(chemins.api, { method: "PUT", json: { reglages, ...(fiche.habituel ? {} : { nom: nom.trim() }) } });
+      if (cadres.data?.some((x) => x.compositionId === source)) {
+        await api(`${chemins.api}/cadres/${source}/dupliquer`, { method: "POST", json: { vers: id } });
+      }
+      return f;
+    },
+    onSuccess: (f) => {
+      client.invalidateQueries({ queryKey: ["cadres-evenement", chemins.api] });
+      apresEnregistrement(f);
+    },
+  });
   // Le zip (config.json, cadres du studio assemblés, éléments du kit) est refait à chaque fois côté API
   const [erreurTelechargement, setErreurTelechargement] = useState<unknown>(null);
   const [zipEnCours, setZipEnCours] = useState(false);
@@ -196,7 +219,15 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
 
       {ecran === 0 && (
         <>
-          <EcranCreations r={r} setR={setR} cadres={cadres} apiEvenement={chemins.api} ouvrirStudio={ouvrirStudio} ouverture={enregistrer.isPending} />
+          <EcranCreations
+            r={r}
+            setR={setR}
+            cadres={cadres}
+            apiEvenement={chemins.api}
+            ouvrirStudio={ouvrirStudio}
+            ouverture={enregistrer.isPending}
+            dupliquer={dupliquer}
+          />
           <div className="mt-8 flex justify-end">
             <button type="button" className="bouton-second" onClick={() => setEcran(1)}>
               Étape suivante : {ECRANS[1]} <span aria-hidden>→</span>
@@ -424,11 +455,12 @@ function nouvelId(g: GabaritEvenement, existants: string[]): string {
   }
 }
 
-function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture }: PropsEcran & {
+function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture, dupliquer }: PropsEcran & {
   cadres: UseQueryResult<CadreEvenement[]>;
   apiEvenement: string;
   ouvrirStudio: (compositionId: string) => void;
   ouverture: boolean;
+  dupliquer: { mutate: (compositionId: string) => void; isPending: boolean; error: unknown };
 }) {
   const { choisis, accueil } = r.gabarits;
   const client = useQueryClient();
@@ -457,7 +489,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
   const mettreEnAvant = (id: string, oui: boolean) =>
     maj({ accueil: oui ? ids.filter((x) => x === id || accueil.includes(x)) : accueil.filter((x) => x !== id) });
   const personnalises = choisis.filter((c) => cadres.data?.some((x) => x.compositionId === c.id)).length;
-  const icone = "flex h-7 w-7 items-center justify-center rounded-md bg-surface/90 text-xs text-ink-2 shadow-sm hover:bg-surface hover:text-ink disabled:opacity-30";
 
   return (
     <section aria-labelledby="titre-creations">
@@ -465,7 +496,7 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
         <div className="max-w-2xl">
           <h2 id="titre-creations" className="text-xl font-semibold">Les formats proposés sur la borne</h2>
           <p className="mt-1 text-sm text-ink-2">
-            Personnalisez le cadre de chaque format au studio. Un format sans cadre personnalisé s&apos;imprime avec le cadre du kit.
+            Cliquez sur un format pour personnaliser son cadre au studio ; « ⋯ » pour le dupliquer, le déplacer ou le retirer. Un format sans cadre personnalisé s&apos;imprime avec le cadre du kit.
           </p>
         </div>
         {choisis.length > 0 && (
@@ -489,20 +520,55 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
           const cadre = cadres.data?.find((x) => x.compositionId === c.id);
           return (
             <li key={c.id} className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm transition hover:shadow-md">
-              <div className="relative flex h-60 items-center justify-center bg-gradient-to-br from-accent/5 to-accent/15 p-6">
-                {cadre?.vignette ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={cadre.vignette} alt={`Cadre ${libelle}`} className="max-h-full max-w-full rounded bg-white object-contain shadow-md" />
-                ) : (
-                  <IllustrationGabarit gabarit={c.gabarit} className="h-full max-w-full" />
-                )}
-                <span className="absolute left-3 top-3 rounded-full bg-ink/75 px-2 py-0.5 text-xs font-semibold text-white" title="Position dans l'écran de choix de la borne">
+              <div className="relative h-60">
+                {/* L'aperçu ouvre le studio */}
+                <button
+                  type="button"
+                  disabled={ouverture}
+                  onClick={() => ouvrirStudio(c.id)}
+                  aria-label={`${cadre ? "Modifier le cadre" : "Personnaliser au studio"} : ${libelle}`}
+                  className="group/apercu relative flex h-full w-full items-center justify-center bg-gradient-to-br from-accent/5 to-accent/15 p-6 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent"
+                >
+                  {cadre?.vignette ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={cadre.vignette} alt="" className="max-h-full max-w-full rounded bg-white object-contain shadow-md" />
+                  ) : (
+                    <IllustrationGabarit gabarit={c.gabarit} className="h-full max-w-full" />
+                  )}
+                  <span className="absolute inset-0 flex items-center justify-center bg-ink/0 opacity-0 transition group-hover/apercu:bg-ink/45 group-hover/apercu:opacity-100 group-focus-visible/apercu:bg-ink/45 group-focus-visible/apercu:opacity-100">
+                    <span className="rounded-full bg-surface px-4 py-2 text-sm font-semibold text-accent shadow-md">
+                      {ouverture ? "Enregistrement…" : cadre ? "✎ Modifier le cadre" : "✎ Personnaliser au studio"}
+                    </span>
+                  </span>
+                </button>
+                <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-ink/75 px-2 py-0.5 text-xs font-semibold text-white" title="Position dans l'écran de choix de la borne">
                   {rang + 1}<sup>{rang === 0 ? "er" : "e"}</sup>
                 </span>
-                <div className="absolute right-3 top-3 flex gap-1">
-                  <button type="button" className={icone} disabled={rang === 0} aria-label={`Avancer ${libelle} dans l'écran de choix`} title="Avancer dans l'écran de choix" onClick={() => deplacer(rang, -1)}>◀</button>
-                  <button type="button" className={icone} disabled={rang === choisis.length - 1} aria-label={`Reculer ${libelle} dans l'écran de choix`} title="Reculer dans l'écran de choix" onClick={() => deplacer(rang, 1)}>▶</button>
-                  <button type="button" className={`${icone} hover:!text-crit-ink`} aria-label={`Retirer ${libelle}`} title="Retirer ce format" onClick={() => enlever(c.id, Boolean(cadre))}>✕</button>
+                <div className="absolute right-3 top-3">
+                  <MenuCarte
+                    libelle={libelle}
+                    actions={[
+                      { libelle: cadre ? "Modifier le cadre" : "Personnaliser au studio", onClick: () => ouvrirStudio(c.id), desactive: ouverture },
+                      {
+                        libelle: "Dupliquer",
+                        aide: cadre ? "Même format, copie du cadre" : "Même format, cadre du kit",
+                        onClick: () => dupliquer.mutate(c.id),
+                        desactive: plein || dupliquer.isPending,
+                      },
+                      { libelle: "Avancer dans l'écran de choix", onClick: () => deplacer(rang, -1), desactive: rang === 0, separe: true },
+                      { libelle: "Reculer dans l'écran de choix", onClick: () => deplacer(rang, 1), desactive: rang === choisis.length - 1 },
+                      ...(cadre
+                        ? [{
+                            libelle: "Revenir au cadre du kit",
+                            onClick: () => confirm(`Revenir au cadre du kit pour « ${libelle} » ? Le cadre personnalisé sera supprimé.`) && retirer.mutate(c.id),
+                            desactive: retirer.isPending,
+                            separe: true,
+                            danger: true,
+                          }]
+                        : []),
+                      { libelle: "Retirer ce format", onClick: () => enlever(c.id, Boolean(cadre)), separe: !cadre, danger: true },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -515,39 +581,11 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
                   {cadre ? <Badge ton="ok">Cadre personnalisé</Badge> : <Badge ton="warn">À personnaliser · cadre du kit</Badge>}
                   {g.qr && <Badge ton="neutre">QR de partage</Badge>}
                 </div>
-                <label className="flex items-center gap-2 text-sm text-ink-2">
+                <label className="mt-auto flex items-center gap-2 text-sm text-ink-2">
                   <input type="checkbox" className="h-4 w-4 accent-accent" checked={accueil.includes(c.id)} onChange={(e) => mettreEnAvant(c.id, e.target.checked)} />
                   Mis en avant sur l&apos;écran d&apos;accueil
                 </label>
-                <div className="mt-auto pt-1">
-                  {cadre ? (
-                    <>
-                      <button type="button" className="bouton-second w-full" disabled={ouverture} onClick={() => ouvrirStudio(c.id)}>
-                        {ouverture ? "Enregistrement…" : "Modifier le cadre"}
-                      </button>
-                      <p className="mt-2 flex flex-wrap items-center justify-between gap-1 text-xs text-ink-muted">
-                        <span>Modifié le {dateHeure(cadre.updatedAt)}</span>
-                        <button
-                          type="button"
-                          className="hover:text-crit-ink hover:underline"
-                          disabled={retirer.isPending}
-                          onClick={() => confirm(`Revenir au cadre du kit pour « ${libelle} » ? Le cadre personnalisé sera supprimé.`) && retirer.mutate(c.id)}
-                        >
-                          Revenir au cadre du kit
-                        </button>
-                      </p>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-accent bg-surface px-3 py-2 text-sm font-semibold text-accent hover:bg-accent/5 disabled:opacity-50"
-                      disabled={ouverture}
-                      onClick={() => ouvrirStudio(c.id)}
-                    >
-                      {ouverture ? "Enregistrement…" : <>Personnaliser au studio <span aria-hidden>→</span></>}
-                    </button>
-                  )}
-                </div>
+                {cadre && <p className="text-xs text-ink-muted">Cadre modifié le {dateHeure(cadre.updatedAt)}</p>}
               </div>
             </li>
           );
@@ -558,9 +596,9 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
           <button
             type="button"
             disabled={plein}
-            aria-expanded={choixFormat}
-            onClick={() => setChoixFormat((v) => !v)}
-            className={`flex h-full min-h-48 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition disabled:cursor-not-allowed disabled:opacity-60 ${choixFormat ? "border-accent bg-accent/5 text-accent" : "border-line-strong text-ink-2 hover:border-accent hover:text-accent"}`}
+            aria-haspopup="dialog"
+            onClick={() => setChoixFormat(true)}
+            className="flex h-full min-h-48 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line-strong p-6 text-center text-ink-2 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span aria-hidden className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-2xl shadow-sm">+</span>
             <span className="font-semibold">Ajouter un format</span>
@@ -569,36 +607,101 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
         </li>
       </ul>
 
-      {choisis.length === 0 && !choixFormat && (
+      {choisis.length === 0 && (
         <p className="mt-4 rounded-md bg-warn-bg px-4 py-3 text-sm text-warn-ink">Aucun format : la borne n&apos;aurait rien à proposer. Ajoutez-en au moins un.</p>
       )}
 
-      {choixFormat && !plein && (
-        <div className="mt-5 rounded-xl border border-line bg-surface p-5 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-semibold">Quel format ajouter ?</h3>
-            <button type="button" className="text-sm text-ink-2 hover:text-ink hover:underline" onClick={() => setChoixFormat(false)}>Fermer</button>
-          </div>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {GABARITS.map((g) => (
+      {/* Choix du format dans une fenêtre : la page ne bouge pas */}
+      <Modale titre="Ajouter un format" ouverte={choixFormat && !plein} onFermer={() => setChoixFormat(false)} large>
+        <p className="mb-4 text-sm text-ink-2">
+          Choisissez le format à proposer sur la borne. Il s&apos;ajoute à la fin de l&apos;écran de choix ({choisis.length} / {MAX_COMPOSITIONS}).
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {GABARITS.map((g) => (
+            <button
+              key={g.cle}
+              type="button"
+              onClick={() => ajouter(g.cle)}
+              className="group flex flex-col items-center gap-2 rounded-xl border border-line bg-surface p-4 text-center transition hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-accent"
+            >
+              <span className="flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-accent/5 to-accent/15 px-6 py-3">
+                <IllustrationGabarit gabarit={g.cle} className="h-full max-w-full transition group-hover:scale-105" />
+              </span>
+              <span className="text-sm font-semibold">{g.nom}</span>
+              <span className="text-xs text-ink-muted">{g.detail}</span>
+              {g.qr && <Badge ton="neutre">QR de partage</Badge>}
+            </button>
+          ))}
+        </div>
+      </Modale>
+      {(cadres.error || retirer.error || dupliquer.error) ? <div className="mt-3"><Erreur erreur={cadres.error ?? retirer.error ?? dupliquer.error} /></div> : null}
+    </section>
+  );
+}
+
+interface ActionCarte {
+  libelle: string;
+  aide?: string;
+  onClick: () => void;
+  desactive?: boolean;
+  /** Trait au-dessus : un autre groupe d'actions */
+  separe?: boolean;
+  danger?: boolean;
+}
+
+/** Menu « ⋯ » d'une carte de format : toutes ses actions au même endroit. Échap et clic ailleurs le ferment. */
+function MenuCarte({ libelle, actions }: { libelle: string; actions: ActionCarte[] }) {
+  const [ouvert, setOuvert] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ouvert) return;
+    const dehors = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOuvert(false);
+    const echap = (e: KeyboardEvent) => e.key === "Escape" && setOuvert(false);
+    document.addEventListener("mousedown", dehors);
+    document.addEventListener("keydown", echap);
+    // Le premier choix prend le focus, pour le clavier
+    ref.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
+    return () => {
+      document.removeEventListener("mousedown", dehors);
+      document.removeEventListener("keydown", echap);
+    };
+  }, [ouvert]);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={ouvert}
+        aria-label={`Actions : ${libelle}`}
+        title="Actions"
+        onClick={() => setOuvert((v) => !v)}
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-lg leading-none shadow-sm transition ${ouvert ? "bg-ink text-white" : "bg-surface/95 text-ink-2 hover:bg-surface hover:text-ink"}`}
+      >
+        <span aria-hidden>⋯</span>
+      </button>
+      {ouvert && (
+        <div role="menu" aria-label={`Actions : ${libelle}`} className="absolute right-0 top-10 z-30 w-64 overflow-hidden rounded-lg border border-line bg-surface py-1 text-left shadow-xl">
+          {actions.map((a) => (
+            <div key={a.libelle}>
+              {a.separe && <div role="separator" className="my-1 border-t border-line" />}
               <button
-                key={g.cle}
                 type="button"
-                onClick={() => ajouter(g.cle)}
-                className="group flex flex-col items-center gap-2 rounded-xl border border-line bg-surface p-4 text-center transition hover:border-accent hover:bg-accent/5"
+                role="menuitem"
+                disabled={a.desactive}
+                onClick={() => {
+                  setOuvert(false);
+                  a.onClick();
+                }}
+                className={`block w-full px-4 py-2 text-left text-sm hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 ${a.danger ? "text-crit-ink" : "text-ink"}`}
               >
-                <span className="flex h-28 items-center justify-center">
-                  <IllustrationGabarit gabarit={g.cle} className="h-full max-w-full transition group-hover:scale-105" />
-                </span>
-                <span className="text-sm font-medium">{g.nom}</span>
-                <span className="text-xs text-ink-muted">{g.detail}</span>
+                {a.libelle}
+                {a.aide && <span className="block text-xs text-ink-muted">{a.aide}</span>}
               </button>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       )}
-      {(cadres.error || retirer.error) && <div className="mt-3"><Erreur erreur={cadres.error ?? retirer.error} /></div>}
-    </section>
+    </div>
   );
 }
 
