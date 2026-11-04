@@ -476,6 +476,26 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
     [n[i], n[i + sens]] = [n[i + sens], n[i]];
     maj({ choisis: n });
   };
+  // Glisser-déposer : l'ordre se réarrange en direct pendant le glissement (`ordre`), il n'est retenu qu'au
+  // dépôt dans la grille ; lâché ailleurs ou Échap, tout revient comme avant
+  const [ordre, setOrdre] = useState<typeof choisis | null>(null);
+  const [glisse, setGlisse] = useState<string | null>(null);
+  const liste = ordre ?? choisis;
+  const survoler = (cible: string) => {
+    if (!glisse || glisse === cible) return;
+    setOrdre((o) => {
+      const n = [...(o ?? choisis)];
+      const de = n.findIndex((x) => x.id === glisse);
+      const vers = n.findIndex((x) => x.id === cible);
+      if (de < 0 || vers < 0) return o;
+      const [x] = n.splice(de, 1);
+      n.splice(vers, 0, x);
+      return n;
+    });
+  };
+  const deposer = () => {
+    if (ordre && ordre.some((x, i) => x.id !== choisis[i]?.id)) maj({ choisis: ordre });
+  };
   const mettreEnAvant = (id: string, oui: boolean) =>
     maj({ accueil: oui ? ids.filter((x) => x === id || accueil.includes(x)) : accueil.filter((x) => x !== id) });
   const personnalises = choisis.filter((c) => cadres.data?.some((x) => x.compositionId === c.id)).length;
@@ -486,7 +506,7 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
         <div className="max-w-2xl">
           <h2 id="titre-creations" className="text-xl font-semibold">Les formats proposés sur la borne</h2>
           <p className="mt-1 text-sm text-ink-2">
-            Cliquez sur un format pour personnaliser son cadre au studio ; « ⋯ » pour le dupliquer, le déplacer ou le retirer. Un format sans cadre personnalisé s&apos;imprime avec le cadre du kit.
+            Cliquez sur un format pour personnaliser son cadre au studio, glissez-le pour changer l&apos;ordre de l&apos;écran de choix ; « ⋯ » pour le dupliquer ou le retirer. Un format sans cadre personnalisé s&apos;imprime avec le cadre du kit.
           </p>
         </div>
         {choisis.length > 0 && (
@@ -502,14 +522,46 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
         )}
       </div>
 
-      <ul className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {choisis.map((c, rang) => {
+      <ul
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        onDragOver={(e) => {
+          if (!glisse) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onDrop={(e) => {
+          if (!glisse) return;
+          e.preventDefault();
+          deposer();
+        }}
+      >
+        {liste.map((c, rang) => {
           const g = GABARITS.find((x) => x.cle === c.gabarit)!;
-          const memes = choisis.filter((x) => x.gabarit === c.gabarit);
+          const memes = liste.filter((x) => x.gabarit === c.gabarit);
           const libelle = memes.length > 1 ? `${g.nom} · ${memes.indexOf(c) + 1}` : g.nom;
           const cadre = cadres.data?.find((x) => x.compositionId === c.id);
           return (
-            <li key={c.id} className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-sm transition hover:shadow-md">
+            <li
+              key={c.id}
+              draggable={!ouverture}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", c.id);
+                // Après la capture de l'image glissée : sinon elle prendrait le style « en cours de glissement »
+                setTimeout(() => {
+                  setGlisse(c.id);
+                  setOrdre(choisis);
+                });
+              }}
+              onDragEnter={() => survoler(c.id)}
+              onDragEnd={() => {
+                setGlisse(null);
+                setOrdre(null);
+              }}
+              className={`flex flex-col overflow-hidden rounded-xl border bg-surface shadow-sm transition hover:shadow-md ${
+                glisse === c.id ? "border-2 border-dashed border-accent opacity-50" : "border-line"
+              }`}
+            >
               <div className="relative h-60">
                 {/* L'aperçu ouvre le studio */}
                 <button
@@ -521,7 +573,7 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
                 >
                   {cadre?.vignette ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={cadre.vignette} alt="" className="max-h-full max-w-full rounded bg-white object-contain shadow-md" />
+                    <img src={cadre.vignette} alt="" draggable={false} className="max-h-full max-w-full rounded bg-white object-contain shadow-md" />
                   ) : (
                     <IllustrationGabarit gabarit={c.gabarit} className="h-full max-w-full" />
                   )}
@@ -531,8 +583,12 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
                     </span>
                   </span>
                 </button>
-                <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-ink/75 px-2 py-0.5 text-xs font-semibold text-white" title="Position dans l'écran de choix de la borne">
-                  {rang + 1}<sup>{rang === 0 ? "er" : "e"}</sup>
+                <span
+                  className="absolute left-3 top-3 flex cursor-grab items-center gap-1 rounded-full bg-ink/75 py-0.5 pl-1.5 pr-2 text-xs font-semibold text-white active:cursor-grabbing"
+                  title="Position dans l'écran de choix de la borne : glissez la carte pour la changer"
+                >
+                  <span aria-hidden className="text-sm leading-none opacity-80">⠿</span>
+                  <span>{rang + 1}<sup>{rang === 0 ? "er" : "e"}</sup></span>
                 </span>
                 <div className="absolute right-3 top-3">
                   <MenuCarte
