@@ -429,16 +429,13 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
 
 // ─── Écran 1 : créations graphiques ─────────────────────────
 
-// `attenteBorne` : la borne ne sait pas encore l'imprimer (publication refusée par l'API) ; masqué dans
-// « Ajouter un format », sauf avec ?essai=1 dans l'adresse de la fiche, pour préparer et montrer le cadre
-const GABARITS: { cle: GabaritEvenement; nom: string; detail: string; qr: boolean; attenteBorne?: boolean }[] = [
+const GABARITS: { cle: GabaritEvenement; nom: string; detail: string; qr: boolean }[] = [
   { cle: "bandelette", nom: "Bandelette 4 poses + carte souvenir", detail: "10x15 coupé en deux ; QR et code photo sur la carte.", qr: true },
   {
     cle: "bandelette-couchee",
     nom: "Bandelette couchée 4 poses + carte souvenir",
     detail: "Bande à lire à l'horizontale (photos côte à côte) ; carte souvenir comme la bandelette.",
     qr: true,
-    attenteBorne: true,
   },
   { cle: "pola", nom: "Pola 1 pose", detail: "10x15, une grande photo.", qr: false },
   { cle: "planche", nom: "Planche 4 poses", detail: "10x15, quatre cases carrées.", qr: false },
@@ -465,8 +462,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
   const { choisis, accueil } = r.gabarits;
   const client = useQueryClient();
   const [choixFormat, setChoixFormat] = useState(false);
-  const essai = useSearchParams().get("essai") === "1";
-  const proposes = GABARITS.filter((g) => !g.attenteBorne || essai);
   const retirer = useMutation({
     mutationFn: (compositionId: string) => api(`${apiEvenement}/cadres/${compositionId}`, { method: "DELETE" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["cadres-evenement", apiEvenement] }),
@@ -638,7 +633,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
                 <div className="flex flex-wrap gap-1.5">
                   {cadre ? <Badge ton="ok">Cadre personnalisé</Badge> : <Badge ton="warn">À personnaliser · cadre du kit</Badge>}
                   {g.qr && <Badge ton="neutre">QR de partage</Badge>}
-                  {g.attenteBorne && <Badge ton="crit">En attente de la borne : pas publiable</Badge>}
                 </div>
                 <label className="mt-auto flex items-center gap-2 text-sm text-ink-2">
                   <input type="checkbox" className="h-4 w-4 accent-accent" checked={accueil.includes(c.id)} onChange={(e) => mettreEnAvant(c.id, e.target.checked)} />
@@ -676,7 +670,7 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
           Choisissez le format à proposer sur la borne. Il s&apos;ajoute à la fin de l&apos;écran de choix ({choisis.length} / {MAX_COMPOSITIONS}).
         </p>
         <div className="grid grid-cols-2 gap-3">
-          {proposes.map((g) => (
+          {GABARITS.map((g) => (
             <button
               key={g.cle}
               type="button"
@@ -688,10 +682,7 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
               </span>
               <span className="text-sm font-semibold">{g.nom}</span>
               <span className="text-xs text-ink-muted">{g.detail}</span>
-              <span className="flex flex-wrap justify-center gap-1.5">
-                {g.qr && <Badge ton="neutre">QR de partage</Badge>}
-                {g.attenteBorne && <Badge ton="warn">Pas encore imprimable par la borne</Badge>}
-              </span>
+              {g.qr && <Badge ton="neutre">QR de partage</Badge>}
             </button>
           ))}
         </div>
