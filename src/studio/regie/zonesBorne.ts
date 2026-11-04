@@ -1,7 +1,8 @@
 // Zones remplies par la borne au moment de la photo, posées au studio comme des éléments du cadre :
 // QR code (lien de la page souvenir), code photo (le code de séance, qui sert à réimprimer : `sessionCode`),
 // date / heure de la prise de vue. Dans l'éditeur, elles se distinguent des textes ordinaires : contour
-// ambre en pointillés et étiquette « ⚡ DATE », « ⚡ CODE PHOTO »… (jamais exportés). Elles ne sont pas
+// ambre en pointillés et étiquette « ⚡ DATE », « ⚡ CODE PHOTO »…, par-dessus tout le canvas (jamais
+// exportés). Elles ne sont pas
 // dans l'image du cadre (masquées à l'export, voir useCanvasExport) : l'API lit leur position et leur
 // style dans le canvas enregistré et les écrit dans le config.json (`qrHoles`, `sessionCode`, et
 // `dynamicTexts` au format que la borne lit déjà — regie-selfizee-api src/config-evenement/composition.ts).
@@ -43,8 +44,8 @@ const ETIQUETTES: Record<TypeZoneBorne, string> = {
 };
 
 /**
- * Contour pointillé et étiquette « ⚡ … » au-dessus de la zone, à taille constante à l'écran. Dessinés
- * avec l'objet : une zone masquée (exports, vignette) ne les montre pas.
+ * Contour pointillé et étiquette « ⚡ … » au-dessus de la zone, à taille constante à l'écran, dans le repère
+ * de l'objet (ctx déjà transformé).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function dessinerRepere(o: any, ctx: CanvasRenderingContext2D) {
@@ -115,17 +116,8 @@ function traceQr(taille: number): string {
 /** Réglages d'une zone de la borne : à poser à la création et à chaque rechargement du canvas. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function reglerZoneBorne(o: any) {
-  // Repère dessiné avec l'objet, hors de ses bords : pas de cache (il le couperait)
-  o.set({ objectCaching: false });
-  if (!o.__repereBorne) {
-    o.__repereBorne = true;
-    const dessiner = o.drawObject;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    o.drawObject = function (ctx: CanvasRenderingContext2D, ...reste: any[]) {
-      dessiner.call(this, ctx, ...reste);
-      if (!reste[0]) dessinerRepere(this, ctx); // pas quand l'objet sert de masque
-    };
-  }
+  if (o.canvas) installerReperes(o.canvas);
+  else o.once?.("added", () => installerReperes(o.canvas));
   if (o._zoneBorne === "qr") {
     // Un QR reste carré et droit (qrHoles n'a pas de rotation)
     o.set({ lockRotation: true, lockScalingFlip: true, lockSkewingX: true, lockSkewingY: true });
@@ -140,6 +132,29 @@ export function reglerZoneBorne(o: any) {
       o.setControlsVisibility?.({ mtr: false });
     }
   }
+}
+
+/**
+ * Repères des zones dynamiques, dessinés une fois tout le canvas rendu (`after:render` : après les calques,
+ * le masque de la page et les poignées) : toujours visibles, même sous un calque ou hors du cadre. Une
+ * zone masquée (exports, vignette : `visible` à faux) n'en a pas. Une seule fois par canvas.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function installerReperes(canvas: any) {
+  if (!canvas || canvas.__reperesBorne) return;
+  canvas.__reperesBorne = true;
+  canvas.on("after:render", ({ ctx }: { ctx: CanvasRenderingContext2D }) => {
+    const v = canvas.viewportTransform as number[];
+    for (const o of canvas.getObjects()) {
+      if (!o._zoneBorne || !o.visible) continue;
+      const m = o.calcTransformMatrix() as number[];
+      ctx.save();
+      ctx.transform(v[0], v[1], v[2], v[3], v[4], v[5]);
+      ctx.transform(m[0], m[1], m[2], m[3], m[4], m[5]);
+      dessinerRepere(o, ctx);
+      ctx.restore();
+    }
+  });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
