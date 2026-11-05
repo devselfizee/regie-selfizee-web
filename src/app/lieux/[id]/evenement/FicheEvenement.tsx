@@ -512,9 +512,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div className="max-w-2xl">
           <h2 id="titre-creations" className="text-xl font-semibold">Les formats proposés sur la borne</h2>
-          <p className="mt-1 text-sm text-ink-2">
-            Cliquez sur un format pour personnaliser son cadre au studio, glissez-le pour changer l&apos;ordre de l&apos;écran de choix ; « ⋯ » pour le dupliquer ou le retirer. Un format sans cadre personnalisé s&apos;imprime avec le cadre du kit.
-          </p>
         </div>
         {choisis.length > 0 && (
           <div className="w-56">
