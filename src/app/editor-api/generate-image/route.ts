@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminDeLaRequete } from "@/lib/adminServeur";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,8 +14,6 @@ export const runtime = "nodejs";
  * par utilisateur.
  */
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
-// Comme src/lib/api.ts (qui ne s'importe pas côté serveur : il tire Keycloak)
-const API_REGIE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3003/api").replace(/\/+$/, "").replace(/(?<!\/api)$/, "/api");
 
 const RATIOS = ["3:4", "4:3", "1:1", "3:2", "2:3", "5:4", "4:5", "16:9", "9:16"];
 const MAX_CORPS = 20 * 1024 * 1024; // prompt + images de référence
@@ -35,19 +34,6 @@ function limite(qui: string): boolean {
   return depasse;
 }
 
-/** L'utilisateur de la Régie derrière le jeton, s'il est admin ; null sinon. */
-async function admin(req: Request): Promise<string | null> {
-  const auth = req.headers.get("authorization");
-  try {
-    const r = await fetch(`${API_REGIE}/utilisateurs/moi`, { headers: auth ? { Authorization: auth } : {}, cache: "no-store" });
-    if (!r.ok) return null;
-    const moi = (await r.json()) as { email?: string; role?: string };
-    return moi.role === "ADMIN" ? (moi.email ?? "admin") : null;
-  } catch {
-    return null;
-  }
-}
-
 function consigne(demande: string, nbRefs: number): string {
   if (nbRefs > 0) {
     return [
@@ -62,7 +48,7 @@ function consigne(demande: string, nbRefs: number): string {
 }
 
 export async function POST(req: Request) {
-  const qui = await admin(req);
+  const qui = await adminDeLaRequete(req);
   if (!qui) return NextResponse.json({ error: "Réservé aux administrateurs de la Régie (reconnectez-vous)." }, { status: 401 });
 
   const cle = process.env.GOOGLE_AI_API_KEY;

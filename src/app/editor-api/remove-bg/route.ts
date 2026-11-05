@@ -1,16 +1,55 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { adminDeLaRequete } from "@/lib/adminServeur";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
- * POST /editor-api/remove-bg → détourage.
- * Pas encore branché sur un provider (remove.bg, rembg local, …). Renvoie 501
- * avec un message clair au lieu d'un 500 opaque. À implémenter avec un token
- * dédié quand le fournisseur sera choisi.
+ * POST /editor-api/remove-bg (bouton « Détourer » du studio) : comme selfizee-booth-ui, le détourage est
+ * fait par le backend de l'éditeur de la plateforme Selfizee. booth-ui y envoie /editor-api/* par un
+ * rewrite ; ici, cette route lui transmet le formulaire (`file` en PNG, `model_type`) et renvoie le PNG
+ * détouré. Adresse : EDITOR_BACKEND_URL (même valeur que dans le déploiement de booth-ui), lue à
+ * l'exécution. Réservé aux admins de la Régie.
  */
-export async function POST() {
-  return NextResponse.json(
-    { error: 'remove_bg_not_configured', message: 'Le détourage n’est pas encore configuré.' },
-    { status: 501 },
-  );
+const MAX_IMAGE = 25 * 1024 * 1024;
+
+export async function POST(req: Request) {
+  if (!(await adminDeLaRequete(req))) return NextResponse.json({ error: "Réservé aux administrateurs de la Régie (reconnectez-vous)." }, { status: 401 });
+
+  const base = (process.env.EDITOR_BACKEND_URL ?? "").replace(/\/+$/, "");
+  if (!base) return NextResponse.json({ error: "Détourage non configuré : EDITOR_BACKEND_URL manque (adresse du backend de l'éditeur)." }, { status: 501 });
+
+  let form: FormData;
+  try {
+    form = await req.formData();
+  } catch {
+    return NextResponse.json({ error: "Requête invalide." }, { status: 400 });
+  }
+  const image = form.get("file");
+  if (!(image instanceof Blob)) return NextResponse.json({ error: "Image manquante." }, { status: 400 });
+  if (image.size > MAX_IMAGE) return NextResponse.json({ error: "Image trop lourde pour le détourage (25 Mo au plus)." }, { status: 413 });
+
+  const envoi = new FormData();
+  envoi.append("file", image, "image.png");
+  envoi.append("model_type", String(form.get("model_type") ?? "hr"));
+
+  try {
+    const r = await fetch(`${base}/api/remove-bg`, { method: "POST", body: envoi, signal: AbortSignal.timeout(90_000) });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      console.error("[remove-bg] backend de l'éditeur", r.status, detail.slice(0, 300));
+      const message =
+        r.status === 401 || r.status === 403
+          ? `Le backend de l'éditeur refuse l'accès (${r.status}) : il faut qu'il accepte les appels de la Régie.`
+          : r.status === 404
+            ? "Le backend de l'éditeur ne connaît pas /api/remove-bg (404) : vérifiez EDITOR_BACKEND_URL."
+            : `Détourage impossible (backend de l'éditeur : ${r.status}).`;
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+    const png = await r.arrayBuffer();
+    return new NextResponse(png, { headers: { "Content-Type": r.headers.get("content-type") ?? "image/png", "Cache-Control": "no-store" } });
+  } catch (e) {
+    console.error("[remove-bg] réseau", e);
+    return NextResponse.json({ error: "Détourage impossible : backend de l'éditeur injoignable ou trop lent." }, { status: 502 });
+  }
 }

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { toast } from "../../Toast";
 import { apiUrl } from "@/studio/lib/api";
+import { jeton } from "@/lib/auth";
 import { replaceInGroupEditing } from "../canvas/canvasUtils";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -99,8 +100,10 @@ export function useBackground({ fabricRef, canvasWidth, canvasHeight, BLEED_PX, 
       form.append("model_type", "hr");
 
       const { fetchWithTimeout } = await import("../canvas/canvasUtils");
-      const res = await fetchWithTimeout(apiUrl("/api/remove-bg"), { method: "POST", body: form, timeoutMs: 90000 });
-      if (!res.ok) throw new Error("Erreur détourage");
+      // Régie : jeton Keycloak, vérifié par la route (détourage réservé aux admins)
+      const t = await jeton();
+      const res = await fetchWithTimeout(apiUrl("/api/remove-bg"), { method: "POST", body: form, timeoutMs: 90000, headers: t ? { Authorization: `Bearer ${t}` } : {} });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "Erreur détourage");
 
       const pngBlob = await res.blob();
       // Convert to data URL (not blob URL) so fabric can re-read the src
@@ -155,8 +158,10 @@ export function useBackground({ fabricRef, canvasWidth, canvasHeight, BLEED_PX, 
         imgEl.onerror = () => reject(new Error("Erreur chargement image"));
         imgEl.src = pngDataUrl;
       });
-    } catch {
-      toast("Erreur lors du détourage. Réessayez.", "error");
+    } catch (e) {
+      // Régie : la raison donnée par la route (non configuré, accès refusé…) plutôt qu'un message vague
+      const raison = e instanceof Error && e.message !== "Erreur détourage" ? e.message : "";
+      toast(raison || "Erreur lors du détourage. Réessayez.", "error");
     } finally {
       setRemovingBg(false);
     }
