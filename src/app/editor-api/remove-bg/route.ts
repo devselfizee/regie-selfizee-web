@@ -16,7 +16,9 @@ const MAX_IMAGE = 25 * 1024 * 1024;
 export async function POST(req: Request) {
   if (!(await adminDeLaRequete(req))) return NextResponse.json({ error: "Réservé aux administrateurs de la Régie (reconnectez-vous)." }, { status: 401 });
 
-  const base = (process.env.EDITOR_BACKEND_URL ?? "").replace(/\/+$/, "");
+  // Sans « /api » final (booth-ui l'ajoute lui-même, sa valeur n'en a pas) : sinon …/api/api/remove-bg
+  const base = (process.env.EDITOR_BACKEND_URL ?? "").trim().replace(/\/+$/, "").replace(/\/api$/, "");
+  const cible = `${base}/api/remove-bg`;
   if (!base) return NextResponse.json({ error: "Détourage non configuré : EDITOR_BACKEND_URL manque (adresse du backend de l'éditeur)." }, { status: 501 });
 
   let form: FormData;
@@ -34,7 +36,7 @@ export async function POST(req: Request) {
   envoi.append("model_type", String(form.get("model_type") ?? "hr"));
 
   try {
-    const r = await fetch(`${base}/api/remove-bg`, { method: "POST", body: envoi, signal: AbortSignal.timeout(90_000) });
+    const r = await fetch(cible, { method: "POST", body: envoi, signal: AbortSignal.timeout(90_000) });
     if (!r.ok) {
       const detail = await r.text().catch(() => "");
       console.error("[remove-bg] backend de l'éditeur", r.status, detail.slice(0, 300));
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
         r.status === 401 || r.status === 403
           ? `Le backend de l'éditeur refuse l'accès (${r.status}) : il faut qu'il accepte les appels de la Régie.`
           : r.status === 404
-            ? "Le backend de l'éditeur ne connaît pas /api/remove-bg (404) : vérifiez EDITOR_BACKEND_URL."
+            ? `${cible} n'existe pas (404) : EDITOR_BACKEND_URL doit être l'adresse du backend de l'éditeur de booth-ui.`
             : `Détourage impossible (backend de l'éditeur : ${r.status}).`;
       return NextResponse.json({ error: message }, { status: 502 });
     }
@@ -50,6 +52,6 @@ export async function POST(req: Request) {
     return new NextResponse(png, { headers: { "Content-Type": r.headers.get("content-type") ?? "image/png", "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[remove-bg] réseau", e);
-    return NextResponse.json({ error: "Détourage impossible : backend de l'éditeur injoignable ou trop lent." }, { status: 502 });
+    return NextResponse.json({ error: `Détourage impossible : ${cible} injoignable ou trop lent.` }, { status: 502 });
   }
 }
