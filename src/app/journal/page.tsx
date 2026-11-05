@@ -8,6 +8,7 @@ import { dateHeure, parametreUrl } from "@/lib/format";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Reserve } from "@/lib/session";
 import { ErreursImport } from "@/components/ErreursImport";
+import { libelleErreurBorne } from "@/lib/erreursBorne";
 
 // Journal des envois des bornes : ce qu'elles ont envoyé à la Régie, accepté ou refusé, avec le contenu brut.
 
@@ -300,7 +301,7 @@ function Signes({ borne }: { borne: string }) {
                 <td className="px-3 py-2">{s.rubanRestant ?? "—"}</td>
                 <td className={`px-3 py-2 ${s.imprimanteOk === false ? "text-crit-ink" : ""}`}>{ouiNon(s.imprimanteOk)}</td>
                 <td className={`px-3 py-2 ${s.modulePaiementOk === false ? "text-crit-ink" : ""}`}>{ouiNon(s.modulePaiementOk)}</td>
-                <td className="px-3 py-2 text-xs">{s.erreurs?.length ? s.erreurs.map((e) => e.code).join(", ") : "—"}</td>
+                <td className="px-3 py-2 text-xs">{s.erreurs?.length ? s.erreurs.map((e) => <span key={e.code} className="block" title={e.code}>{libelleErreurBorne(e.code)}</span>) : "—"}</td>
                 <td className="px-3 py-2 text-xs text-ink-2">{s.logicielVersion ?? "—"}</td>
               </tr>
             ))}

@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { dateHeure, depuis, euros, nombre } from "@/lib/format";
 import { Reserve } from "@/lib/session";
-import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
+import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
+import { libelleErreurBorne } from "@/lib/erreursBorne";
 import { tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
 
 // Monitoring live (demande de Sébastien, 02/11/2026) : en un écran, ce qui marche et ce qui ne marche pas.
@@ -31,7 +32,27 @@ export default function PageMonitoring() {
 function Monitoring() {
   const { data, error, isPending, isFetching } = useSupervision();
   const [detail, setDetail] = useState<BorneSupervisee | null>(null);
-  const [voirEteintes, setVoirEteintes] = useState(false);
+  // Blocs repliés (retour de Sébastien : il y en aura beaucoup) ; « Éteintes, lieu fermé » replié par défaut, mémorisé
+  const [replies, setReplies] = useState<Set<string>>(() => {
+    try {
+      const brut = localStorage.getItem("monitoring_replies");
+      return new Set(brut ? (JSON.parse(brut) as string[]) : ["eteintes"]);
+    } catch {
+      return new Set(["eteintes"]);
+    }
+  });
+  const basculer = (cle: string) =>
+    setReplies((r) => {
+      const s = new Set(r);
+      if (s.has(cle)) s.delete(cle);
+      else s.add(cle);
+      try {
+        localStorage.setItem("monitoring_replies", JSON.stringify([...s]));
+      } catch {
+        /* stockage indisponible */
+      }
+      return s;
+    });
   if (error) return <Erreur erreur={error} />;
   if (isPending) return <Chargement />;
 
@@ -67,30 +88,34 @@ function Monitoring() {
       </div>
 
       <div className="space-y-6">
-        <Section titre={`Devraient être connectées, ne le sont pas (${manquantes.length})`}>
-          {manquantes.length ? <Tableau bornes={manquantes} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Rien à signaler : toutes les bornes des lieux ouverts sont en ligne.</Vide>}
-        </Section>
-        <Section titre={`À allumer ce jour, pas encore allumées (${aAllumer.length})`}>
-          {aAllumer.length ? <Tableau bornes={aAllumer} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Aucune autre ouverture prévue aujourd&apos;hui.</Vide>}
-        </Section>
-        <Section titre={`Connectées comme prévu (${attendues.length})`}>
-          {attendues.length ? <Tableau bornes={attendues} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Aucune borne connectée parmi celles prévues aujourd&apos;hui.</Vide>}
-        </Section>
-        <Section titre={`Allumées sans utilisation prévue aujourd'hui (${enTrop.length})`}>
-          {enTrop.length ? <Tableau bornes={enTrop} onDetail={setDetail} finJournee={finJournee} /> : <Vide>Aucune.</Vide>}
-        </Section>
-        <Section
-          titre={`Éteintes, lieu fermé (${eteintes.length})`}
-          actions={
-            eteintes.length > 0 && (
-              <button type="button" className="text-sm text-accent hover:underline" onClick={() => setVoirEteintes(!voirEteintes)}>
-                {voirEteintes ? "Masquer" : "Afficher"}
-              </button>
-            )
-          }
-        >
-          {voirEteintes ? <Tableau bornes={eteintes} onDetail={setDetail} finJournee={finJournee} /> : <p className="text-sm text-ink-2">Normal : leur lieu est fermé en ce moment.</p>}
-        </Section>
+        {[
+          { cle: "manquantes", titre: "Devraient être connectées, ne le sont pas", bornes: manquantes, vide: "Rien à signaler : toutes les bornes des lieux ouverts sont en ligne." },
+          { cle: "aAllumer", titre: "À allumer ce jour, pas encore allumées", bornes: aAllumer, vide: "Aucune autre ouverture prévue aujourd'hui." },
+          { cle: "attendues", titre: "Connectées comme prévu", bornes: attendues, vide: "Aucune borne connectée parmi celles prévues aujourd'hui." },
+          { cle: "enTrop", titre: "Allumées sans utilisation prévue aujourd'hui", bornes: enTrop, vide: "Aucune." },
+          { cle: "eteintes", titre: "Éteintes, lieu fermé", bornes: eteintes, vide: "Aucune.", replie: "Normal : leur lieu est fermé en ce moment." },
+        ].map((bloc) => {
+          const replie = replies.has(bloc.cle);
+          return (
+            <Section
+              key={bloc.cle}
+              titre={`${bloc.titre} (${bloc.bornes.length})`}
+              actions={
+                <button type="button" className="text-sm text-accent hover:underline" aria-expanded={!replie} onClick={() => basculer(bloc.cle)}>
+                  {replie ? "Afficher" : "Masquer"}
+                </button>
+              }
+            >
+              {replie ? (
+                <p className="text-sm text-ink-2">{bloc.replie ?? `${bloc.bornes.length} borne${bloc.bornes.length > 1 ? "s" : ""}, masquée${bloc.bornes.length > 1 ? "s" : ""}.`}</p>
+              ) : bloc.bornes.length ? (
+                <Tableau bornes={bloc.bornes} onDetail={setDetail} finJournee={finJournee} />
+              ) : (
+                <p className="text-sm text-ink-2">{bloc.vide}</p>
+              )}
+            </Section>
+          );
+        })}
       </div>
 
       <Modale titre={detail ? `${detail.identifiant}${detail.lieu ? ` · ${detail.lieu.enseigne}` : ""}` : "Borne"} large ouverte={detail !== null} onFermer={() => setDetail(null)}>
@@ -145,7 +170,12 @@ function Tableau({ bornes, onDetail, finJournee }: { bornes: BorneSupervisee[]; 
                 ) : (
                   <Badge ton={ETATS[b.etat].ton}>{ETATS[b.etat].libelle}</Badge>
                 )}
-                {b.erreurs.length > 0 && <span className="block text-xs text-bad">{b.erreurs.map((e) => e.code).join(", ")}</span>}
+                {b.erreurs.length > 0 && (
+                  <span className="block text-xs text-bad" title={b.enLigne ? undefined : "Au dernier signal de la borne"}>
+                    {b.erreurs.map((e) => libelleErreurBorne(e.code)).join(" · ")}
+                    {!b.enLigne && <span className="text-ink-muted"> (au dernier signal)</span>}
+                  </span>
+                )}
                 {!b.lieuOuvert && b.lieu && b.prochaineOuverture && <span className="block text-xs text-ink-muted">ouvre {dateHeure(b.prochaineOuverture)}</span>}
               </td>
               <td className="py-2 pr-3">{depuis(b.derniereVente)}</td>
@@ -174,7 +204,7 @@ function DetailBorne({ b }: { b: BorneSupervisee }) {
   const carte = (titre: string, ok: boolean | null, valeur: string, lignes: (string | null | false)[], errs: BorneSupervisee["erreurs"] = []) => (
     <div className="rounded-md bg-surface-2 p-3 text-sm">
       <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-2"><Point ok={errs.length ? false : ok} /> {titre}</div>
-      <div className="mt-1 font-semibold">{errs.length ? errs[0].code : valeur}</div>
+      <div className="mt-1 font-semibold">{errs.length ? libelleErreurBorne(errs[0].code) : valeur}</div>
       {[...errs.map((e) => e.message ?? e.code), ...lignes].filter(Boolean).map((l, i) => <div key={i} className="text-xs text-ink-2">{l}</div>)}
     </div>
   );
