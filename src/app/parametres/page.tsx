@@ -8,6 +8,7 @@ import { parametreUrl } from "@/lib/format";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
 import { TarifsBase } from "@/components/GrilleTarifs";
+import { SeriesIllustrations } from "@/components/SeriesIllustrations";
 import { ReglesAlertes } from "@/components/ReglesAlertes";
 import { DonneesDemo } from "@/components/DonneesDemo";
 import { CartesTest } from "@/components/CartesTest";
@@ -29,6 +30,7 @@ const LISTES: { cle: string; libelle: string; aide: string }[] = [
   { cle: "GAMMES", libelle: "Gammes de bornes", aide: "Spherik, Kalifun, Classic… Le code est un identifiant fixe : il ne change pas quand on renomme le libellé." },
   { cle: "MODULES", libelle: "Modules de paiement", aide: "Le code est celui que les bornes envoient (module.type) : il ne change pas quand on renomme le libellé." },
   { cle: "TARIFS", libelle: "Tarifs de base", aide: "" },
+  { cle: "ILLUSTRATIONS", libelle: "Séries d'illustrations", aide: "" },
   { cle: "CARTES_TEST", libelle: "Cartes de test", aide: "" },
   { cle: "MARKETING", libelle: "Calendrier marketing", aide: "" },
   { cle: "CONCURRENTS", libelle: "Concurrents", aide: "" },
@@ -104,7 +106,7 @@ function Parametres() {
               <SynchroAntennes />
               <Liste key={liste.cle} def={liste} data={data} />
             </div>
-          ) : liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "CARTES_TEST" ? <CartesTest /> : liste.cle === "MARKETING" ? <CalendrierMarketing /> : liste.cle === "CONCURRENTS" ? <Concurrents /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
+          ) : liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "ILLUSTRATIONS" ? <SeriesIllustrations /> : liste.cle === "CARTES_TEST" ? <CartesTest /> : liste.cle === "MARKETING" ? <CalendrierMarketing /> : liste.cle === "CONCURRENTS" ? <Concurrents /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
         </div>
       )}
     </>

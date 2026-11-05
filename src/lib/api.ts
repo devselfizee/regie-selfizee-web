@@ -862,9 +862,12 @@ export interface ReglagesEvenement {
     dateFin: string;
     ton: "club" | "bar" | "famille" | "pro";
     /** Photos d'exemple des cases des cadres : séries du logiciel, photos de l'événement, caméra, aucune */
-    illustrations: "festif" | "chic" | "photos" | "camera" | "aucune";
+    illustrations: "festif" | "chic" | "serie" | "photos" | "camera" | "aucune";
     /** Série des cadres de l'accueil : « memes » = celle des cadres */
-    illustrationsAccueil: "memes" | "festif" | "chic" | "photos";
+    illustrationsAccueil: "memes" | "festif" | "chic" | "serie" | "photos";
+    /** Série de la bibliothèque choisie (« serie »), pour les cadres et pour l'accueil */
+    illustrationsSerieId: number | null;
+    illustrationsAccueilSerieId: number | null;
     avisGoogleUrl: string | null;
     instagram: string | null;
     tiktok: string | null;
@@ -897,6 +900,16 @@ export interface IllustrationEvenement {
   largeur: number;
   hauteur: number;
   vignette: string;
+}
+
+/** Série d'illustrations de la bibliothèque (Paramètres) : photos par forme et quatre aperçus. */
+export interface SerieIllustrations {
+  id: number;
+  nom: string;
+  actif: boolean;
+  nbImages: number;
+  formes: { carre: number; portrait: number; paysage: number };
+  apercus: string[];
 }
 
 export interface CadreEvenement {
