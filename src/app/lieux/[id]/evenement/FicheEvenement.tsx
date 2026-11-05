@@ -219,7 +219,9 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
             ouverture={enregistrer.isPending}
             dupliquer={dupliquer}
           />
-          <div className="mt-8">
+          {/* Sous-titre comme celui des formats : le thème et les photos d'exemple sont autre chose que les cadres */}
+          <section aria-labelledby="titre-theme" className="mt-10">
+            <h2 id="titre-theme" className="mb-5 text-xl font-semibold">Thème et photos d&apos;exemple</h2>
             <IllustrationsEvenement
               lieu={r.lieu}
               majLieu={(p) => setR((x) => ({ ...x, lieu: { ...x.lieu, ...p } }))}
@@ -229,7 +231,7 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
               apiEvenement={chemins.api}
               enregistre={fiche.enregistre}
             />
-          </div>
+          </section>
           <div className="mt-8 flex justify-end">
             <button type="button" className="bouton-second" onClick={() => setEcran(1)}>
               Étape suivante : {ECRANS[1]} <span aria-hidden>→</span>

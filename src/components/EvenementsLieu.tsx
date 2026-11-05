@@ -65,7 +65,7 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
   });
   return (
     <form
-      className={`flex flex-wrap items-end gap-3 ${source ? "" : "rounded-md border border-line bg-surface p-3"}`}
+      className="flex flex-wrap items-end gap-3"
       onSubmit={(e) => {
         e.preventDefault();
         creer.mutate();
@@ -132,36 +132,35 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
   return (
     <Section
       titre="Événements"
-      actions={!creation && <button type="button" className="bouton" onClick={() => setCreation(true)}>+ Nouvel événement</button>}
+      actions={<button type="button" className="bouton" aria-haspopup="dialog" onClick={() => setCreation(true)}>+ Nouvel événement</button>}
     >
       <p className="mb-3 text-sm text-ink-2">
         Chaque événement a son code, ses créations graphiques et ses tarifs. Pour en installer un, tapez son code sur la borne ; pour revenir à
         l&apos;événement par défaut, retapez le sien.
       </p>
-      {creation && <div className="mb-4"><FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} /></div>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[44rem] text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs text-ink-2">
-              <th className="py-2 pr-3 font-medium">Événement</th>
-              <th className="py-2 pr-3 font-medium">Code</th>
-              <th className="py-2 pr-3 font-medium">Dates</th>
-              <th className="py-2 pr-3 font-medium">Période</th>
-              <th className="py-2 pr-3 font-medium">État</th>
-              <th />
+              <th className="px-3 py-2 font-medium">Événement</th>
+              <th className="px-3 py-2 font-medium">Code</th>
+              <th className="px-3 py-2 font-medium">Dates</th>
+              <th className="px-3 py-2 font-medium">Période</th>
+              <th className="px-3 py-2 font-medium">État</th>
+              <th className="px-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-line bg-surface-2/50">
-              <td className="py-2 pr-3 font-medium">
+              <td className="px-3 py-2 font-medium">
                 <Link href={pageEvenement(lieuId)} className="hover:text-accent hover:underline">Par défaut</Link>
                 <span className="ml-1 text-xs font-normal text-ink-muted">(toute l&apos;année)</span>
               </td>
-              <td className="py-2 pr-3 font-mono">{d.code ?? "—"}</td>
-              <td className="py-2 pr-3 tabular">{dates(d.reglages.lieu)}</td>
-              <td className="py-2 pr-3"><Badge ton={PERIODES[periode(d.reglages.lieu)].ton}>{PERIODES[periode(d.reglages.lieu)].libelle}</Badge></td>
-              <td className="py-2 pr-3"><Publication version={d.version} publieeLe={d.publieeLe} modifie={d.modifieDepuisPublication} enregistre={d.enregistre} /></td>
-              <td className="whitespace-nowrap py-2 text-right">
+              <td className="px-3 py-2 font-mono">{d.code ?? "—"}</td>
+              <td className="px-3 py-2 tabular">{dates(d.reglages.lieu)}</td>
+              <td className="px-3 py-2"><Badge ton={PERIODES[periode(d.reglages.lieu)].ton}>{PERIODES[periode(d.reglages.lieu)].libelle}</Badge></td>
+              <td className="px-3 py-2"><Publication version={d.version} publieeLe={d.publieeLe} modifie={d.modifieDepuisPublication} enregistre={d.enregistre} /></td>
+              <td className="whitespace-nowrap px-3 py-2 text-right">
                 {d.enregistre && <BoutonDupliquer onClick={() => setCopie({ eid: null, nom: "Événement par défaut" })} nom="l'événement par défaut" />}
                 <Link href={pageEvenement(lieuId)} className="text-accent hover:underline">Ouvrir →</Link>
               </td>
@@ -170,14 +169,14 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
               const p = PERIODES[periode(e)];
               return (
                 <tr key={e.id} className="border-b border-line last:border-0">
-                  <td className="py-2 pr-3 font-medium">
+                  <td className="px-3 py-2 font-medium">
                     <Link href={pageEvenement(lieuId, e.id)} className="hover:text-accent hover:underline">{e.nom}</Link>
                   </td>
-                  <td className="py-2 pr-3 font-mono">{e.code}</td>
-                  <td className="py-2 pr-3 tabular">{dates(e)}</td>
-                  <td className="py-2 pr-3"><Badge ton={p.ton}>{p.libelle}</Badge></td>
-                  <td className="py-2 pr-3"><Publication version={e.version} publieeLe={e.publieeLe} modifie={e.modifieDepuisPublication} /></td>
-                  <td className="whitespace-nowrap py-2 text-right">
+                  <td className="px-3 py-2 font-mono">{e.code}</td>
+                  <td className="px-3 py-2 tabular">{dates(e)}</td>
+                  <td className="px-3 py-2"><Badge ton={p.ton}>{p.libelle}</Badge></td>
+                  <td className="px-3 py-2"><Publication version={e.version} publieeLe={e.publieeLe} modifie={e.modifieDepuisPublication} /></td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right">
                     <BoutonDupliquer onClick={() => setCopie({ eid: e.id, nom: e.nom, dateDebut: e.dateDebut, dateFin: e.dateFin })} nom={e.nom} />
                     <Link href={pageEvenement(lieuId, e.id)} className="text-accent hover:underline">Ouvrir →</Link>
                   </td>
@@ -191,6 +190,9 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
       <Modale titre={copie ? `Dupliquer « ${copie.nom} »` : "Dupliquer"} ouverte={copie !== null} onFermer={() => setCopie(null)}>
         {/* Clé : un formulaire neuf, prérempli, pour chaque événement copié */}
         {copie && <FormNouvelEvenement key={`${copie.eid}`} lieuId={lieuId} source={copie} onAnnuler={() => setCopie(null)} />}
+      </Modale>
+      <Modale titre="Nouvel événement" ouverte={creation} onFermer={() => setCreation(false)}>
+        {creation && <FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
       </Modale>
       {passes > 0 && (
         <button type="button" className="mt-3 text-sm text-accent hover:underline" onClick={() => setVoirPasses(!voirPasses)}>

@@ -91,7 +91,7 @@ export function SeriesIllustrations() {
                   </span>
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-semibold">{s.nom}</span>
-                    {!s.actif && <Badge ton="neutre">Retirée</Badge>}
+                    {!s.actif && <Badge ton="neutre">Désactivée</Badge>}
                   </span>
                   <span className="block text-xs text-ink-2">
                     {s.nbImages} photo{s.nbImages > 1 ? "s" : ""} · {s.formes.carre} carrée{s.formes.carre > 1 ? "s" : ""} · {s.formes.paysage} paysage · {s.formes.portrait} portrait
@@ -102,12 +102,12 @@ export function SeriesIllustrations() {
         </ul>
         {!series.data.length && <p className="mt-3 text-sm text-ink-2">Aucune série créée pour l&apos;instant : ajoutez-en une ci-dessus (mariage, corporate…).</p>}
       </Section>
-      {choisie && <Serie key={choisie.id} serie={choisie} onSupprimee={() => setOuverte(null)} />}
+      {choisie && <Serie key={choisie.id} serie={choisie} onFermer={() => setOuverte(null)} />}
     </div>
   );
 }
 
-function Serie({ serie, onSupprimee }: { serie: SerieIllustrations; onSupprimee: () => void }) {
+function Serie({ serie, onFermer }: { serie: SerieIllustrations; onFermer: () => void }) {
   const client = useQueryClient();
   const [nom, setNom] = useState(serie.nom);
   const actualiser = () => client.invalidateQueries({ queryKey: CLE });
@@ -119,7 +119,7 @@ function Serie({ serie, onSupprimee }: { serie: SerieIllustrations; onSupprimee:
     mutationFn: () => api(`/illustrations-series/${serie.id}`, { method: "DELETE" }),
     onSuccess: () => {
       actualiser();
-      onSupprimee();
+      onFermer();
     },
   });
 
@@ -129,7 +129,7 @@ function Serie({ serie, onSupprimee }: { serie: SerieIllustrations; onSupprimee:
       actions={
         <div className="flex flex-wrap gap-2">
           <button type="button" className="bouton-second" disabled={modifier.isPending} onClick={() => modifier.mutate({ actif: !serie.actif })}>
-            {serie.actif ? "Retirer des choix" : "Remettre dans les choix"}
+            {serie.actif ? "Désactiver" : "Activer"}
           </button>
           <button
             type="button"
@@ -138,6 +138,9 @@ function Serie({ serie, onSupprimee }: { serie: SerieIllustrations; onSupprimee:
             onClick={() => confirm(`Supprimer la série « ${serie.nom} » et ses photos ? Les événements qui l'utilisent repasseront sur la série festive.`) && supprimer.mutate()}
           >
             Supprimer
+          </button>
+          <button type="button" className="bouton-second" aria-label={`Fermer la série « ${serie.nom} »`} onClick={onFermer}>
+            Fermer
           </button>
         </div>
       }
@@ -156,7 +159,7 @@ function Serie({ serie, onSupprimee }: { serie: SerieIllustrations; onSupprimee:
         <button type="submit" className="bouton-second" disabled={!nom.trim() || nom.trim() === serie.nom || modifier.isPending}>
           Renommer
         </button>
-        {!serie.actif && <span className="text-xs text-ink-muted">Retirée des choix : les événements qui l&apos;ont déjà la gardent.</span>}
+        {!serie.actif && <span className="text-xs text-ink-muted">Désactivée : plus proposée dans les fiches événement ; celles qui l&apos;ont déjà la gardent.</span>}
       </form>
       <GaleriePhotos
         cle={["illustrations-serie", serie.id]}

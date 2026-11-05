@@ -96,7 +96,7 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
 
   return (
     <Section
-      titre="Thème et photos d'exemple"
+      titre="Écran « Choisis ton format » et accueil"
       actions={
         <button type="button" className="bouton-second" aria-expanded={ouvert} onClick={() => setOuvert(!ouvert)}>
           {ouvert ? "Replier" : "Modifier"}

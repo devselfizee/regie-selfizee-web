@@ -41,6 +41,32 @@ export function ResumeGrille({ grille: g }: { grille: GrilleTarifs }) {
   );
 }
 
+/** La même grille en une ligne : « 1 tirage 3,50 € · ★ dès 2 : 3,00 € · … · +1 pour un pote 2,00 € ». */
+export function GrilleEnLigne({ grille: g }: { grille: GrilleTarifs }) {
+  const morceaux = g.paliers.map((p) => (
+    <span key={p.de} className={g.palierMisEnAvant === p.de ? "text-accent" : undefined} title={g.palierMisEnAvant === p.de ? g.libelleMisEnAvant || "Mis en avant" : undefined}>
+      {g.palierMisEnAvant === p.de && "★ "}
+      <span className="text-ink-2">{p.de === 1 ? "1 tirage" : `dès ${p.de}`}</span> <span className="tabular font-semibold">{euros(p.prixCents)}</span>
+    </span>
+  ));
+  morceaux.push(
+    <span key="pote">
+      <span className="text-ink-2">+1 pour un pote</span>{" "}
+      {g.plusUnCents ? <span className="tabular font-semibold">{euros(g.plusUnCents)}</span> : <span className="text-ink-muted">non posé</span>}
+    </span>,
+  );
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {morceaux.map((m, i) => (
+        <span key={i} className="flex items-center gap-2">
+          {i > 0 && <span className="text-ink-muted" aria-hidden>·</span>}
+          {m}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /** Saisie d'un montant en euros (« 3,50 »), stocké en centimes. */
 export function ChampEuros({ cents, onChange, id, desactive }: { cents: number; onChange: (c: number) => void; id?: string; desactive?: boolean }) {
   const [texte, setTexte] = useState((cents / 100).toFixed(2).replace(".", ","));
@@ -256,10 +282,18 @@ export function ResumeTarifLieu({ lieuId, modifiable = true }: { lieuId: number;
       ) : !data ? (
         <Chargement />
       ) : (
-        <div className="space-y-3">
-          {data.propre ? <Badge ton="warn">Tarifs propres au lieu</Badge> : <Badge ton="neutre">Tarifs de base du parc</Badge>}
-          <ResumeGrille grille={data.propre ?? data.base} />
-        </div>
+        data.propre ? (
+          <div className="space-y-3">
+            <Badge ton="warn">Tarifs propres au lieu</Badge>
+            <ResumeGrille grille={data.propre} />
+          </div>
+        ) : (
+          // Tarifs de base : tout sur une ligne, à côté du badge, pour gagner de la place
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <Badge ton="neutre">Tarifs de base du parc</Badge>
+            <GrilleEnLigne grille={data.base} />
+          </div>
+        )
       )}
     </Section>
   );
