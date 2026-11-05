@@ -23,7 +23,7 @@ import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
-import { TarifsDuLieu } from "@/components/GrilleTarifs";
+import { ResumeTarifLieu } from "@/components/GrilleTarifs";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
@@ -240,7 +240,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
 
       {(moi.role === "ADMIN" || moi.role === "COMMERCIAL") && (
         <div className="mt-6">
-          <TarifsDuLieu lieuId={id} />
+          <ResumeTarifLieu lieuId={id} />
         </div>
       )}
 

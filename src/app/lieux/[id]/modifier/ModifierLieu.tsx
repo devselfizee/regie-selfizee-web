@@ -5,15 +5,18 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type LieuFiche } from "@/lib/api";
 import { FormLieu } from "@/components/FormLieu";
 import { CommunicationLieu } from "@/components/CommunicationLieu";
+import { TarifsDuLieu } from "@/components/GrilleTarifs";
 import { Chargement, EnTete, Erreur } from "@/components/Etat";
 import { parametreUrl } from "@/lib/format";
 import { peut, Reserve, useMoi } from "@/lib/session";
 
-// Édition d'un lieu : onglet « Fiche » (identité, segment, activité, contacts…) et, pour les admins,
-// onglet « Communication » (nom affiché, avis, réseaux, assistance : repris par la borne et la page
-// souvenir), chacun enregistré à part. ?onglet=communication ouvre le second.
+// Édition d'un lieu, toutes ses infos au même endroit : onglet « Fiche » (identité, segment, activité,
+// contacts…), « Tarifs » (grille reprise par les événements de la borne) et, pour les admins,
+// « Communication » (nom affiché, avis, réseaux, assistance : repris par la borne et la page souvenir).
+// Chacun enregistré à part ; ?onglet=tarifs|communication ouvre le bon.
 
-type Onglet = "fiche" | "communication";
+type Onglet = "fiche" | "tarifs" | "communication";
+const ONGLETS: Onglet[] = ["fiche", "tarifs", "communication"];
 
 export function ModifierLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
   return (
@@ -25,12 +28,13 @@ export function ModifierLieu({ id, ongletInitial }: { id: number; ongletInitial?
 
 function Modifier({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
   const moi = useMoi();
-  const [onglet, setOnglet] = useState<Onglet>(ongletInitial === "communication" ? "communication" : "fiche");
+  const [onglet, setOnglet] = useState<Onglet>(ONGLETS.includes(ongletInitial as Onglet) ? (ongletInitial as Onglet) : "fiche");
   const { data, error } = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   if (error) return <Erreur erreur={error} />;
   if (!data) return <Chargement />;
   const onglets: { cle: Onglet; libelle: string }[] = [
     { cle: "fiche", libelle: "Fiche" },
+    { cle: "tarifs", libelle: "Tarifs" },
     ...(peut.administrer(moi.role) ? [{ cle: "communication" as const, libelle: "Communication" }] : []),
   ];
   const actif = onglets.some((o) => o.cle === onglet) ? onglet : "fiche";
@@ -55,7 +59,9 @@ function Modifier({ id, ongletInitial }: { id: number; ongletInitial?: string })
           ))}
         </nav>
       )}
-      {actif === "fiche" ? <FormLieu lieu={data} /> : <CommunicationLieu lieuId={id} />}
+      {actif === "fiche" && <FormLieu lieu={data} />}
+      {actif === "tarifs" && <TarifsDuLieu lieuId={id} />}
+      {actif === "communication" && <CommunicationLieu lieuId={id} />}
     </>
   );
 }

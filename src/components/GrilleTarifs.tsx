@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type GrilleTarifs, type TarifsLieu } from "@/lib/api";
@@ -238,6 +239,33 @@ export function TarifsBase() {
 }
 
 /** Fiche lieu : tarifs par défaut du lieu, ceux de base du parc ou les siens. */
+/**
+ * Tarif d'un lieu en lecture seule (onglets Informations et Configuration de la fiche lieu) : il se modifie
+ * à un seul endroit, l'onglet Tarifs de l'édition du lieu.
+ */
+export function ResumeTarifLieu({ lieuId, modifiable = true }: { lieuId: number; modifiable?: boolean }) {
+  const { data, error } = useQuery({ queryKey: ["tarifs-lieu", lieuId], queryFn: () => api<TarifsLieu>(`/lieux/${lieuId}/tarifs`) });
+  return (
+    <Section
+      titre="Tarif du lieu"
+      actions={modifiable ? <Link href={`/lieux/${lieuId}/modifier?onglet=tarifs`} className="bouton-second">Modifier</Link> : undefined}
+    >
+      <p className="mb-3 text-xs text-ink-muted">Repris par chaque événement de la borne, sauf ceux qui ont leurs propres tarifs.</p>
+      {error ? (
+        <Erreur erreur={error} />
+      ) : !data ? (
+        <Chargement />
+      ) : (
+        <div className="space-y-3">
+          {data.propre ? <Badge ton="warn">Tarifs propres au lieu</Badge> : <Badge ton="neutre">Tarifs de base du parc</Badge>}
+          <ResumeGrille grille={data.propre ?? data.base} />
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/** Édition du tarif d'un lieu : onglet Tarifs de l'édition du lieu. */
 export function TarifsDuLieu({ lieuId }: { lieuId: number }) {
   const client = useQueryClient();
   const { data, error } = useQuery({ queryKey: ["tarifs-lieu", lieuId], queryFn: () => api<TarifsLieu>(`/lieux/${lieuId}/tarifs`) });
@@ -271,7 +299,8 @@ export function TarifsDuLieu({ lieuId }: { lieuId: number }) {
           Tarifs propres au lieu
         </label>
       </div>
-      <EditeurGrille valeur={g} onChange={setBrouillon} desactive={!propres} nom={`lieu-${lieuId}`} />
+      {/* Base du parc reprise : un résumé (elle se modifie dans Paramètres), pas des champs */}
+      {propres ? <EditeurGrille valeur={g} onChange={setBrouillon} nom={`lieu-${lieuId}`} /> : <ResumeGrille grille={g} />}
       {brouillon && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button type="button" className="bouton" disabled={erreurs.length > 0 || enregistrer.isPending} onClick={() => enregistrer.mutate(brouillon)}>

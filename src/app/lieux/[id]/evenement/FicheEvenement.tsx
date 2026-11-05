@@ -751,7 +751,7 @@ function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu:
             <ResumeGrille grille={tarifsLieu.grille} />
             <p className="mt-3 text-xs text-ink-muted">
               Les tarifs du lieu se modifient dans{" "}
-              <Link href={`/lieux/${lieuId}/configuration/tarifs`} className="text-accent hover:underline">Configuration → Tarif du lieu</Link>
+              <Link href={`/lieux/${lieuId}/modifier?onglet=tarifs`} className="text-accent hover:underline">la fiche du lieu (onglet Tarifs)</Link>
               {" "}; pour d&apos;autres prix sur cet événement, choisissez « Tarifs propres à l&apos;événement ».
             </p>
           </>
