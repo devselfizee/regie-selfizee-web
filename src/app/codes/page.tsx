@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useState } from "react";
+import { Suspense, useDeferredValue, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type LieuListe } from "@/lib/api";
 import { date, dateHeure, jour, nombre } from "@/lib/format";
@@ -47,6 +48,8 @@ interface PageCodes {
   page: number;
   parPage: number;
   lignes: CodeRemise[];
+  /** Tous les codes du filtre (pour « tout sélectionner ») */
+  ids: number[];
   lots: { id: number; libelle: string | null; nbCodes: number; createdAt: string; lieu: { enseigne: string } | null }[];
 }
 
@@ -56,22 +59,30 @@ const remise = (c: Pick<CodeRemise, "type" | "pourcentage" | "quantite">) =>
 export default function PageCodesRemise() {
   return (
     <Reserve roles={["ADMIN"]}>
-      <Codes />
+      {/* useSearchParams (lien depuis la fiche d'un lieu : ?lieuId=&lotId=) demande une frontière Suspense */}
+      <Suspense fallback={<Chargement />}>
+        <Codes />
+      </Suspense>
     </Reserve>
   );
 }
 
 function Codes() {
+  const parametres = useSearchParams();
   const [q, setQ] = useState("");
-  const [lieuId, setLieuId] = useState("");
-  const [lotId, setLotId] = useState("");
+  const [lieuId, setLieuId] = useState(() => parametres.get("lieuId") ?? "");
+  const [lotId, setLotId] = useState(() => parametres.get("lotId") ?? "");
   const [statut, setStatut] = useState("");
   const [page, setPage] = useState(1);
   const [creation, setCreation] = useState(false);
   const [detail, setDetail] = useState<number | null>(null);
+  // Sélection (un, plusieurs ou tous les codes du filtre) pour supprimer un lot créé par erreur
+  const [choisis, setChoisis] = useState<Set<number>>(new Set());
+  const client = useQueryClient();
   const changer = <T,>(maj: (v: T) => void) => (v: T) => {
     maj(v);
     setPage(1);
+    setChoisis(new Set());
   };
   const recherche = useDeferredValue(q.trim());
   const filtres = { q: recherche || undefined, lieuId: lieuId || undefined, lotId: lotId || undefined, statut: statut || undefined };
@@ -83,6 +94,25 @@ function Codes() {
   });
   const lieux = useQuery({ queryKey: ["lieux", "codes"], queryFn: () => api<LieuListe[]>("/lieux?statut="), staleTime: 5 * 60_000 });
   const pages = data ? Math.max(1, Math.ceil(data.total / data.parPage)) : 1;
+  const surPage = data?.lignes.map((c) => c.id) ?? [];
+  const pageChoisie = surPage.length > 0 && surPage.every((id) => choisis.has(id));
+  const basculer = (ids: number[], oui: boolean) =>
+    setChoisis((s) => {
+      const n = new Set(s);
+      for (const id of ids) if (oui) n.add(id); else n.delete(id);
+      return n;
+    });
+  const supprimer = useMutation({
+    mutationFn: (ids: number[]) => api<{ supprimes: number; lotsSupprimes: number }>("/codes-remise/supprimer", { method: "POST", json: { ids } }),
+    onSuccess: (r) => {
+      setChoisis(new Set());
+      // Un lot supprimé ne peut plus servir de filtre
+      if (r.lotsSupprimes) setLotId("");
+      client.invalidateQueries({ queryKey: ["codes-remise"] });
+      client.invalidateQueries({ queryKey: ["lieu"] });
+      client.invalidateQueries({ queryKey: ["suivi"] });
+    },
+  });
 
   return (
     <>
@@ -134,6 +164,29 @@ function Codes() {
           {isFetching ? " · mise à jour…" : ""}
         </p>
       )}
+      {choisis.size > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-accent/40 bg-accent/5 px-4 py-2 text-sm">
+          <strong className="tabular">{nombre(choisis.size)} code{choisis.size > 1 ? "s" : ""} sélectionné{choisis.size > 1 ? "s" : ""}</strong>
+          {data && pageChoisie && data.total > choisis.size && (
+            <button type="button" className="text-accent hover:underline" onClick={() => basculer(data.ids, true)}>
+              Sélectionner les {nombre(data.total)} codes du filtre
+            </button>
+          )}
+          <button type="button" className="text-ink-2 hover:underline" onClick={() => setChoisis(new Set())}>Tout désélectionner</button>
+          <button
+            type="button"
+            className="bouton-second ml-auto text-bad"
+            disabled={supprimer.isPending}
+            onClick={() =>
+              confirm(`Supprimer définitivement ${choisis.size} code${choisis.size > 1 ? "s" : ""} ? Ils ne pourront plus être saisis sur la borne. Un code déjà utilisé ne se supprime pas (désactivez-le).`) &&
+              supprimer.mutate([...choisis])
+            }
+          >
+            {supprimer.isPending ? "Suppression…" : "Supprimer"}
+          </button>
+        </div>
+      )}
+      {supprimer.error && <Erreur erreur={supprimer.error} />}
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
       {data && !data.lignes.length && <Vide>Aucun code ne correspond. « Générer des codes » pour en créer.</Vide>}
@@ -142,6 +195,14 @@ function Codes() {
           <table className="w-full text-sm">
             <thead className="text-left text-xs text-ink-2">
               <tr>
+                <th className="w-10 py-3 pl-4">
+                  <input
+                    type="checkbox"
+                    aria-label="Sélectionner les codes de la page"
+                    checked={pageChoisie}
+                    onChange={(e) => basculer(surPage, e.target.checked)}
+                  />
+                </th>
                 <th className="px-4 py-3 font-medium">Code</th>
                 <th className="px-4 py-3 font-medium">Remise</th>
                 <th className="px-4 py-3 text-right font-medium">Utilisées</th>
@@ -156,12 +217,21 @@ function Codes() {
               {data.lignes.map((c) => (
                 <tr
                   key={c.id}
-                  className="cursor-pointer border-t border-line hover:bg-surface-2"
+                  className={`cursor-pointer border-t border-line hover:bg-surface-2 ${choisis.has(c.id) ? "bg-accent/5" : ""}`}
                   onClick={() => setDetail(c.id)}
                   tabIndex={0}
                   onKeyDown={(e) => e.key === "Enter" && setDetail(c.id)}
                   aria-label={`Détail du code ${c.code}`}
                 >
+                  <td className="py-2.5 pl-4" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      aria-label={`Sélectionner le code ${c.code}`}
+                      checked={choisis.has(c.id)}
+                      onChange={(e) => basculer([c.id], e.target.checked)}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    />
+                  </td>
                   <td className="px-4 py-2.5 font-mono font-medium tracking-wider">{c.code}</td>
                   <td className="px-4 py-2.5">{remise(c)}</td>
                   <td className="px-4 py-2.5 text-right">{nombre(c.utilise)}</td>
@@ -242,6 +312,9 @@ function FormulaireLot({ lieux, onCree }: { lieux: LieuListe[]; onCree: (lotId: 
       }),
     onSuccess: (r) => {
       client.invalidateQueries({ queryKey: ["codes-remise"] });
+      // Le lot apparaît dans la timeline et sur la fiche du lieu
+      client.invalidateQueries({ queryKey: ["suivi"] });
+      client.invalidateQueries({ queryKey: ["lieu"] });
       onCree(r.lotId);
     },
   });

@@ -13,7 +13,6 @@ const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/lieux/carte", libelle: "Analyse géographique", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/analyse", libelle: "Analyse", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/comportements", libelle: "Comportements", roles: ["ADMIN", "COMMERCIAL"] },
-  { href: "/prospects", libelle: "Prospects", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/monitoring", libelle: "Monitoring live", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/papier", libelle: "Papier", roles: ["ADMIN", "TECHNICIEN"] },
   { href: "/alertes", libelle: "Alertes", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
@@ -24,8 +23,7 @@ const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
   { href: "/codes", libelle: "Codes de remise", roles: ["ADMIN"] },
   { href: "/rapprochement", libelle: "Rapprochement", roles: ["ADMIN"] },
   { href: "/rentabilite", libelle: "Rentabilité", roles: ["ADMIN"] },
-  { href: "/imports", libelle: "Imports", roles: ["ADMIN", "TECHNICIEN"] },
-  { href: "/journal", libelle: "Journal des bornes", roles: ["ADMIN", "TECHNICIEN"] },
+  { href: "/prospects", libelle: "Prospects", roles: ["ADMIN", "COMMERCIAL"] },
   { href: "/utilisateurs", libelle: "Utilisateurs", roles: ["ADMIN"] },
   { href: "/parametres", libelle: "Paramètres", roles: ["ADMIN"] },
 ];

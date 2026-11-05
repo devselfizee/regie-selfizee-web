@@ -312,6 +312,8 @@ export interface ErreurImport {
   createdAt: string;
   payload: unknown;
   import: { id: string; borneIdentifiant: string | null; recuLe: string; type: string; ipSource: string | null };
+  /** Lieu actuel de la borne */
+  lieu: { id: number; enseigne: string } | null;
 }
 
 // ─── Commissions ────────────────────────────────────────────
@@ -972,17 +974,19 @@ export interface CommentaireLieu {
   texte: string;
   createdAt: string;
   modifieLe: string | null;
-  auteur: { id: number; prenom: string; nom: string } | null;
+  auteur: { id: number; prenom: string; nom: string; photoUrl?: string | null } | null;
   mentions: { luLe: string | null; user: { id: number; prenom: string; nom: string } }[];
 }
 
 export interface ElementTimeline {
   cle: string;
-  type: "COMMENTAIRE" | "LIEU" | "CONTRAT" | "BORNE" | "INTERVENTION" | "ALERTE" | "EVENEMENT" | "COMMISSION";
+  type: "COMMENTAIRE" | "LIEU" | "CONTRAT" | "BORNE" | "INTERVENTION" | "ALERTE" | "EVENEMENT" | "COMMISSION" | "CODES";
   date: string;
   titre: string;
   detail?: string | null;
   auteur?: string | null;
+  /** Photo du compte Konitys de l'auteur (relevée à sa connexion) */
+  auteurPhoto?: string | null;
   ton?: string;
   commentaire?: CommentaireLieu;
   /** Résolution d'une alerte : l'alerte à laquelle elle répond */

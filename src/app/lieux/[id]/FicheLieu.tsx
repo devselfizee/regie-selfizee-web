@@ -23,6 +23,7 @@ import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
+import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
@@ -151,7 +152,25 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       <div className="grid gap-6 lg:grid-cols-2">
         <Section titre="Fiche">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <Info l="Raison sociale">{l.raisonSociale}{l.siret && <span className="text-ink-muted"> · {l.siret}</span>}</Info>
+            <Info l="Raison sociale">
+              {l.raisonSociale}
+              {l.siret && <span className="text-ink-muted"> · {l.siret}</span>}
+              {/* Fiche de l'entreprise sur Pappers, d'après le SIREN (9 premiers chiffres du SIRET) */}
+              {l.siret && l.siret.replace(/\D/g, "").length >= 9 && (
+                <a
+                  href={`https://www.pappers.fr/entreprise/${l.siret.replace(/\D/g, "").slice(0, 9)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-1.5 inline-flex align-middle text-accent hover:text-ink"
+                  title="Voir l'entreprise sur Pappers"
+                  aria-label="Voir l'entreprise sur Pappers (nouvel onglet)"
+                >
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  </svg>
+                </a>
+              )}
+            </Info>
             <Info l="Adresse">{[l.adresse, l.codePostal, l.ville].filter(Boolean).join(", ") || "—"}</Info>
             <Info l="Ville principale">{l.antenne?.libelle ?? "—"}</Info>
             {l.statut === "PROSPECT" && (
@@ -236,6 +255,12 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
           <EmplacementLieu l={l} />
         </Section>
       </div>
+
+      {moi.role === "ADMIN" && (
+        <div className="mt-6">
+          <CodesRemiseLieu lieuId={l.id} />
+        </div>
+      )}
 
       <div className="mt-6">
         <Section titre="Historique des bornes" actions={peut.gererBornes(moi.role) ? <Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link> : undefined}>

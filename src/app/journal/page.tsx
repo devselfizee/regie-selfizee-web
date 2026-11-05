@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs } from "@/lib/api";
-import { dateHeure } from "@/lib/format";
+import { dateHeure, parametreUrl } from "@/lib/format";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Reserve } from "@/lib/session";
+import { ErreursImport } from "@/components/ErreursImport";
 
 // Journal des envois des bornes : ce qu'elles ont envoyé à la Régie, accepté ou refusé, avec le contenu brut.
 
@@ -24,6 +26,7 @@ interface LotJournal {
   nbCompletees: number;
   nbRejetees: number;
   borne: { id: number; identifiant: string } | null;
+  lieu: { id: number; enseigne: string } | null;
   erreurs: { code: string }[];
   refusParCode: { code: string; nb: number }[];
 }
@@ -44,6 +47,7 @@ interface SigneDeVie {
   erreurs: { code: string; message?: string; composant?: string }[] | null;
   logicielVersion: string | null;
   borne: { id: number; identifiant: string };
+  lieu: { id: number; enseigne: string } | null;
 }
 
 const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité", CODES: "Codes de remise" };
@@ -57,13 +61,21 @@ const SOURCES: Record<string, string> = { API: "borne (API)", DEPOT_FICHIER: "d�
 export default function PageJournal() {
   return (
     <Reserve roles={["ADMIN", "TECHNICIEN"]}>
-      <Journal />
+      {/* useSearchParams (onglet dans l'adresse) demande une frontière Suspense */}
+      <Suspense fallback={<Chargement />}>
+        <Journal />
+      </Suspense>
     </Reserve>
   );
 }
 
 function Journal() {
-  const [onglet, setOnglet] = useState<"envois" | "signes">("envois");
+  const demande = useSearchParams().get("onglet");
+  const [onglet, choisir] = useState<Onglet>(demande === "erreurs" || demande === "signes" ? demande : "envois");
+  const setOnglet = (o: Onglet) => {
+    choisir(o);
+    parametreUrl("onglet", o === "envois" ? null : o);
+  };
   const [borne, setBorne] = useState("");
   const [type, setType] = useState("");
   const [statut, setStatut] = useState("");
@@ -81,6 +93,7 @@ function Journal() {
           {(
             [
               ["envois", "Envois reçus"],
+              ["erreurs", "Erreurs d'import"],
               ["signes", "Signes de vie acceptés"],
             ] as const
           ).map(([k, l]) => (
@@ -89,12 +102,13 @@ function Journal() {
             </button>
           ))}
         </div>
+        {onglet !== "erreurs" && (
         <label className="block">
-          <span className="etiquette">Borne</span>
+          <span className="etiquette">Borne ou lieu</span>
           <input
             id="journal-borne"
-            className="champ w-40"
-            placeholder="ex. S221"
+            className="champ w-48"
+            placeholder="ex. S221, Satori"
             value={borne}
             onChange={(e) => {
               setBorne(e.target.value.toUpperCase());
@@ -102,6 +116,7 @@ function Journal() {
             }}
           />
         </label>
+        )}
         {onglet === "envois" && (
           <>
             <label className="block">
@@ -125,7 +140,7 @@ function Journal() {
           </>
         )}
       </div>
-      {onglet === "envois" ? <Envois borne={filtre} type={type} statut={statut} page={page} setPage={setPage} /> : <Signes borne={filtre} />}
+      {onglet === "envois" ? <Envois borne={filtre} type={type} statut={statut} page={page} setPage={setPage} /> : onglet === "erreurs" ? <ErreursImport /> : <Signes borne={filtre} />}
     </>
   );
 }
@@ -158,7 +173,10 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
                 <Badge ton={STATUTS[l.statut].ton}>{STATUTS[l.statut].libelle}</Badge>
-                <span className="font-medium">{l.borne?.identifiant ?? l.borneIdentifiant ?? "borne inconnue"}</span>
+                <span className="font-medium">
+                  {l.lieu && <>{l.lieu.enseigne} · </>}
+                  {l.borne?.identifiant ?? l.borneIdentifiant ?? "borne inconnue"}
+                </span>
                 <span className="text-ink-2">{TYPES[l.type] ?? l.type}</span>
                 <span className="text-xs text-ink-muted tabular">
                   {dateHeure(l.recuLe)} · {SOURCES[l.source] ?? l.source}
@@ -237,6 +255,8 @@ function Detail({ id }: { id: string }) {
   );
 }
 
+type Onglet = "envois" | "erreurs" | "signes";
+
 const ouiNon = (v: boolean | null) => (v === null ? "—" : v ? "OK" : "En panne");
 
 function Signes({ borne }: { borne: string }) {
@@ -256,7 +276,7 @@ function Signes({ borne }: { borne: string }) {
         <table className="w-full min-w-[48rem] text-sm">
           <thead>
             <tr className="border-b border-line text-left text-xs text-ink-2">
-              <th className="px-3 py-2 font-medium">Borne</th>
+              <th className="px-3 py-2 font-medium">Lieu · borne</th>
               <th className="px-3 py-2 font-medium">Envoyé par la borne</th>
               <th className="px-3 py-2 font-medium">Reçu</th>
               <th className="px-3 py-2 font-medium">Papier</th>
@@ -270,7 +290,10 @@ function Signes({ borne }: { borne: string }) {
           <tbody className="tabular">
             {data.map((s) => (
               <tr key={s.id} className="border-b border-line last:border-0">
-                <td className="px-3 py-2 font-medium">{s.borne.identifiant}</td>
+                <td className="px-3 py-2">
+                  {s.lieu ? <span className="font-medium">{s.lieu.enseigne}</span> : <span className="text-ink-muted">sans lieu</span>}
+                  <span className="block text-xs text-ink-2">{s.borne.identifiant}</span>
+                </td>
                 <td className="px-3 py-2">{dateHeure(s.horodatage)}</td>
                 <td className="px-3 py-2 text-ink-2">{dateHeure(s.recuLe)}</td>
                 <td className="px-3 py-2">{s.papierRestant ?? "—"}</td>

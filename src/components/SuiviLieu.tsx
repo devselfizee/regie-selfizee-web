@@ -23,9 +23,35 @@ const TYPES: Record<string, { libelle: string; pastille: string }> = {
   ALERTE: { libelle: "Alerte", pastille: "bg-crit-ink" },
   EVENEMENT: { libelle: "Événement", pastille: "bg-violet-500" },
   COMMISSION: { libelle: "Commission", pastille: "bg-ok-ink" },
+  CODES: { libelle: "Codes de remise", pastille: "bg-amber-500" },
 };
 
 type Filtre = "tout" | "commentaires" | "historique";
+
+const AUTOMATIQUE = "Régie (automatique)";
+
+/** Avatar d'un compte : sa photo Konitys, sinon ses initiales ; la Régie elle-même pour ce qu'elle fait seule */
+function Avatar({ nom, photo }: { nom: string; photo?: string | null }) {
+  const [echec, setEchec] = useState(false);
+  const classe = "inline-flex size-5 shrink-0 items-center justify-center self-center overflow-hidden rounded-full text-[0.6rem] font-semibold";
+  if (nom === AUTOMATIQUE)
+    return (
+      <span className={`${classe} bg-surface-2 text-ink-2`} aria-hidden title="Action automatique de la Régie">
+        <svg viewBox="0 0 24 24" className="size-3" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2M20 14h2M15 13v2M9 13v2" />
+        </svg>
+      </span>
+    );
+  if (photo && !echec)
+    // eslint-disable-next-line @next/next/no-img-element -- photo servie par la plateforme Konitys
+    return <img src={photo} alt="" className={`${classe} object-cover`} onError={() => setEchec(true)} />;
+  const initiales = nom.split(/s+/).filter(Boolean).slice(0, 2).map((m) => m[0]!.toUpperCase()).join("");
+  return (
+    <span className={`${classe} bg-accent/15 text-accent`} aria-hidden>
+      {initiales || "?"}
+    </span>
+  );
+}
 
 export function SuiviLieu({ lieuId }: { lieuId: number }) {
   const [filtre, setFiltre] = useState<Filtre>("tout");
@@ -101,7 +127,11 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
                     <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
                       <span>{dateHeure(e.date)}</span>
                       <span>· {TYPES[e.type]?.libelle ?? e.type}</span>
-                      {e.auteur && <span>· {e.auteur}</span>}
+                      {e.auteur && (
+                        <span className="inline-flex items-center gap-1">
+                          · <Avatar nom={e.auteur} photo={e.auteurPhoto} /> {e.auteur}
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm">{e.titre}</p>
                     {e.detail && <p className="mt-0.5 text-sm whitespace-pre-wrap text-ink-2">{e.detail}</p>}
@@ -125,7 +155,8 @@ function ReponseAlerte({ e }: { e: ElementTimeline }) {
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
-        <span className="font-medium text-ink">{e.auteur ?? "Quelqu'un"}</span>
+        {e.auteur && <Avatar nom={e.auteur} photo={e.auteurPhoto} />}
+        <span className="font-medium text-ink">{e.auteur ?? "Auteur inconnu"}</span>
         <span>{dateHeure(e.date)}</span>
         <span>· {e.titre.startsWith("Alerte ignorée") ? "a ignoré l'alerte" : "a résolu l'alerte"}</span>
       </div>
@@ -156,6 +187,7 @@ function Commentaire({ c, personnes, onChange }: { c: CommentaireLieu; personnes
   return (
     <div>
       <div className="flex flex-wrap items-baseline gap-x-2 text-xs text-ink-muted">
+        {c.auteur && <Avatar nom={nomComplet(c.auteur)} photo={c.auteur.photoUrl} />}
         <span className="font-medium text-ink">{c.auteur ? nomComplet(c.auteur) : "Utilisateur supprimé"}</span>
         <span>{dateHeure(c.createdAt)}</span>
         {c.modifieLe && <span>· modifié</span>}

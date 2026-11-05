@@ -9,6 +9,7 @@ import { dateHeure, depuis } from "@/lib/format";
 import { useReferentiel } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { CleUnique, Modale } from "@/components/Modale";
+import { MenuActions } from "@/components/MenuActions";
 import { Reserve } from "@/lib/session";
 
 type Action =
@@ -64,7 +65,22 @@ function Bornes() {
       <EnTete
         titre="Bornes"
         sousTitre={data ? `${data.length} borne${data.length > 1 ? "s" : ""} · ${data.filter((b) => b.enLigne).length} en ligne` : undefined}
-        actions={<button className="bouton" onClick={() => setAction({ type: "creer" })}>Nouvelle borne</button>}
+        actions={
+          <div className="flex gap-2">
+            {/* Pages techniques, hors du menu de gauche (retour de Sébastien, 05/11/2026) */}
+            <MenuActions
+              libelle="Suivi technique"
+              className="bouton-second"
+              declencheur={<>Suivi technique <span aria-hidden>▾</span></>}
+              actions={[
+                { libelle: "Journal des bornes", aide: "Tout ce que les bornes envoient", href: "/journal" },
+                { libelle: "Erreurs d'import", aide: "Envois refusés, à traiter", href: "/journal?onglet=erreurs" },
+                { libelle: "Signes de vie", aide: "Papier, imprimante, paiement", href: "/journal?onglet=signes" },
+              ]}
+            />
+            <button className="bouton" onClick={() => setAction({ type: "creer" })}>Nouvelle borne</button>
+          </div>
+        }
       />
 
       {error && <Erreur erreur={error} />}
@@ -149,14 +165,16 @@ function Bornes() {
                     {!b.cleConfiguree && <Badge ton="warn">Pas de clé API</Badge>}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex flex-wrap justify-end gap-1">
-                      <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setAction({ type: "affecter", borne: b })}>
-                        {b.lieuActuel ? "Déplacer" : "Affecter"}
-                      </button>
-                      {b.lieuActuel && (
-                        <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setAction({ type: "retirer", borne: b })}>Retirer</button>
-                      )}
-                      <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setAction({ type: "cle", borne: b })}>Nouvelle clé</button>
+                    {/* Les actions d'une borne dans un menu « ⋯ » (retour de Sébastien : trop de boutons alourdissaient la liste) */}
+                    <div className="flex justify-end">
+                      <MenuActions
+                        libelle={`Actions : ${b.identifiant}`}
+                        actions={[
+                          { libelle: b.lieuActuel ? "Déplacer" : "Affecter à un lieu", onClick: () => setAction({ type: "affecter", borne: b }) },
+                          ...(b.lieuActuel ? [{ libelle: "Retirer du lieu", onClick: () => setAction({ type: "retirer", borne: b }) }] : []),
+                          { libelle: "Nouvelle clé", aide: "L'ancienne clé cesse de fonctionner", onClick: () => setAction({ type: "cle", borne: b }) },
+                        ]}
+                      />
                     </div>
                   </td>
                 </tr>

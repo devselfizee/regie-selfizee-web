@@ -9,7 +9,8 @@ export interface BorneSupervisee {
   borneId: number;
   identifiant: string;
   gamme: string;
-  lieu: { id: number; enseigne: string; ville: string | null } | null;
+  /** papierSurPlace : le lieu change lui-même le papier (sinon Selfizee) */
+  lieu: { id: number; enseigne: string; ville: string | null; papierSurPlace: boolean } | null;
   enLigne: boolean;
   lieuOuvert: boolean;
   prochaineOuverture: string | null;
@@ -49,6 +50,6 @@ export function useSupervision() {
   });
 }
 
-/** Seuils du papier (tirages restants), comme la fiche lieu */
+/** Seuils du papier (tirages restants) : sous 100 en rouge gras (retour de Sébastien, 05/11/2026) */
 export const tonPapier = (restant: number | null | undefined) =>
-  restant === null || restant === undefined ? "text-ink-muted" : restant < 50 ? "text-bad" : restant < 100 ? "text-warn-ink" : "";
+  restant === null || restant === undefined ? "text-ink-muted" : restant < 100 ? "font-bold text-bad" : "";

@@ -34,6 +34,8 @@ export function ChoixLieu({
   const [ouvert, setOuvert] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [actif, setActif] = useState(0);
+  // Liste en position fixe, calée sur le bouton : rien ne la rogne (modale qui défile, colonne étroite)
+  const [pos, setPos] = useState<{ left: number; width: number; top?: number; bottom?: number } | null>(null);
   const conteneur = useRef<HTMLDivElement>(null);
   const champ = useRef<HTMLInputElement>(null);
   const liste = useRef<HTMLUListElement>(null);
@@ -59,6 +61,26 @@ export function ChoixLieu({
     return () => document.removeEventListener("mousedown", fermer);
   }, [ouvert]);
 
+  // Position de la liste : sous le bouton (au-dessus s'il manque la place), au moins 18rem de large, dans l'écran
+  useEffect(() => {
+    if (!ouvert) return;
+    const placer = () => {
+      const r = conteneur.current?.getBoundingClientRect();
+      if (!r) return;
+      const width = Math.min(Math.max(r.width, 288), window.innerWidth - 16);
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+      const enHaut = window.innerHeight - r.bottom < 360 && r.top > window.innerHeight - r.bottom;
+      setPos(enHaut ? { left, width, bottom: window.innerHeight - r.top + 4 } : { left, width, top: r.bottom + 4 });
+    };
+    placer();
+    window.addEventListener("resize", placer);
+    window.addEventListener("scroll", placer, true);
+    return () => {
+      window.removeEventListener("resize", placer);
+      window.removeEventListener("scroll", placer, true);
+    };
+  }, [ouvert]);
+
   // L'option active reste visible quand on descend au clavier
   useEffect(() => {
     liste.current?.querySelector<HTMLElement>(`[data-index="${actif}"]`)?.scrollIntoView({ block: "nearest" });
@@ -66,6 +88,7 @@ export function ChoixLieu({
 
   const ouvrir = () => {
     setRecherche("");
+    setPos(null);
     setActif(Math.max(0, options.findIndex((o) => o.id === valeur)));
     setOuvert(true);
     setTimeout(() => champ.current?.focus(), 0);
@@ -105,8 +128,8 @@ export function ChoixLieu({
         </span>
       </button>
 
-      {ouvert && (
-        <div className="absolute right-0 z-30 mt-1 w-full min-w-72 rounded-md border border-line bg-surface shadow-lg">
+      {ouvert && pos && (
+        <div className="fixed z-50 rounded-md border border-line bg-surface shadow-lg" style={pos}>
           <div className="border-b border-line p-2">
             <input
               ref={champ}
@@ -145,7 +168,7 @@ export function ChoixLieu({
                 data-index={i}
                 role="option"
                 aria-selected={o.id === valeur}
-                className={`cursor-pointer px-3 py-1.5 text-sm ${i === actif ? "bg-accent text-accent-ink" : o.id === valeur ? "font-medium" : ""} ${o.id ? "" : "text-ink-2"}`}
+                className={`cursor-pointer px-3 py-1.5 text-sm ${i === actif ? "bg-accent text-accent-ink" : `${o.id === valeur ? "font-medium" : ""} ${o.id ? "" : "text-ink-2"}`}`}
                 onMouseEnter={() => setActif(i)}
                 onMouseDown={(e) => {
                   e.preventDefault();

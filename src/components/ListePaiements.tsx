@@ -158,7 +158,7 @@ export function ListePaiements({ lieuIdFixe, initial }: { lieuIdFixe?: number; i
             <span className="etiquette">Borne</span>
             <select id="paiements-borne" className="champ" value={borneId} onChange={(e) => changer(setBorneId)(e.target.value)}>
               <option value="">Toutes</option>
-              {bornes.data?.map((b) => <option key={b.id} value={b.id}>{b.identifiant}</option>)}
+              {bornes.data?.map((b) => <option key={b.id} value={b.id}>{b.lieuActuel ? `${b.lieuActuel.enseigne} · ${b.identifiant}` : b.identifiant}</option>)}
             </select>
           </label>
           <label className="block">

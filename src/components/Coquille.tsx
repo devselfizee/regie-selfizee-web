@@ -20,7 +20,6 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/lieux/carte", libelle: "Analyse géographique", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/comportements", libelle: "Comportements", icone: "Footprints", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
       { href: "/mentions", libelle: "Mes mentions", icone: "AtSign", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
     ],
@@ -32,8 +31,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/bornes", libelle: "Bornes", icone: "Monitor", roles: ["ADMIN", "TECHNICIEN"] },
       { href: "/monitoring", libelle: "Monitoring live", icone: "Activity", roles: ["ADMIN", "TECHNICIEN"] },
       { href: "/papier", libelle: "Papier", icone: "Printer", roles: ["ADMIN", "TECHNICIEN"] },
-      { href: "/imports", libelle: "Imports", icone: "Upload", roles: ["ADMIN", "TECHNICIEN"] },
-      { href: "/journal", libelle: "Journal des bornes", icone: "ScrollText", roles: ["ADMIN", "TECHNICIEN"] },
+      // Journal des bornes et erreurs d'import : techniques, rangés dans « Suivi technique » de la page Bornes
     ],
   },
   {
@@ -45,6 +43,10 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", roles: ["ADMIN"] },
       { href: "/rentabilite", libelle: "Rentabilité", icone: "TrendingUp", roles: ["ADMIN"] },
     ],
+  },
+  {
+    libelle: "Commercial",
+    liens: [{ href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] }],
   },
   {
     libelle: "Administration",
