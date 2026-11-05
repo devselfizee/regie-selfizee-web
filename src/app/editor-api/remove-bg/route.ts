@@ -5,21 +5,22 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 /**
- * POST /editor-api/remove-bg (bouton « Détourer » du studio) : comme selfizee-booth-ui, le détourage est
- * fait par le backend de l'éditeur de la plateforme Selfizee. booth-ui y envoie /editor-api/* par un
- * rewrite ; ici, cette route lui transmet le formulaire (`file` en PNG, `model_type`) et renvoie le PNG
- * détouré. Adresse : EDITOR_BACKEND_URL (même valeur que dans le déploiement de booth-ui), lue à
- * l'exécution. Réservé aux admins de la Régie.
+ * POST /editor-api/remove-bg (bouton « Détourage IA » du studio) : comme le projet background-removal de
+ * Selfizee (app/api/remove-bg), l'image part au service de détourage :
+ * POST {REMOVE_BG_API_URL}/api/ext/remove-bg?model_type=hr, jeton dans l'en-tête X-API-TOKEN. Mêmes
+ * valeurs que API_URL et API_TOKEN de background-removal, lues à l'exécution. Renvoie le PNG détouré.
+ * Réservé aux admins de la Régie.
  */
 const MAX_IMAGE = 25 * 1024 * 1024;
+// Modèles proposés par background-removal (components/ModelSelector.js)
+const MODELES = new Set(["standard", "hr", "matting"]);
 
 export async function POST(req: Request) {
   if (!(await adminDeLaRequete(req))) return NextResponse.json({ error: "Réservé aux administrateurs de la Régie (reconnectez-vous)." }, { status: 401 });
 
-  // Sans « /api » final (booth-ui l'ajoute lui-même, sa valeur n'en a pas) : sinon …/api/api/remove-bg
-  const base = (process.env.EDITOR_BACKEND_URL ?? "").trim().replace(/\/+$/, "").replace(/\/api$/, "");
-  const cible = `${base}/api/remove-bg`;
-  if (!base) return NextResponse.json({ error: "Détourage non configuré : EDITOR_BACKEND_URL manque (adresse du backend de l'éditeur)." }, { status: 501 });
+  const base = (process.env.REMOVE_BG_API_URL ?? "").trim().replace(/\/+$/, "");
+  const jeton = process.env.REMOVE_BG_API_TOKEN ?? "";
+  if (!base || !jeton) return NextResponse.json({ error: "Détourage non configuré : REMOVE_BG_API_URL et REMOVE_BG_API_TOKEN manquent." }, { status: 501 });
 
   let form: FormData;
   try {
@@ -31,25 +32,28 @@ export async function POST(req: Request) {
   if (!(image instanceof Blob)) return NextResponse.json({ error: "Image manquante." }, { status: 400 });
   if (image.size > MAX_IMAGE) return NextResponse.json({ error: "Image trop lourde pour le détourage (25 Mo au plus)." }, { status: 413 });
 
+  const modele = String(form.get("model_type") ?? "hr");
+  const params = new URLSearchParams({ model_type: MODELES.has(modele) ? modele : "hr" });
+  const dim = Number(form.get("output_max_dim"));
+  if (Number.isInteger(dim) && dim > 0) params.set("output_max_dim", String(dim));
   const envoi = new FormData();
   envoi.append("file", image, "image.png");
-  envoi.append("model_type", String(form.get("model_type") ?? "hr"));
+  const cible = `${base}/api/ext/remove-bg`;
 
   try {
-    const r = await fetch(cible, { method: "POST", body: envoi, signal: AbortSignal.timeout(90_000) });
+    const r = await fetch(`${cible}?${params}`, { method: "POST", headers: { "X-API-TOKEN": jeton }, body: envoi, signal: AbortSignal.timeout(90_000) });
     if (!r.ok) {
       const detail = await r.text().catch(() => "");
-      console.error("[remove-bg] backend de l'éditeur", r.status, detail.slice(0, 300));
+      console.error("[remove-bg] service de détourage", r.status, detail.slice(0, 300));
       const message =
         r.status === 401 || r.status === 403
-          ? `Le backend de l'éditeur refuse l'accès (${r.status}) : il faut qu'il accepte les appels de la Régie.`
+          ? `Le service de détourage refuse le jeton (${r.status}) : vérifiez REMOVE_BG_API_TOKEN.`
           : r.status === 404
-            ? `${cible} n'existe pas (404) : EDITOR_BACKEND_URL doit être l'adresse du backend de l'éditeur de booth-ui.`
-            : `Détourage impossible (backend de l'éditeur : ${r.status}).`;
+            ? `${cible} n'existe pas (404) : vérifiez REMOVE_BG_API_URL.`
+            : `Détourage impossible (service de détourage : ${r.status}).`;
       return NextResponse.json({ error: message }, { status: 502 });
     }
-    const png = await r.arrayBuffer();
-    return new NextResponse(png, { headers: { "Content-Type": r.headers.get("content-type") ?? "image/png", "Cache-Control": "no-store" } });
+    return new NextResponse(await r.arrayBuffer(), { headers: { "Content-Type": "image/png", "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[remove-bg] réseau", e);
     return NextResponse.json({ error: `Détourage impossible : ${cible} injoignable ou trop lent.` }, { status: 502 });
