@@ -8,7 +8,7 @@ import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEven
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, Erreur, Section } from "@/components/Etat";
 import { dateHeure, parametreUrl } from "@/lib/format";
-import { ChampEuros, EditeurGrille, ResumeGrille } from "@/components/GrilleTarifs";
+import { EditeurGrille, ResumeGrille } from "@/components/GrilleTarifs";
 import { dates } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
 import { FilAriane } from "@/components/FilAriane";
@@ -259,20 +259,24 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
                   : `« ${libelleCreer} » enregistre et fige cette version${fiche.code ? ` ; la borne la charge quand on tape ${fiche.code}` : ""}.`}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button type="button" className="text-sm text-ink-2 hover:text-ink hover:underline" onClick={() => setEcran(0)}>
-                <span aria-hidden>←</span> {ECRANS[0]}
-              </button>
+            <div className="flex flex-wrap items-center gap-3">
+              {modifie && (
+                <button type="button" className="text-sm text-ink-2 hover:text-ink hover:underline" disabled={creer.isPending} onClick={annuler}>
+                  Annuler mes modifications
+                </button>
+              )}
               <button type="button" className="bouton !px-5 !py-2.5 !text-base" disabled={creer.isPending || aJour} onClick={() => creer.mutate()}>
                 {libelleCreer}
               </button>
             </div>
+            {creer.error && <div className="w-full"><Erreur erreur={creer.error} /></div>}
           </div>
         </>
       )}
 
       {/* N'apparaît que s'il y a quelque chose à enregistrer ; reste visible en faisant défiler */}
-      {(aEnregistrer || enregistrer.isPending || enregistrer.error) && (
+      {/* Sur l'écran des tarifs, le bouton final enregistre aussi : une seule action (retour de Sébastien) */}
+      {ecran !== 1 && (aEnregistrer || enregistrer.isPending || enregistrer.error) && (
         <div role="status" className="sticky bottom-4 z-20 mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-strong bg-surface px-4 py-3 shadow-lg">
           <span className="flex items-center gap-2 text-sm font-medium">
             <span aria-hidden className="text-warn-ink">▲</span>
@@ -705,12 +709,55 @@ function MenuCarte({ libelle, actions }: { libelle: string; actions: ActionCarte
 
 // ─── Écran 3 : tarifs et options ────────────────────────────
 
-const LOTS: { cle: LotJeu; nom: string }[] = [
-  { cle: "free", nom: "Photo offerte" },
-  { cle: "pct50", nom: "-50 % sur la prochaine" },
-  { cle: "pct30", nom: "-30 % sur la prochaine" },
-  { cle: "none", nom: "Perdu" },
+const GAGNANTS: { cle: Exclude<LotJeu, "none">; nom: string; couleur: string }[] = [
+  { cle: "free", nom: "Photo offerte", couleur: "bg-accent" },
+  { cle: "pct50", nom: "-50 % sur la prochaine photo", couleur: "bg-violet-400" },
+  { cle: "pct30", nom: "-30 % sur la prochaine photo", couleur: "bg-violet-200" },
 ];
+
+/**
+ * Carte à gratter (retour de Sébastien : « je ne comprends même pas moi-même ») : on raisonne sur 100 cartes grattées.
+ * Les cartes perdantes sont le reste ; les anciens poids relatifs sont ramenés à 100 à l'affichage.
+ */
+function ReglageCarte({ jeu, onChange }: { jeu: ReglagesEvenement["tarifs"]["jeu"]; onChange: (jeu: ReglagesEvenement["tarifs"]["jeu"]) => void }) {
+  const total = Object.values(jeu.lots).reduce((s, v) => s + v, 0) || 100;
+  const sur100 = (cle: LotJeu) => Math.round((jeu.lots[cle] / total) * 100);
+  const gagnants = GAGNANTS.reduce((s, g) => s + sur100(g.cle), 0);
+  const changer = (cle: Exclude<LotJeu, "none">, n: number) => {
+    const lots = { free: sur100("free"), pct50: sur100("pct50"), pct30: sur100("pct30"), [cle]: Math.max(0, Math.min(100, n)) };
+    const somme = lots.free + lots.pct50 + lots.pct30;
+    if (somme > 100) return; // pas plus de 100 gagnants sur 100 cartes
+    onChange({ ...jeu, lots: { ...lots, none: 100 - somme } });
+  };
+  return (
+    <div className="space-y-4 rounded-md bg-surface-2 p-4">
+      <div>
+        <p className="text-sm font-medium">Sur 100 cartes grattées</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          {GAGNANTS.map((g) => (
+            <label key={g.cle} className="flex items-center gap-2 rounded-md bg-surface p-2 text-sm">
+              <span aria-hidden className={`size-3 shrink-0 rounded-full ${g.couleur}`} />
+              <input className="champ !w-16 tabular" type="number" min={0} max={100} value={sur100(g.cle)} onChange={(e) => changer(g.cle, Number(e.target.value))} />
+              <span>{g.nom}</span>
+            </label>
+          ))}
+        </div>
+        {/* Répartition des 100 cartes */}
+        <div className="mt-3 flex h-3 overflow-hidden rounded-full bg-surface" aria-hidden>
+          {GAGNANTS.map((g) => <div key={g.cle} className={g.couleur} style={{ width: `${sur100(g.cle)}%` }} />)}
+        </div>
+        <p className="mt-1 text-xs text-ink-2">
+          <strong className="text-ink">{gagnants}</strong> carte{gagnants > 1 ? "s" : ""} gagnante{gagnants > 1 ? "s" : ""} et <strong className="text-ink">{100 - gagnants}</strong> perdante{100 - gagnants > 1 ? "s" : ""} sur 100, tirées au hasard.
+        </p>
+      </div>
+      <label className="flex flex-wrap items-center gap-2 text-sm">
+        <span>Au plus</span>
+        <input className="champ !w-20 tabular" type="number" min={0} value={jeu.maxLotsParJour} onChange={(e) => onChange({ ...jeu, maxLotsParJour: Math.max(0, Number(e.target.value)) })} />
+        <span>cartes gagnantes par jour ; au-delà, toutes les cartes du jour sont perdantes.</span>
+      </label>
+    </div>
+  );
+}
 
 /** Groupe de réglages de l'étape 2 : sur la borne, ou sur la page souvenir (web). */
 function Groupe({ titre, sousTitre, children }: { titre: string; sousTitre: string; children: ReactNode }) {
@@ -728,7 +775,6 @@ function Groupe({ titre, sousTitre, children }: { titre: string; sousTitre: stri
 function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu: FicheEvenementLieu["tarifsLieu"]; lieuId: number }) {
   const t = r.tarifs;
   const maj = (p: Partial<ReglagesEvenement["tarifs"]>) => setR((x) => ({ ...x, tarifs: { ...x.tarifs, ...p } }));
-  const totalLots = Object.values(t.jeu.lots).reduce((s, v) => s + v, 0);
 
   return (
     <div className="space-y-8">
@@ -781,19 +827,7 @@ function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu:
               </Champ>
             </div>
           )}
-          <Case
-            coche={t.envoiPostal.actif}
-            onChange={(v) => maj({ envoiPostal: { ...t.envoiPostal, actif: v } })}
-            libelle="Envoi postal si l'imprimante est en panne"
-            aide="Engagement de l'exploitant : le tirage est envoyé par la poste."
-          />
-          {t.envoiPostal.actif && (
-            <div className="ml-6 w-48">
-              <Champ libelle="Frais de port (plan B)">
-                <ChampEuros cents={t.envoiPostal.fraisCents} onChange={(c) => maj({ envoiPostal: { ...t.envoiPostal, fraisCents: c } })} />
-              </Champ>
-            </div>
-          )}
+          {/* Envoi postal si l'imprimante est en panne : retiré pour l'instant (retour de Sébastien, 06/11/2026) */}
         </div>
       </Section>
       </Groupe>
@@ -807,29 +841,7 @@ function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu:
             libelle="Proposer la carte à gratter"
             aide="Après l'envoi des photos : un code promo unique pour la prochaine photo, valable 30 jours sur toutes les bornes partenaires. Active aussi les codes promo à la borne."
           />
-          {t.jeu.actif && (
-            <div className="rounded-md bg-surface-2 p-3">
-              <p className="mb-2 text-xs text-ink-2">Chances de chaque lot (poids relatifs).</p>
-              <div className="grid gap-3 sm:grid-cols-4">
-                {LOTS.map((lot) => (
-                  <Champ key={lot.cle} libelle={lot.nom} aide={totalLots ? `${Math.round((t.jeu.lots[lot.cle] / totalLots) * 100)} %` : "—"}>
-                    <input
-                      className="champ tabular"
-                      type="number"
-                      min={0}
-                      value={t.jeu.lots[lot.cle]}
-                      onChange={(e) => maj({ jeu: { ...t.jeu, lots: { ...t.jeu.lots, [lot.cle]: Math.max(0, Number(e.target.value)) } } })}
-                    />
-                  </Champ>
-                ))}
-              </div>
-              <div className="mt-3 w-48">
-                <Champ libelle="Lots gagnants par jour, au plus">
-                  <input className="champ tabular" type="number" min={0} value={t.jeu.maxLotsParJour} onChange={(e) => maj({ jeu: { ...t.jeu, maxLotsParJour: Math.max(0, Number(e.target.value)) } })} />
-                </Champ>
-              </div>
-            </div>
-          )}
+          {t.jeu.actif && <ReglageCarte jeu={t.jeu} onChange={(jeu) => maj({ jeu })} />}
         </div>
       </Section>
       <Section titre="Réimpression">
