@@ -1,6 +1,7 @@
-import { InfosLieu } from "./InfosLieu";
+import { redirect } from "next/navigation";
 
+// Ancienne page « Infos du lieu » (Configuration) : déplacée dans l'onglet Communication de l'édition du lieu
 export default async function Page({ params }: PageProps<"/lieux/[id]/configuration/lieu">) {
   const { id } = await params;
-  return <InfosLieu id={Number(id)} />;
+  redirect(`/lieux/${id}/modifier?onglet=communication`);
 }

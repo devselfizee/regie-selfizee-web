@@ -405,7 +405,7 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
       <p className="mt-3 text-xs text-ink-muted">
         Nom affiché, ville, avis, assistance et horaires : ceux du lieu ({l.nom}
         {l.ville ? `, ${l.ville}` : ""}),{" "}
-        <Link href={`/lieux/${lieuId}/configuration/lieu`} className="text-accent hover:underline">à modifier dans ses infos</Link>.
+        <Link href={`/lieux/${lieuId}/modifier?onglet=communication`} className="text-accent hover:underline">à modifier dans sa fiche (onglet Communication)</Link>.
       </p>
       {!fiche.habituel && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
