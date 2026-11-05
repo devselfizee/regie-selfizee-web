@@ -8,7 +8,7 @@ import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEven
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, Erreur, Section } from "@/components/Etat";
 import { dateHeure, parametreUrl } from "@/lib/format";
-import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
+import { ChampEuros, EditeurGrille, ResumeGrille } from "@/components/GrilleTarifs";
 import { dates } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
 import { FilAriane } from "@/components/FilAriane";
@@ -731,17 +731,22 @@ function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu:
             Tarifs propres à l&apos;événement
           </label>
         </div>
-        <EditeurGrille
-          valeur={t}
-          onChange={(g) => maj({ paliers: g.paliers, palierMisEnAvant: g.palierMisEnAvant, libelleMisEnAvant: g.libelleMisEnAvant, plusUnCents: g.plusUnCents })}
-          desactive={t.herite}
-          nom="evenement"
-        />
-        {t.herite && (
-          <p className="mt-3 text-xs text-ink-muted">
-            Les tarifs du lieu se modifient dans{" "}
-            <Link href={`/lieux/${lieuId}/configuration/tarifs`} className="text-accent hover:underline">Configuration → Tarif du lieu</Link>.
-          </p>
+        {/* Repris du lieu : un résumé, pas des champs (on ne les modifie pas ici) */}
+        {t.herite ? (
+          <>
+            <ResumeGrille grille={tarifsLieu.grille} />
+            <p className="mt-3 text-xs text-ink-muted">
+              Les tarifs du lieu se modifient dans{" "}
+              <Link href={`/lieux/${lieuId}/configuration/tarifs`} className="text-accent hover:underline">Configuration → Tarif du lieu</Link>
+              {" "}; pour d&apos;autres prix sur cet événement, choisissez « Tarifs propres à l&apos;événement ».
+            </p>
+          </>
+        ) : (
+          <EditeurGrille
+            valeur={t}
+            onChange={(g) => maj({ paliers: g.paliers, palierMisEnAvant: g.palierMisEnAvant, libelleMisEnAvant: g.libelleMisEnAvant, plusUnCents: g.plusUnCents })}
+            nom="evenement"
+          />
         )}
         <p className="mt-3 text-xs text-ink-muted">Paiement par le terminal Hexapay de la borne.</p>
       </Section>

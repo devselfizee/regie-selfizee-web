@@ -4,8 +4,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, type ReponseInfosBorne, type TarifsLieu } from "@/lib/api";
-import { euros, JOURS_SEMAINE } from "@/lib/format";
+import { JOURS_SEMAINE } from "@/lib/format";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
+import { ResumeGrille } from "./GrilleTarifs";
 import { EvenementsLieu } from "./EvenementsLieu";
 
 // Onglet « Configuration » de la fiche lieu (retour de Sébastien du 03/11) : la borne du lieu en trois
@@ -62,23 +63,7 @@ function TarifDuLieu({ lieuId }: { lieuId: number }) {
   return (
     <div className="space-y-3 text-sm">
       {data.propre ? <Badge ton="warn">Tarifs propres au lieu</Badge> : <Badge ton="neutre">Tarifs de base du parc</Badge>}
-      <ul className="flex flex-wrap gap-2">
-        {g.paliers.map((p) => (
-          <li key={p.de} className={`rounded-lg border px-3 py-2 ${g.palierMisEnAvant === p.de ? "border-accent bg-accent/5" : "border-line"}`}>
-            {g.palierMisEnAvant === p.de && (
-              <span className="mb-1 block text-[0.7rem] font-semibold uppercase tracking-wide text-accent" title="Palier mis en avant sur l'écran d'offre de la borne">
-                ★ {g.libelleMisEnAvant || "Mis en avant"}
-              </span>
-            )}
-            <span className="block text-xs text-ink-2">{p.de === 1 ? "1 tirage" : `Dès ${p.de} tirages`}</span>
-            <span className="tabular font-semibold">{euros(p.prixCents)}</span>
-            <span className="text-xs text-ink-2"> / tirage</span>
-          </li>
-        ))}
-      </ul>
-      <p className="text-ink-2">
-        « +1 pour un pote » : <span className="tabular font-medium text-ink">{euros(g.plusUnCents)}</span>
-      </p>
+      <ResumeGrille grille={g} />
     </div>
   );
 }

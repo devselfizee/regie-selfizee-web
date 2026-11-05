@@ -10,6 +10,36 @@ import { Badge, Chargement, Erreur, Section } from "./Etat";
 // Tarifs en trois niveaux (demande de Sébastien) : base du parc → lieu → événement.
 // L'éditeur de grille sert aux trois : Paramètres, fiche lieu, fiche événement.
 
+/**
+ * Grille en lecture seule : un palier par carte, celui mis en avant porte son libellé (« ★ Le plus
+ * populaire », comme sur l'écran d'offre de la borne), puis le « +1 pour un pote ». Pour les tarifs
+ * repris d'ailleurs, qu'on ne modifie pas ici : pas d'allure de formulaire.
+ */
+export function ResumeGrille({ grille: g }: { grille: GrilleTarifs }) {
+  return (
+    <div className="space-y-3 text-sm">
+      <ul className="flex flex-wrap gap-2">
+        {g.paliers.map((p) => (
+          <li key={p.de} className={`rounded-lg border px-3 py-2 ${g.palierMisEnAvant === p.de ? "border-accent bg-accent/5" : "border-line"}`}>
+            {g.palierMisEnAvant === p.de && (
+              <span className="mb-1 block text-[0.7rem] font-semibold uppercase tracking-wide text-accent" title="Palier mis en avant sur l'écran d'offre de la borne">
+                ★ {g.libelleMisEnAvant || "Mis en avant"}
+              </span>
+            )}
+            <span className="block text-xs text-ink-2">{p.de === 1 ? "1 tirage" : `Dès ${p.de} tirages`}</span>
+            <span className="tabular font-semibold">{euros(p.prixCents)}</span>
+            <span className="text-xs text-ink-2"> / tirage</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-ink-2">
+        « +1 pour un pote » :{" "}
+        {g.plusUnCents ? <span className="tabular font-medium text-ink">{euros(g.plusUnCents)}</span> : <span>question non posée</span>}
+      </p>
+    </div>
+  );
+}
+
 /** Saisie d'un montant en euros (« 3,50 »), stocké en centimes. */
 export function ChampEuros({ cents, onChange, id, desactive }: { cents: number; onChange: (c: number) => void; id?: string; desactive?: boolean }) {
   const [texte, setTexte] = useState((cents / 100).toFixed(2).replace(".", ","));
