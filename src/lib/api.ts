@@ -1028,3 +1028,73 @@ export interface ReponseInfosBorne {
   /** Horaires de la fiche du lieu (toute l'année) : la borne se met en veille en dehors */
   horaires: FicheEvenementLieu["horaires"];
 }
+
+// ─── Galerie des médias PikCloud ───
+
+export const TYPES_MEDIA: Record<string, string> = {
+  photo: "Photo",
+  multipose: "Multipose",
+  "photo-customized": "Photo personnalisée",
+  boomerang: "Boomerang",
+  video: "Vidéo",
+  "gif-multipose": "GIF",
+  slowmotion: "Slow motion",
+};
+export const libelleTypeMedia = (type: string) => TYPES_MEDIA[type] ?? type;
+
+export interface MediaResume {
+  uuid: string;
+  filename: string;
+  codeEvent: string;
+  type: string;
+  video: boolean;
+  extension: string | null;
+  borne: string;
+  datePhoto: string | null;
+  datePrint: string | null;
+  nbTirages: number | null;
+  test: boolean;
+  statut: "ABSENT" | "A_TELECHARGER" | "TELECHARGE" | "ERREUR" | "PURGE";
+  jsonRecu: boolean;
+  taille: number | null;
+  recuLe: string;
+  evenement: { id: number; code: string; nom: string | null; habituel: boolean } | null;
+  /** Vignette JPEG en data URL ; null pour une vidéo, un média pas encore téléchargé ou purgé */
+  vignette: string | null;
+}
+
+export interface PageMedias {
+  total: number;
+  page: number;
+  parPage: number;
+  medias: MediaResume[];
+}
+
+export interface ResumeMedias {
+  total: number;
+  derniere: string | null;
+  parEvenement: { id: number; code: string; nom: string | null; habituel: boolean; total: number }[];
+  parType: { type: string; total: number }[];
+}
+
+export interface MediaDetail extends MediaResume {
+  photoUuid: string | null;
+  dateSave: string | null;
+  lieuId: number | null;
+  sha256: string | null;
+  telechargeLe: string | null;
+  derniereErreur: string | null;
+  vente: { id: string; horodatage: string; statut: string; montantTtcCents: number; moyenPaiement: string; nbTirages: number; produitLibelle: string | null } | null;
+  parcours: { id: string; issue: string; dureeS: number; tirages: number } | null;
+}
+
+/**
+ * URL d'objet (blob) d'un fichier de l'API lu avec le jeton : pour une balise img ou video, qui n'enverrait
+ * pas le jeton. À libérer avec URL.revokeObjectURL quand on n'en a plus besoin.
+ */
+export async function fichierProtege(chemin: string): Promise<string> {
+  const t = await jeton();
+  const res = await fetch(`${API_URL}${chemin}`, { headers: t ? { Authorization: `Bearer ${t}` } : {} });
+  if (!res.ok) throw new ErreurApi(res.status, await res.json().catch(() => ({})));
+  return URL.createObjectURL(await res.blob());
+}

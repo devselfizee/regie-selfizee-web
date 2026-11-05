@@ -15,7 +15,7 @@ import { libelleErreurBorne } from "@/lib/erreursBorne";
 interface LotJournal {
   id: string;
   source: string;
-  type: "TRANSACTIONS" | "HEARTBEAT" | "RELEVE_MONETIQUE" | "PARCOURS";
+  type: "TRANSACTIONS" | "HEARTBEAT" | "RELEVE_MONETIQUE" | "PARCOURS" | "CODES" | "MEDIAS";
   borneIdentifiant: string | null;
   schemaVersion: string | null;
   recuLe: string;
@@ -51,7 +51,7 @@ interface SigneDeVie {
   lieu: { id: number; enseigne: string } | null;
 }
 
-const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité", CODES: "Codes de remise" };
+const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité", CODES: "Codes de remise", MEDIAS: "Médias PikCloud" };
 const STATUTS: Record<LotJournal["statut"], { ton: "ok" | "warn" | "crit"; libelle: string }> = {
   OK: { ton: "ok", libelle: "Accepté" },
   PARTIEL: { ton: "warn", libelle: "En partie refusé" },
@@ -127,6 +127,8 @@ function Journal() {
                 <option value="TRANSACTIONS">Ventes</option>
                 <option value="PARCOURS">Parcours invité</option>
                 <option value="HEARTBEAT">Signes de vie refusés</option>
+                <option value="CODES">Codes de remise</option>
+                <option value="MEDIAS">Médias PikCloud</option>
               </select>
             </label>
             <label className="block">

@@ -176,6 +176,11 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {fiche.id !== null && (
+              <Link href={`/lieux/${lieuId}?onglet=galerie&evenement=${fiche.id}`} className="bouton-second" title="Les photos et vidéos des séances de cet événement, reçues de PikCloud">
+                <span aria-hidden>🖼</span> Galerie
+              </Link>
+            )}
             <button type="button" className="bouton-second" disabled={zipEnCours} onClick={telechargerZip} title="Le zip de l'événement : config.json, cadres et éléments du kit">
               <span aria-hidden>↓</span> {zipEnCours ? "Préparation…" : "Télécharger"}
             </button>
