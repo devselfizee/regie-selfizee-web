@@ -94,7 +94,7 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
             créer (publier) comme un nouvel événement. L&apos;original ne change pas.
           </>
         ) : (
-          <>Il reprend les réglages de l&apos;événement par défaut et les tarifs du lieu, sans les cadres ; il aura son propre code, à taper sur la borne.</>
+          <>Il reprend les réglages de l&apos;événement par défaut et les tarifs du lieu, sans aucun format : vous ajoutez ceux à proposer. Il aura son propre code, à taper sur la borne.</>
         )}{" "}
         Sans date de fin : une seule journée.
       </p>
