@@ -11,7 +11,7 @@ export const nomLieu = (l: Pick<LieuListe, "enseigne" | "ville" | "departement">
 
 // Recherche sans tenir compte des accents ni des majuscules
 const sansAccents = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-// Lieux montrés à la fois : la recherche sert à trouver les autres
+// Valeurs montrées à la fois : la recherche sert à trouver les autres
 const MAX_AFFICHES = 15;
 
 /**
@@ -31,6 +31,44 @@ export function ChoixLieu({
   onChange: (lieuId: string) => void;
   tous?: string;
 }) {
+  const options = useMemo(() => lieux.map((l) => ({ id: String(l.id), libelle: nomLieu(l) })), [lieux]);
+  return (
+    <ChoixRecherche
+      id={id}
+      options={options}
+      valeur={valeur}
+      onChange={onChange}
+      vide={tous}
+      placeholder="Rechercher un lieu, une ville, un département…"
+      aucun="Aucun lieu ne correspond."
+      autres={(n) => `${n} autre${n > 1 ? "s" : ""} lieu${n > 1 ? "x" : ""} : tapez quelques lettres pour les trouver.`}
+    />
+  );
+}
+
+/**
+ * Liste déroulante avec recherche (villes principales, commerciaux…) : un bouton, puis une recherche au fil de
+ * la frappe, sans accents ni majuscules. Valeur vide : le libellé `vide`.
+ */
+export function ChoixRecherche({
+  id,
+  options: valeurs,
+  valeur,
+  onChange,
+  vide = "—",
+  placeholder = "Rechercher…",
+  aucun = "Aucune valeur ne correspond.",
+  autres: libelleAutres = (n: number) => `${n} autre${n > 1 ? "s" : ""} : tapez quelques lettres pour les trouver.`,
+}: {
+  id?: string;
+  options: { id: string; libelle: string }[];
+  valeur: string;
+  onChange: (valeur: string) => void;
+  vide?: string;
+  placeholder?: string;
+  aucun?: string;
+  autres?: (n: number) => string;
+}) {
   const [ouvert, setOuvert] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [actif, setActif] = useState(0);
@@ -41,15 +79,12 @@ export function ChoixLieu({
   const liste = useRef<HTMLUListElement>(null);
   const idListe = useId();
 
-  const choisi = lieux.find((l) => String(l.id) === valeur);
+  const choisi = valeurs.find((o) => o.id === valeur);
   const { options, autres } = useMemo(() => {
     const q = sansAccents(recherche.trim());
-    const trouves = lieux
-      .map((l) => ({ id: String(l.id), libelle: nomLieu(l) }))
-      .filter((o) => !q || sansAccents(o.libelle).includes(q))
-      .sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
-    return { options: [{ id: "", libelle: tous }, ...trouves.slice(0, MAX_AFFICHES)], autres: Math.max(0, trouves.length - MAX_AFFICHES) };
-  }, [lieux, recherche, tous]);
+    const trouves = valeurs.filter((o) => !q || sansAccents(o.libelle).includes(q)).sort((a, b) => a.libelle.localeCompare(b.libelle, "fr"));
+    return { options: [{ id: "", libelle: vide }, ...trouves.slice(0, MAX_AFFICHES)], autres: Math.max(0, trouves.length - MAX_AFFICHES) };
+  }, [valeurs, recherche, vide]);
 
   // Fermeture au clic en dehors
   useEffect(() => {
@@ -108,13 +143,13 @@ export function ChoixLieu({
         aria-expanded={ouvert}
         onClick={() => (ouvert ? setOuvert(false) : ouvrir())}
       >
-        <span className={`truncate ${choisi ? "" : "text-ink-2"}`}>{choisi ? nomLieu(choisi) : tous}</span>
+        <span className={`truncate ${choisi ? "" : "text-ink-2"}`}>{choisi ? choisi.libelle : vide}</span>
         <span className="flex shrink-0 items-center gap-1 text-ink-muted">
           {choisi && (
             <span
               role="button"
               tabIndex={-1}
-              aria-label="Tous les lieux"
+              aria-label={vide}
               className="rounded px-1 hover:text-ink"
               onClick={(e) => {
                 e.stopPropagation();
@@ -134,7 +169,7 @@ export function ChoixLieu({
             <input
               ref={champ}
               className="champ"
-              placeholder="Rechercher un lieu, une ville, un département…"
+              placeholder={placeholder}
               role="combobox"
               aria-expanded
               aria-controls={idListe}
@@ -178,10 +213,10 @@ export function ChoixLieu({
                 {o.libelle}
               </li>
             ))}
-            {options.length === 1 && <li className="px-3 py-1.5 text-sm text-ink-muted">Aucun lieu ne correspond.</li>}
+            {options.length === 1 && <li className="px-3 py-1.5 text-sm text-ink-muted">{aucun}</li>}
             {autres > 0 && (
               <li className="border-t border-line px-3 py-1.5 text-xs text-ink-muted">
-                {autres} autre{autres > 1 ? "s" : ""} lieu{autres > 1 ? "x" : ""} : tapez quelques lettres pour les trouver.
+                {libelleAutres(autres)}
               </li>
             )}
           </ul>

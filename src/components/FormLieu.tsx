@@ -8,6 +8,7 @@ import { api, ErreurApi, type LieuFiche, type Referentiel } from "@/lib/api";
 import { JOURS_SEMAINE } from "@/lib/format";
 import { useReferentiel } from "./Filtres";
 import { Chargement } from "./Etat";
+import { ChoixRecherche } from "./ChoixLieu";
 import { useMoi } from "@/lib/session";
 import { MATERIELS, useConcurrents } from "./Concurrents";
 
@@ -148,12 +149,22 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
   );
   const select = (cle: keyof Etat, libelle: string, opts: { value: string; label: string }[], requis = false) => (
     <Champ libelle={libelle} erreur={erreurs.get(cle)} requis={requis}>
+      {/* Plus de 12 valeurs (villes principales…) : liste avec recherche */}
+      {opts.length > 12 ? (
+        <ChoixRecherche
+          options={opts.map((o) => ({ id: o.value, libelle: o.label }))}
+          valeur={e[cle] as string}
+          onChange={(v) => set({ [cle]: v } as Partial<Etat>)}
+          placeholder={`Rechercher (${libelle.toLowerCase()})…`}
+        />
+      ) : (
       <select className="champ" required={requis} value={e[cle] as string} onChange={(ev) => set({ [cle]: ev.target.value } as Partial<Etat>)}>
         <option value="">—</option>
         {opts.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
         ))}
       </select>
+      )}
     </Champ>
   );
 

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Alerte, type NiveauAlerte, type StatutAlerte } from "@/lib/api";
 import { dateHeure } from "@/lib/format";
+import { peut, useMoi } from "@/lib/session";
 import { Badge } from "./Etat";
 
 export const NIVEAUX: Record<NiveauAlerte, { libelle: string; ton: "crit" | "warn" | "neutre" }> = {
@@ -12,6 +13,33 @@ export const NIVEAUX: Record<NiveauAlerte, { libelle: string; ton: "crit" | "war
   WARNING: { libelle: "Warning", ton: "warn" },
   INFO: { libelle: "Info", ton: "neutre" },
 };
+
+/** Le message de l'alerte, avec le lieu et la borne cliquables là où ils sont cités (retour de Sébastien, 05/11/2026) */
+function MessageAlerte({ a }: { a: Alerte }) {
+  const voitBornes = peut.gererBornes(useMoi().role);
+  const liens: { texte: string; href: string }[] = [];
+  if (a.lieu) liens.push({ texte: a.lieu.enseigne, href: `/lieux/${a.lieu.id}` });
+  if (a.borne && voitBornes) liens.push({ texte: a.borne.identifiant, href: `/bornes/${a.borne.id}` });
+  const morceaux: ReactNode[] = [];
+  let reste = a.message;
+  for (;;) {
+    // Prochaine citation d'un lieu ou d'une borne dans le texte
+    const prochain = liens
+      .map((l) => ({ l, i: l.texte ? reste.indexOf(l.texte) : -1 }))
+      .filter((x) => x.i >= 0)
+      .sort((x, y) => x.i - y.i)[0];
+    if (!prochain) break;
+    morceaux.push(reste.slice(0, prochain.i));
+    morceaux.push(
+      <Link key={morceaux.length} href={prochain.l.href} className="font-medium text-accent hover:underline">
+        {prochain.l.texte}
+      </Link>
+    );
+    reste = reste.slice(prochain.i + prochain.l.texte.length);
+  }
+  morceaux.push(reste);
+  return <p className="mt-1 text-sm">{morceaux}</p>;
+}
 
 const STATUTS: Record<StatutAlerte, string> = {
   NOUVELLE: "Nouvelle",
@@ -56,7 +84,7 @@ function LigneAlerte({ a, compacte }: { a: Alerte; compacte: boolean }) {
               <span className="text-xs text-ink-2">· prise en charge par {[a.assignee.prenom, a.assignee.nom].filter(Boolean).join(" ")}</span>
             )}
           </div>
-          <p className="mt-1 text-sm">{a.message}</p>
+          <MessageAlerte a={a} />
           <p className="mt-1 text-xs text-ink-muted">
             {dateHeure(a.detecteeLe)}
             {!compacte && a.lieu && (

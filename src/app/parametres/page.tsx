@@ -104,7 +104,7 @@ function Parametres() {
           {liste.cle === "ANTENNE" ? (
             <div className="space-y-4">
               <SynchroAntennes />
-              <Liste key={liste.cle} def={liste} data={data} />
+              <VillesAntennes villes={data.listes.ANTENNE ?? []} />
             </div>
           ) : liste.cle === "TARIFS" ? <TarifsBase /> : liste.cle === "ILLUSTRATIONS" ? <SeriesIllustrations /> : liste.cle === "CARTES_TEST" ? <CartesTest /> : liste.cle === "MARKETING" ? <CalendrierMarketing /> : liste.cle === "CONCURRENTS" ? <Concurrents /> : liste.cle === "ALERTES" ? <ReglesAlertes /> : liste.cle === "DEMO" ? <DonneesDemo /> : <Liste key={liste.cle} def={liste} data={data} />}
         </div>
@@ -307,6 +307,43 @@ function Ajout({
   );
 }
 
+/**
+ * Villes principales en lecture seule : une seule source, l'application Antennes (retour de Sébastien, 05/11/2026).
+ * Pour ajouter, renommer ou retirer une ville, c'est dans Antennes ; la Régie suit à la synchronisation.
+ */
+function VillesAntennes({ villes }: { villes: RefValeur[] }) {
+  const [q, setQ] = useState("");
+  const plat = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const tri = [...villes].sort((a, b) => Number(b.actif) - Number(a.actif) || a.libelle.localeCompare(b.libelle, "fr"));
+  const affichees = tri.filter((v) => !q.trim() || plat(v.libelle).includes(plat(q.trim())));
+  const actives = villes.filter((v) => v.actif).length;
+  return (
+    <div className="carte p-4">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold">Villes principales</h2>
+          <p className="text-xs text-ink-2">
+            {actives} ville{actives > 1 ? "s" : ""}, reprises de l&apos;application Antennes : elles se modifient dans Antennes, pas ici.
+          </p>
+        </div>
+        <input className="champ !w-56" placeholder="Rechercher une ville…" value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      {affichees.length ? (
+        <ul className="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          {affichees.map((v) => (
+            <li key={v.id} className={v.actif ? "" : "text-ink-muted"}>
+              {v.libelle}
+              {!v.actif && <span className="text-xs"> · plus dans Antennes</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-ink-muted">Aucune ville ne correspond.</p>
+      )}
+    </div>
+  );
+}
+
 /** Villes principales : alignées sur l'application Antennes (automatiquement toutes les 6 heures). */
 function SynchroAntennes() {
   const client = useQueryClient();
@@ -322,7 +359,7 @@ function SynchroAntennes() {
         <p className="font-medium">Application Antennes</p>
         <p className="text-xs text-ink-2">
           {etat.data.configure
-            ? "La liste suit les villes principales de l'application Antennes (mise à jour toutes les 6 heures). Une ville saisie ici avec le même nom y est rattachée."
+            ? "La liste suit les villes principales de l'application Antennes (mise à jour toutes les 6 heures)."
             : "Pas encore reliée : ANTENNES_API_URL et ANTENNES_API_TOKEN sont à renseigner dans les variables de l'API."}
         </p>
         {synchro.data && (

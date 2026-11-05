@@ -80,7 +80,9 @@ export function GraphiqueCA({
                   label: { formatter: (p: { data: { court?: string } }) => p.data.court ?? "SAV", color: j.ink2, fontSize: 10, position: "end" },
                   tooltip: { formatter: (p: { name: string }) => p.name },
                   // Chaque repère tombe dans la période (jour, semaine, mois) qui le contient
+                  // Hors de la période affichée : ignoré (sinon un férié à venir, le 11/11, tombait sur le dernier jour)
                   data: reperes
+                    .filter((r) => r.jour >= du && r.jour <= au)
                     .map((r) => ({ r, i: periodes.filter((p) => p <= r.jour).length - 1 }))
                     .filter(({ i }) => i >= 0)
                     .map(({ r, i }) => ({ xAxis: i, name: r.libelle, court: r.court, ...(r.marketing ? { lineStyle: { color: j.viz2, type: "dashed", width: 1 }, label: { color: j.viz2 } } : {}) })),
