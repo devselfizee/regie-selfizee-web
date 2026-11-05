@@ -13,6 +13,12 @@ import { GaleriePhotos } from "./IllustrationsEvenement";
 
 const CLE = ["illustrations-series"];
 
+// Séries embarquées dans le logiciel de la borne : choisies par leur nom, leurs photos ne sont pas ici
+const SERIES_LOGICIEL = [
+  { nom: "Festive", detail: "Photos de soirée (série par défaut)." },
+  { nom: "Chic", detail: "Photos plus habillées." },
+];
+
 export function SeriesIllustrations() {
   const client = useQueryClient();
   const series = useQuery({ queryKey: CLE, queryFn: () => api<SerieIllustrations[]>("/illustrations-series") });
@@ -54,8 +60,17 @@ export function SeriesIllustrations() {
           </button>
         </form>
         {creer.error && <div className="mb-3"><Erreur erreur={creer.error} /></div>}
-        {series.data.length ? (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <h3 className="mb-2 text-sm font-semibold">Séries existantes</h3>
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {SERIES_LOGICIEL.map((s) => (
+            <li key={s.nom} className="rounded-lg border border-dashed border-line-strong p-3">
+              <span className="flex items-center justify-between gap-2">
+                <span className="font-semibold">{s.nom}</span>
+                <Badge ton="neutre">Logiciel de la borne</Badge>
+              </span>
+              <span className="mt-1 block text-xs text-ink-2">{s.detail} Fournie avec la borne : rien à gérer ici.</span>
+            </li>
+          ))}
             {series.data.map((s) => (
               <li key={s.id}>
                 <button
@@ -84,10 +99,8 @@ export function SeriesIllustrations() {
                 </button>
               </li>
             ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-ink-2">Aucune série pour l&apos;instant.</p>
-        )}
+        </ul>
+        {!series.data.length && <p className="mt-3 text-sm text-ink-2">Aucune série créée pour l&apos;instant : ajoutez-en une ci-dessus (mariage, corporate…).</p>}
       </Section>
       {choisie && <Serie key={choisie.id} serie={choisie} onSupprimee={() => setOuverte(null)} />}
     </div>
