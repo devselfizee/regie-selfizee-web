@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type IllustrationEvenement, type ReglagesEvenement, type SerieIllustrations } from "@/lib/api";
+import { api, type GabaritEvenement, type IllustrationEvenement, type ReglagesEvenement, type SerieIllustrations } from "@/lib/api";
+import { IllustrationGabarit, type RemplissagePhotos } from "./IllustrationGabarit";
 import { Badge, Erreur, Section } from "./Etat";
 
 // Photos d'exemple dans les cases des cadres de la borne (kit nightlife, mémo ILLUSTRATIONS-ADMIN-WEB du
@@ -25,78 +26,187 @@ const CHOIX_CADRES: { valeur: Lieu["illustrations"]; titre: string; detail: stri
 ];
 const FORMES: Record<Forme, string> = { carre: "Carrée", portrait: "Portrait", paysage: "Paysage" };
 
+const LIBELLES_CADRES: Record<Lieu["illustrations"], string> = {
+  festif: "série festive",
+  chic: "série chic",
+  serie: "série de la bibliothèque",
+  photos: "nos photos",
+  camera: "caméra en direct",
+  aucune: "aucune (cases unies)",
+};
+const LIBELLES_ACCUEIL: Record<Lieu["illustrationsAccueil"], string> = {
+  memes: "les mêmes",
+  festif: "série festive",
+  chic: "série chic",
+  serie: "série de la bibliothèque",
+  photos: "photos dédiées",
+};
+// Thèmes de l'interface de la borne (uiKit) : les autres viendront quand la borne saura les afficher
+const THEMES: Record<ReglagesEvenement["theme"], string> = { nightlife: "Nightlife" };
+
 /**
+ * Thème de la borne et photos d'exemple des cadres. Replié par défaut sur un résumé (le plus souvent, on
+ * garde la série festive) ; l'aperçu de la page « Choisis ton format » reste visible et suit les choix.
  * Le choix se règle avec la fiche (barre « Enregistrer ») ; les photos de l'événement, elles, s'envoient
  * tout de suite à l'API, une fois l'événement enregistré.
  */
-export function IllustrationsEvenement({ lieu, majLieu, apiEvenement, enregistre }: {
+export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarits, apiEvenement, enregistre }: {
   lieu: Lieu;
   majLieu: (p: Partial<Lieu>) => void;
+  theme: ReglagesEvenement["theme"];
+  majTheme: (t: ReglagesEvenement["theme"]) => void;
+  /** Formats de l'événement, dans l'ordre de l'écran de choix : les trois premiers font l'aperçu */
+  gabarits: GabaritEvenement[];
   apiEvenement: string;
   enregistre: boolean;
 }) {
+  // Ouvert d'office si le réglage est incomplet (série à désigner)
+  const [ouvert, setOuvert] = useState(lieu.illustrations === "serie" && !lieu.illustrationsSerieId);
   const series = useQuery({ queryKey: ["illustrations-series"], queryFn: () => api<SerieIllustrations[]>("/illustrations-series") });
+  const photos = useQuery({
+    queryKey: ["illustrations-evenement", apiEvenement],
+    queryFn: () => api<IllustrationEvenement[]>(`${apiEvenement}/illustrations`),
+    enabled: enregistre && lieu.illustrations === "photos",
+  });
   // Les séries retirées des choix restent affichées si l'événement les utilise déjà
   const proposees = (series.data ?? []).filter((s) => s.actif || s.id === lieu.illustrationsSerieId || s.id === lieu.illustrationsAccueilSerieId);
   const valeurAccueil = lieu.illustrationsAccueil === "serie" ? `serie:${lieu.illustrationsAccueilSerieId ?? ""}` : lieu.illustrationsAccueil;
+  const nomSerie = (id: number | null) => (series.data ?? []).find((s) => s.id === id)?.nom;
+
+  const libelleCadres = lieu.illustrations === "serie" && nomSerie(lieu.illustrationsSerieId) ? `série « ${nomSerie(lieu.illustrationsSerieId)} »` : LIBELLES_CADRES[lieu.illustrations];
+  const libelleAccueil =
+    lieu.illustrationsAccueil === "serie" && nomSerie(lieu.illustrationsAccueilSerieId) ? `série « ${nomSerie(lieu.illustrationsAccueilSerieId)} »` : LIBELLES_ACCUEIL[lieu.illustrationsAccueil];
+
+  // Aperçu : les vraies photos quand la Régie les a (nos photos, série de la bibliothèque), des silhouettes
+  // pour les séries du logiciel (leurs photos sont dans la borne)
+  const sources =
+    lieu.illustrations === "photos"
+      ? (photos.data ?? []).filter((p) => p.cible === "cadres").map((p) => p.vignette)
+      : lieu.illustrations === "serie"
+        ? ((series.data ?? []).find((s) => s.id === lieu.illustrationsSerieId)?.apercus ?? [])
+        : [];
+  const remplissage: RemplissagePhotos =
+    lieu.illustrations === "camera" ? { mode: "camera" } : lieu.illustrations === "aucune" ? { mode: "unie" } : sources.length ? { mode: "photos", sources } : { mode: "silhouette" };
+  const legende =
+    lieu.illustrations === "festif" || lieu.illustrations === "chic"
+      ? `Aperçu indicatif : sur la borne, les photos de la ${LIBELLES_CADRES[lieu.illustrations]} du logiciel.`
+      : (lieu.illustrations === "photos" || lieu.illustrations === "serie") && !sources.length
+        ? "Pas encore de photo : la borne prendra la série festive."
+        : "Aperçu de la page « Choisis ton format » de la borne.";
 
   return (
-    <Section titre="Photos d'exemple dans les cadres">
-      <p className="mb-4 text-sm text-ink-2">
-        Sur la borne, les cases photo des cadres (page « Choisis ton format » et cadres de l&apos;accueil) montrent des photos d&apos;exemple, pour donner envie.
-        La borne les tire au sort et les fait tourner.
-      </p>
-      <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6" role="radiogroup" aria-label="Photos d'exemple des cadres">
-        {CHOIX_CADRES.map((c) => {
-          const actif = lieu.illustrations === c.valeur;
-          return (
-            <button
-              key={c.valeur}
-              type="button"
-              role="radio"
-              aria-checked={actif}
-              onClick={() => majLieu({ illustrations: c.valeur, ...(c.valeur === "serie" && !lieu.illustrationsSerieId ? { illustrationsSerieId: proposees.find((s) => s.actif)?.id ?? null } : {}) })}
-              className={`rounded-lg border p-3 text-left transition ${actif ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line hover:border-line-strong"}`}
-            >
-              <span className={`block text-sm font-semibold ${actif ? "text-accent" : "text-ink"}`}>{c.titre}</span>
-              <span className="mt-0.5 block text-xs text-ink-2">{c.detail}</span>
-            </button>
-          );
-        })}
-      </div>
+    <Section
+      titre="Thème et photos d'exemple"
+      actions={
+        <button type="button" className="bouton-second" aria-expanded={ouvert} onClick={() => setOuvert(!ouvert)}>
+          {ouvert ? "Replier" : "Modifier"}
+        </button>
+      }
+    >
+      <div className="grid gap-5 lg:grid-cols-[1fr_20rem]">
+        <div className="min-w-0">
+          {!ouvert ? (
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+              <dt className="text-ink-2">Thème de la borne</dt>
+              <dd>{THEMES[theme]}</dd>
+              <dt className="text-ink-2">Photos des cadres</dt>
+              <dd className="first-letter:uppercase">{libelleCadres}</dd>
+              {lieu.illustrations !== "aucune" && lieu.illustrations !== "camera" && (
+                <>
+                  <dt className="text-ink-2">Cadres de l&apos;accueil</dt>
+                  <dd className="first-letter:uppercase">{libelleAccueil}</dd>
+                </>
+              )}
+              <dd className="col-span-2 mt-2 text-xs text-ink-muted">
+                Photos d&apos;exemple dans les cases des cadres (page « Choisis ton format » et accueil), tirées au sort par la borne pour donner envie.
+              </dd>
+            </dl>
+          ) : (
+            <>
+              <label className="mb-4 block max-w-xs">
+                <span className="etiquette">Thème de la borne</span>
+                <select className="champ" value={theme} onChange={(e) => majTheme(e.target.value as ReglagesEvenement["theme"])}>
+                  {Object.entries(THEMES).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                </select>
+                <span className="mt-1 block text-xs text-ink-muted">D&apos;autres thèmes (Halloween, personnalisés) viendront.</span>
+              </label>
+              <p className="mb-2 text-sm text-ink-2">
+                Photos d&apos;exemple dans les cases des cadres (page « Choisis ton format » et cadres de l&apos;accueil), tirées au sort par la borne pour donner envie.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label="Photos d'exemple des cadres">
+                {CHOIX_CADRES.map((c) => {
+                  const actif = lieu.illustrations === c.valeur;
+                  return (
+                    <button
+                      key={c.valeur}
+                      type="button"
+                      role="radio"
+                      aria-checked={actif}
+                      onClick={() => majLieu({ illustrations: c.valeur, ...(c.valeur === "serie" && !lieu.illustrationsSerieId ? { illustrationsSerieId: proposees.find((s) => s.actif)?.id ?? null } : {}) })}
+                      className={`rounded-lg border p-3 text-left transition ${actif ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line hover:border-line-strong"}`}
+                    >
+                      <span className={`block text-sm font-semibold ${actif ? "text-accent" : "text-ink"}`}>{c.titre}</span>
+                      <span className="mt-0.5 block text-xs text-ink-2">{c.detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
 
-      {lieu.illustrations === "serie" && (
-        <ChoixSerie series={proposees} valeur={lieu.illustrationsSerieId} onChange={(id) => majLieu({ illustrationsSerieId: id })} chargement={series.isLoading} />
-      )}
-      {lieu.illustrations === "photos" && <Galerie cible="cadres" apiEvenement={apiEvenement} enregistre={enregistre} />}
+              {lieu.illustrations === "serie" && (
+                <ChoixSerie series={proposees} valeur={lieu.illustrationsSerieId} onChange={(id) => majLieu({ illustrationsSerieId: id })} chargement={series.isLoading} />
+              )}
+              {lieu.illustrations === "photos" && <Galerie cible="cadres" apiEvenement={apiEvenement} enregistre={enregistre} />}
 
-      {lieu.illustrations !== "aucune" && lieu.illustrations !== "camera" && (
-        <div className="mt-5 border-t border-line pt-4">
-          <label className="block max-w-sm">
-            <span className="etiquette">Cadres de l&apos;accueil</span>
-            <select
-              className="champ"
-              value={valeurAccueil}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v.startsWith("serie:")) majLieu({ illustrationsAccueil: "serie", illustrationsAccueilSerieId: Number(v.slice(6)) || null });
-                else majLieu({ illustrationsAccueil: v as Lieu["illustrationsAccueil"] });
-              }}
-            >
-              <option value="memes">Les mêmes que les cadres</option>
-              <option value="festif">Série festive</option>
-              <option value="chic">Série chic</option>
-              {proposees.map((s) => (
-                <option key={s.id} value={`serie:${s.id}`}>Série « {s.nom} »</option>
-              ))}
-              <option value="photos">Des photos dédiées à l&apos;accueil</option>
-            </select>
-            <span className="mt-1 block text-xs text-ink-muted">Une autre série pour montrer d&apos;autres têtes sur l&apos;accueil que sur la page de choix.</span>
-          </label>
-          {lieu.illustrationsAccueil === "photos" && <Galerie cible="accueil" apiEvenement={apiEvenement} enregistre={enregistre} />}
+              {lieu.illustrations !== "aucune" && lieu.illustrations !== "camera" && (
+                <div className="mt-5 border-t border-line pt-4">
+                  <label className="block max-w-sm">
+                    <span className="etiquette">Cadres de l&apos;accueil</span>
+                    <select
+                      className="champ"
+                      value={valeurAccueil}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v.startsWith("serie:")) majLieu({ illustrationsAccueil: "serie", illustrationsAccueilSerieId: Number(v.slice(6)) || null });
+                        else majLieu({ illustrationsAccueil: v as Lieu["illustrationsAccueil"] });
+                      }}
+                    >
+                      <option value="memes">Les mêmes que les cadres</option>
+                      <option value="festif">Série festive</option>
+                      <option value="chic">Série chic</option>
+                      {proposees.map((s) => (
+                        <option key={s.id} value={`serie:${s.id}`}>Série « {s.nom} »</option>
+                      ))}
+                      <option value="photos">Des photos dédiées à l&apos;accueil</option>
+                    </select>
+                    <span className="mt-1 block text-xs text-ink-muted">Une autre série pour montrer d&apos;autres têtes sur l&apos;accueil que sur la page de choix.</span>
+                  </label>
+                  {lieu.illustrationsAccueil === "photos" && <Galerie cible="accueil" apiEvenement={apiEvenement} enregistre={enregistre} />}
+                </div>
+              )}
+            </>
+          )}
         </div>
-      )}
+        <ApercuChoixFormat gabarits={gabarits} remplissage={remplissage} legende={legende} />
+      </div>
     </Section>
+  );
+}
+
+/** La page « Choisis ton format » de la borne en miniature : les trois premiers formats, cases remplies. */
+function ApercuChoixFormat({ gabarits, remplissage, legende }: { gabarits: GabaritEvenement[]; remplissage: RemplissagePhotos; legende: string }) {
+  const montres = (gabarits.length ? gabarits : (["bandelette", "pola", "planche"] as GabaritEvenement[])).slice(0, 3);
+  return (
+    <figure className="self-start">
+      <div className="rounded-lg bg-gradient-to-b from-[#3b0b58] to-[#5a1870] p-3 shadow-inner" aria-hidden>
+        <p className="mb-2 text-center text-xs font-black tracking-wider text-[#ffe14d] [text-shadow:0_1px_0_#e11d74]">CHOISIS TON FORMAT</p>
+        <div className="flex h-32 items-center justify-center gap-2">
+          {montres.map((g, i) => (
+            <IllustrationGabarit key={`${g}-${i}`} gabarit={g} remplissage={remplissage} className="h-full max-w-[32%]" />
+          ))}
+        </div>
+      </div>
+      <figcaption className="mt-1.5 text-xs text-ink-muted">{legende}</figcaption>
+    </figure>
   );
 }
 

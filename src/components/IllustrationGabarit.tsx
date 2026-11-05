@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import type { GabaritEvenement } from "@/lib/api";
 
 // Illustrations des gabarits du kit nightlife (fiche événement, créations graphiques) : le tirage tel
@@ -6,7 +7,32 @@ import type { GabaritEvenement } from "@/lib/api";
 
 const ENCRE = "#1f2937";
 
+/**
+ * Remplissage des cases photo (aperçu des photos d'exemple de la borne) : silhouettes par défaut, photos
+ * réelles tirées tour à tour, image de caméra, ou cases unies.
+ */
+export type RemplissagePhotos = { mode: "silhouette" } | { mode: "photos"; sources: string[] } | { mode: "camera" } | { mode: "unie" };
+const Remplissage = createContext<{ r: RemplissagePhotos; suivante: () => number } | null>(null);
+
 function Photo({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  const ctx = useContext(Remplissage);
+  const r = ctx?.r;
+  if (r?.mode === "photos" && r.sources.length) {
+    const src = r.sources[ctx!.suivante() % r.sources.length];
+    // Recadrée « couvrir », centrée, comme la borne
+    return <image href={src} x={x} y={y} width={w} height={h} preserveAspectRatio="xMidYMid slice" />;
+  }
+  if (r?.mode === "unie") return <rect x={x} y={y} width={w} height={h} rx={1.5} fill="currentColor" fillOpacity={0.12} />;
+  if (r?.mode === "camera") {
+    const m = Math.min(w, h);
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} rx={1.5} fill="#334155" />
+        <rect x={x + w / 2 - m * 0.18} y={y + h / 2 - m * 0.12} width={m * 0.36} height={m * 0.24} rx={m * 0.04} fill="#94a3b8" />
+        <circle cx={x + w / 2} cy={y + h / 2} r={m * 0.08} fill="#334155" />
+      </g>
+    );
+  }
   const m = Math.min(w, h);
   const cx = x + w / 2;
   return (
@@ -50,13 +76,18 @@ function Lignes({ x, y, largeurs }: { x: number; y: number; largeurs: number[] }
 
 const Coupe = ({ x, h }: { x: number; h: number }) => <line x1={x} y1={2} x2={x} y2={h - 2} stroke={ENCRE} strokeOpacity={0.35} strokeWidth={0.6} strokeDasharray="2 2" />;
 
-export function IllustrationGabarit({ gabarit, className = "" }: { gabarit: GabaritEvenement; className?: string }) {
+export function IllustrationGabarit({ gabarit, className = "", remplissage }: { gabarit: GabaritEvenement; className?: string; remplissage?: RemplissagePhotos }) {
   const papier = (l: number, h: number) => <rect x={0} y={0} width={l} height={h} rx={2} fill="#ffffff" stroke={ENCRE} strokeOpacity={0.12} strokeWidth={0.8} />;
+  // Photos réparties tour à tour dans les cases, dans l'ordre du dessin
+  let n = 0;
+  const contexte = remplissage ? { r: remplissage, suivante: () => n++ } : null;
   const svg = (l: number, h: number, enfants: React.ReactNode, titre: string) => (
-    <svg viewBox={`-2 -2 ${l + 4} ${h + 4}`} className={`text-accent drop-shadow-sm ${className}`} role="img" aria-label={titre}>
-      {papier(l, h)}
-      {enfants}
-    </svg>
+    <Remplissage.Provider value={contexte}>
+      <svg viewBox={`-2 -2 ${l + 4} ${h + 4}`} className={`text-accent drop-shadow-sm ${className}`} role="img" aria-label={titre}>
+        {papier(l, h)}
+        {enfants}
+      </svg>
+    </Remplissage.Provider>
   );
 
   if (gabarit === "bandelette")

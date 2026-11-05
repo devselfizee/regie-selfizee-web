@@ -223,6 +223,9 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
             <IllustrationsEvenement
               lieu={r.lieu}
               majLieu={(p) => setR((x) => ({ ...x, lieu: { ...x.lieu, ...p } }))}
+              theme={r.theme}
+              majTheme={(t) => setR((x) => ({ ...x, theme: t }))}
+              gabarits={r.gabarits.choisis.map((c) => c.gabarit)}
               apiEvenement={chemins.api}
               enregistre={fiche.enregistre}
             />
@@ -365,9 +368,6 @@ const TONS: Record<ReglagesEvenement["lieu"]["ton"], string> = {
   pro: "Pro : soirée d'entreprise",
 };
 
-// Thèmes de l'interface de la borne (uiKit) : les autres viendront quand la borne saura les afficher
-const THEMES: Record<ReglagesEvenement["theme"], string> = { nightlife: "Nightlife" };
-
 /** Réglages propres à l'événement ; nom affiché, ville, avis, assistance et horaires sont ceux du lieu. */
 function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: PropsEcran & {
   lieuId: number;
@@ -393,11 +393,6 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
         </Champ>
         <Champ libelle="Fin *" aide={nom === null ? "Une borne à l'année : plusieurs années." : "Le même jour que le début : une seule journée."}>
           <input className="champ" type="date" required value={l.dateFin} min={l.dateDebut} onChange={(e) => maj({ dateFin: e.target.value })} />
-        </Champ>
-        <Champ libelle="Thème de la borne" aide="D'autres thèmes (Halloween, personnalisés) viendront.">
-          <select className="champ" value={r.theme} onChange={(e) => setR((x) => ({ ...x, theme: e.target.value as ReglagesEvenement["theme"] }))}>
-            {Object.entries(THEMES).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-          </select>
         </Champ>
         <Champ libelle="Ton des textes" aide="Consignes de pose et phrases du « +1 pour un pote ».">
           <select className="champ" value={l.ton} onChange={(e) => maj({ ton: e.target.value as typeof l.ton })}>
