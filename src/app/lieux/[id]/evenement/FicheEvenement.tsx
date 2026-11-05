@@ -12,6 +12,7 @@ import { ChampEuros, EditeurGrille, ResumeGrille } from "@/components/GrilleTari
 import { dates } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
 import { FilAriane } from "@/components/FilAriane";
+import { IllustrationsEvenement } from "@/components/IllustrationsEvenement";
 import { GABARITS, nouvelId } from "@/lib/gabaritsEvenement";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : créations graphiques, tarifs et options, puis
@@ -218,6 +219,14 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
             ouverture={enregistrer.isPending}
             dupliquer={dupliquer}
           />
+          <div className="mt-8">
+            <IllustrationsEvenement
+              lieu={r.lieu}
+              majLieu={(p) => setR((x) => ({ ...x, lieu: { ...x.lieu, ...p } }))}
+              apiEvenement={chemins.api}
+              enregistre={fiche.enregistre}
+            />
+          </div>
           <div className="mt-8 flex justify-end">
             <button type="button" className="bouton-second" onClick={() => setEcran(1)}>
               Étape suivante : {ECRANS[1]} <span aria-hidden>→</span>
@@ -393,12 +402,6 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
         <Champ libelle="Ton des textes" aide="Consignes de pose et phrases du « +1 pour un pote ».">
           <select className="champ" value={l.ton} onChange={(e) => maj({ ton: e.target.value as typeof l.ton })}>
             {Object.entries(TONS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-          </select>
-        </Champ>
-        <Champ libelle="Illustrations de l'accueil">
-          <select className="champ" value={l.illustrations} onChange={(e) => maj({ illustrations: e.target.value as typeof l.illustrations })}>
-            <option value="festif">Festif (défaut)</option>
-            <option value="chic">Chic</option>
           </select>
         </Champ>
       </div>

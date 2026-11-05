@@ -861,7 +861,10 @@ export interface ReglagesEvenement {
     dateDebut: string;
     dateFin: string;
     ton: "club" | "bar" | "famille" | "pro";
-    illustrations: "festif" | "chic";
+    /** Photos d'exemple des cases des cadres : séries du logiciel, photos de l'événement, caméra, aucune */
+    illustrations: "festif" | "chic" | "photos" | "camera" | "aucune";
+    /** Série des cadres de l'accueil : « memes » = celle des cadres */
+    illustrationsAccueil: "memes" | "festif" | "chic" | "photos";
     avisGoogleUrl: string | null;
     instagram: string | null;
     tiktok: string | null;
@@ -886,6 +889,16 @@ export interface ReglagesEvenement {
 }
 
 /** Cadre dessiné au studio pour une composition de l'événement (liste : sans le canvas). */
+/** Photo d'exemple d'un événement (vignette en data URL), série des cadres ou de l'accueil. */
+export interface IllustrationEvenement {
+  id: number;
+  cible: "cadres" | "accueil";
+  forme: "carre" | "portrait" | "paysage";
+  largeur: number;
+  hauteur: number;
+  vignette: string;
+}
+
 export interface CadreEvenement {
   id?: number;
   compositionId: string;
