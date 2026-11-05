@@ -126,11 +126,10 @@ export function reglerZoneBorne(o: any) {
     // Le texte est écrit par la borne : on règle son style, pas son contenu ; fond ambre (aussi sur les
     // cadres enregistrés avant ce repère)
     o.set({ editable: false, backgroundColor: FOND_REPERE });
-    // Les textes dynamiques de la borne n'ont pas de rotation (le code photo, si)
-    if (o._zoneBorne !== "code-seance") {
-      o.set({ lockRotation: true });
-      o.setControlsVisibility?.({ mtr: false });
-    }
+    // Rotation libre, comme le code photo : la borne tourne aussi les dates depuis le 05/11/2026
+    // (`rotation` des dynamicTexts). Débloquée aussi sur les cadres enregistrés avant
+    o.set({ lockRotation: false });
+    o.setControlsVisibility?.({ mtr: true });
   }
 }
 
