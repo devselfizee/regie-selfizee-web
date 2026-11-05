@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEvenementLieu, type GabaritEvenement, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
+import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEvenementLieu, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, Erreur, Section } from "@/components/Etat";
 import { dateHeure, parametreUrl } from "@/lib/format";
 import { ChampEuros, EditeurGrille } from "@/components/GrilleTarifs";
 import { dates } from "@/components/EvenementsLieu";
 import { IllustrationGabarit } from "@/components/IllustrationGabarit";
-import { Modale } from "@/components/Modale";
 import { FilAriane } from "@/components/FilAriane";
+import { GABARITS, nouvelId } from "@/lib/gabaritsEvenement";
 
 // Fiche événement d'un lieu (CDC page souvenir § 13) : créations graphiques, tarifs et options, puis
 // « Créer l'événement » (la version que la borne charge avec son code) et le zip à télécharger.
@@ -429,29 +429,6 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
 
 // ─── Écran 1 : créations graphiques ─────────────────────────
 
-const GABARITS: { cle: GabaritEvenement; nom: string; detail: string; qr: boolean }[] = [
-  { cle: "bandelette", nom: "Bandelette 4 poses + carte souvenir", detail: "10x15 coupé en deux ; QR et code photo sur la carte.", qr: true },
-  {
-    cle: "bandelette-couchee",
-    nom: "Bandelette couchée 4 poses + carte souvenir",
-    detail: "Bande à lire à l'horizontale (photos côte à côte) ; carte souvenir comme la bandelette.",
-    qr: true,
-  },
-  { cle: "pola", nom: "Pola 1 pose", detail: "10x15, une grande photo.", qr: false },
-  { cle: "planche", nom: "Planche 4 poses", detail: "10x15, quatre cases carrées.", qr: false },
-  { cle: "paysage", nom: "Photo 10x15 paysage", detail: "15x10 à l'horizontale, une photo pleine page.", qr: false },
-  { cle: "carte", nom: "Photo 10x15 + deux cartes à QR", detail: "Ruban 15x20 obligatoire ; même QR sur les deux cartes, une pour chaque invité.", qr: true },
-];
-
-/** Identifiant d'une nouvelle composition : le nom du gabarit la première fois, puis numéroté au hasard. */
-function nouvelId(g: GabaritEvenement, existants: string[]): string {
-  if (!existants.includes(g)) return g;
-  for (;;) {
-    const id = `${g}-${Math.random().toString(36).slice(2, 6)}`;
-    if (!existants.includes(id)) return id;
-  }
-}
-
 function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture, dupliquer }: PropsEcran & {
   cadres: UseQueryResult<CadreEvenement[]>;
   apiEvenement: string;
@@ -461,7 +438,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
 }) {
   const { choisis, accueil } = r.gabarits;
   const client = useQueryClient();
-  const [choixFormat, setChoixFormat] = useState(false);
   const retirer = useMutation({
     mutationFn: (compositionId: string) => api(`${apiEvenement}/cadres/${compositionId}`, { method: "DELETE" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["cadres-evenement", apiEvenement] }),
@@ -469,11 +445,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
   const maj = (g: Partial<ReglagesEvenement["gabarits"]>) => setR((x) => ({ ...x, gabarits: { ...x.gabarits, ...g } }));
   const ids = choisis.map((c) => c.id);
   const plein = choisis.length >= MAX_COMPOSITIONS;
-  const ajouter = (g: GabaritEvenement) => {
-    if (plein) return;
-    maj({ choisis: [...choisis, { id: nouvelId(g, ids), gabarit: g }] });
-    setChoixFormat(false);
-  };
   const enlever = (id: string, avecCadre: boolean) => {
     if (avecCadre && !confirm("Retirer ce format ? Son cadre personnalisé sera supprimé à l'enregistrement.")) return;
     maj({ choisis: choisis.filter((c) => c.id !== id), accueil: accueil.filter((a) => a !== id) });
@@ -641,13 +612,13 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
           );
         })}
 
-        {/* Ajouter un format : une tuile discrète, qui ouvre le choix */}
+        {/* Ajouter un format : le studio s'ouvre sur le choix du format (étape 1) ; le format n'entre dans
+            l'événement qu'au premier enregistrement de son cadre */}
         <li>
           <button
             type="button"
-            disabled={plein}
-            aria-haspopup="dialog"
-            onClick={() => setChoixFormat(true)}
+            disabled={plein || ouverture}
+            onClick={() => ouvrirStudio("nouveau")}
             className="flex h-full min-h-48 w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line-strong p-6 text-center text-ink-2 transition hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span aria-hidden className="flex h-11 w-11 items-center justify-center rounded-full bg-surface text-2xl shadow-sm">+</span>
@@ -661,29 +632,6 @@ function EcranCreations({ r, setR, cadres, apiEvenement, ouvrirStudio, ouverture
         <p className="mt-4 rounded-md bg-warn-bg px-4 py-3 text-sm text-warn-ink">Aucun format : la borne n&apos;aurait rien à proposer. Ajoutez-en au moins un.</p>
       )}
 
-      {/* Choix du format dans une fenêtre : la page ne bouge pas */}
-      <Modale titre="Ajouter un format" ouverte={choixFormat && !plein} onFermer={() => setChoixFormat(false)} large>
-        <p className="mb-4 text-sm text-ink-2">
-          Choisissez le format à proposer sur la borne. Il s&apos;ajoute à la fin de l&apos;écran de choix ({choisis.length} / {MAX_COMPOSITIONS}).
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          {GABARITS.map((g) => (
-            <button
-              key={g.cle}
-              type="button"
-              onClick={() => ajouter(g.cle)}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-line bg-surface p-4 text-center transition hover:border-accent hover:bg-accent/5 focus-visible:outline-2 focus-visible:outline-accent"
-            >
-              <span className="flex h-32 items-center justify-center rounded-lg bg-gradient-to-br from-accent/5 to-accent/15 px-6 py-3">
-                <IllustrationGabarit gabarit={g.cle} className="h-full max-w-full transition group-hover:scale-105" />
-              </span>
-              <span className="text-sm font-semibold">{g.nom}</span>
-              <span className="text-xs text-ink-muted">{g.detail}</span>
-              {g.qr && <Badge ton="neutre">QR de partage</Badge>}
-            </button>
-          ))}
-        </div>
-      </Modale>
       {(cadres.error || retirer.error || dupliquer.error) ? <div className="mt-3"><Erreur erreur={cadres.error ?? retirer.error ?? dupliquer.error} /></div> : null}
     </section>
   );

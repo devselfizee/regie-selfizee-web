@@ -16,8 +16,10 @@ import { AvertissementPoses, posesDifferentes } from "./AvertissementPoses";
 
 // Studio de cadres ouvert depuis l'écran Gabarits de la fiche événement d'un lieu : l'éditeur de
 // Kalifun (copié dans src/studio), limité aux formats du gabarit du kit, enregistré dans l'API Régie.
-// Parcours : départ (vierge ou catalogue) → format → gabarit du studio → éditeur ; une étape à un
-// seul choix est sautée. Un cadre déjà enregistré rouvre directement l'éditeur.
+// Parcours en 3 étapes avant l'éditeur : 1. départ (modèle vierge ou catalogue), 2. format du kit
+// (bandelette, pola… : ChoixFormatKit pour un format ajouté depuis la fiche, déjà fait sinon), 3. modèle
+// (format et gabarit du studio, ou modèle du catalogue) ; un choix unique est sauté. Un cadre déjà
+// enregistré rouvre l'éditeur.
 
 type Etape = "depart" | "catalogue" | "format" | "gabarit" | "editeur";
 
@@ -26,14 +28,21 @@ export interface CadreARouvrir extends CadreEvenement {
 }
 
 /**
- * `apiCadre` : le cadre de la composition dans l'API (…/cadres/:composition) ; `pageRetour` : la fiche de
- * l'événement ; `libelle` : le nom de la composition (« Pola 1 pose · 2 » quand le gabarit revient).
+ * `apiCadre` : le cadre de la composition dans l'API (…/cadres/:composition), null pour un format pas encore
+ * dans l'événement : `creerComposition` l'y ajoute au premier enregistrement et rend ce chemin ;
+ * `departInitial` : départ déjà choisi (format ajouté depuis la fiche : étapes 1 et 2 faites avant le
+ * studio), qui s'ouvre alors à l'étape 3 ; `onRetourFormat` : retour à l'étape 2 (choix du format) ;
+ * `pageRetour` : la fiche de l'événement ;
+ * `libelle` : le nom de la composition (« Pola 1 pose · 2 » quand le gabarit revient).
  */
-export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, libelle }: {
+export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, creerComposition, departInitial, onRetourFormat, pageRetour, libelle }: {
   gabarit: GabaritEvenement;
   nomLieu: string;
   cadre: CadreARouvrir | null;
-  apiCadre: string;
+  apiCadre: string | null;
+  creerComposition?: () => Promise<string>;
+  departInitial?: Depart;
+  onRetourFormat?: () => void;
   pageRetour: string;
   libelle?: string;
 }) {
@@ -52,7 +61,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
 
   const router = useRouter();
   const { formats, loading } = useTypeFormats("cadres");
-  const [etape, setEtape] = useState<Etape>(cadre ? "editeur" : "depart");
+  const [etape, setEtape] = useState<Etape>(cadre ? "editeur" : departInitial === "catalogue" ? "catalogue" : departInitial === "vierge" ? "format" : "depart");
   const [depuisCatalogue, setDepuisCatalogue] = useState(false);
   const [format, setFormat] = useState<Format | null>(null);
   const [gab, setGab] = useState<Gabarit | null>(null);
@@ -61,6 +70,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
   const [effectif, setEffectif] = useState<{ format: Format; gabarit: Gabarit } | null>(null);
   const [canvasInitial, setCanvasInitial] = useState<string | undefined>(cadre?.canvas);
   const [enregistre, setEnregistre] = useState(Boolean(cadre));
+  const [cheminCadre, setCheminCadre] = useState(apiCadre);
   const [choixApresEnregistrement, setChoixApresEnregistrement] = useState(false);
   const [posesAConfirmer, setPosesAConfirmer] = useState<CatalogueItem | null>(null);
 
@@ -106,18 +116,26 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
     setEtape("editeur");
   };
 
+  // Avant l'étape 3 : l'écran de départ, ou le choix du format pour un format ajouté depuis la fiche
+  const avantModele = () => (onRetourFormat ? onRetourFormat() : setEtape("depart"));
   const retour = () => {
     if (etape === "editeur" && !cadre) {
       if (depuisCatalogue) setEtape("catalogue");
       else if (format && format.gabarits.length > 1) setEtape("gabarit");
       else if (formats.length > 1) setEtape("format");
-      else setEtape("depart");
+      else avantModele();
       return;
     }
-    if (etape === "gabarit") return setEtape(formats.length > 1 ? "format" : "depart");
-    if (etape === "format" || etape === "catalogue") return setEtape("depart");
+    if (etape === "gabarit") return formats.length > 1 ? setEtape("format") : avantModele();
+    if (etape === "format" || etape === "catalogue") return avantModele();
     versFiche();
   };
+  // Départ vierge déjà choisi et un seul format du studio : directement le gabarit (ou l'éditeur). Dans un
+  // effet : il faut attendre les formats du studio, chargés après l'ouverture
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (etape === "format" && !format && !loading && formats.length === 1) choisirFormat(formats[0]);
+  }, [etape, format, loading, formats]);
 
   const enregistrer = async (p: FrameSavePayload) => {
     // Sans QR, l'invité ne peut pas récupérer sa photo : sur la bandelette, le dessin recouvre celui du kit
@@ -132,7 +150,14 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
           (ecart > 0 ? `Ajoutez-en ${ecart} (« Ajouter un shoot »).` : `Supprimez-en ${-ecart}.`),
       );
     }
-    const r = await api<CadreEvenement>(apiCadre, {
+    // Nouveau format : il n'entre dans l'événement qu'ici, au premier enregistrement de son cadre
+    let chemin = cheminCadre;
+    if (!chemin) {
+      if (!creerComposition) throw new Error("Format introuvable dans l'événement.");
+      chemin = await creerComposition();
+      setCheminCadre(chemin);
+    }
+    const r = await api<CadreEvenement>(chemin, {
       method: "PUT",
       json: {
         nom: `${nomLieu} — ${nomComposition}`,
@@ -152,15 +177,14 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
   return (
     <div className="min-h-screen bg-page">
       {vue !== "editeur" && (
-        <header className="flex items-center justify-between border-b border-line bg-surface px-6 py-4">
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={retour} className="flex items-center gap-1.5 text-sm text-ink-2 hover:text-accent">
-              <span aria-hidden>←</span> {vue === "depart" ? "Fiche événement" : "Retour"}
-            </button>
-            <h1 className="text-lg font-semibold text-ink">Studio · {nomComposition}</h1>
-          </div>
-          <div className="max-w-[280px] truncate text-sm text-ink-2">{nomLieu}</div>
-        </header>
+        <EnTeteStudio
+          retour={retour}
+          libelleRetour={vue === "depart" ? "Fiche événement" : "Retour"}
+          titre={`Studio · ${nomComposition}`}
+          nomLieu={nomLieu}
+          etape={vue === "depart" ? 1 : 3}
+          details={[vue === "catalogue" || depuisCatalogue ? "Catalogue" : "Modèle vierge", nomComposition]}
+        />
       )}
 
       <div className="p-6">
@@ -171,19 +195,14 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
               Formats proposés pour ce gabarit : {loading ? "…" : formats.map((f) => f.name).join(", ")} · {kit.poses} pose{kit.poses > 1 ? "s" : ""}.
             </p>
             {kit.note && <p className="mb-8 text-center text-xs text-ink-muted">{kit.note}</p>}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <Depart titre="Modèle vierge" texte="Une page vierge au bon format, à personnaliser de A à Z." onClick={partirVierge} disabled={loading} />
-              {kit.catalogue !== false && (
-                <Depart titre="Catalogue Selfizee" texte="Les modèles prêts à l'emploi, seulement ceux de ce format." onClick={() => setEtape("catalogue")} disabled={loading} />
-              )}
-            </div>
+            <ChoixDepart onChoisir={(d) => (d === "vierge" ? partirVierge() : setEtape("catalogue"))} sansCatalogue={kit.catalogue === false} disabled={loading} />
           </div>
         )}
 
         {vue === "catalogue" && <CatalogueBrowser onPick={(item) => choisirModele(item)} onBack={retour} />}
 
         {vue === "format" && (
-          <Choix titre="Quel format ?">
+          <Choix titre="Quel modèle ?" sousTitre={`Mise en page du ${nomComposition}`}>
             {formats.map((f) => (
               <Carte key={f.id} onClick={() => choisirFormat(f)} titre={f.name} detail={`${f.widthPx}×${f.heightPx} px`}>
                 <Apercu zones={f.gabarits[0]?.photoZones ?? []} ratio={f.aspectRatio} />
@@ -212,7 +231,7 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
               catalogMode
               format={effectif?.format ?? fmt}
               gabarit={effectif?.gabarit ?? gb}
-              frameId={enregistre ? apiCadre : undefined}
+              frameId={enregistre ? (cheminCadre ?? undefined) : undefined}
               initialCanvasState={canvasInitial}
               typeSlug="cadres"
               publicMode
@@ -246,6 +265,71 @@ export function StudioRegie({ gabarit, nomLieu, cadre, apiCadre, pageRetour, lib
       />
       <SavedChoiceDialog open={choixApresEnregistrement} onStay={() => setChoixApresEnregistrement(false)} onLeave={versFiche} />
     </div>
+  );
+}
+
+export type Depart = "vierge" | "catalogue";
+const ETAPES = ["Départ", "Format", "Modèle"];
+
+/** Étape 1 : modèle vierge ou catalogue Selfizee (sans catalogue pour un format qui n'en a pas). */
+export function ChoixDepart({ onChoisir, sansCatalogue, disabled }: { onChoisir: (d: Depart) => void; sansCatalogue?: boolean; disabled?: boolean }) {
+  return (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+      <Depart titre="Modèle vierge" texte="Une page vierge au bon format, à personnaliser de A à Z." onClick={() => onChoisir("vierge")} disabled={disabled} />
+      {!sansCatalogue && (
+        <Depart titre="Catalogue Selfizee" texte="Les modèles prêts à l'emploi, seulement ceux du format choisi." onClick={() => onChoisir("catalogue")} disabled={disabled} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * En-tête des étapes avant l'éditeur : retour, titre, lieu, et les 3 étapes (1. départ, 2. format,
+ * 3. modèle) ; `details` : ce qui a été choisi aux étapes 1 et 2, affiché une fois l'étape passée.
+ */
+export function EnTeteStudio({ retour, libelleRetour, titre, nomLieu, etape, details = [] }: {
+  retour: () => void;
+  libelleRetour: string;
+  titre: string;
+  nomLieu: string;
+  etape: 1 | 2 | 3;
+  details?: (string | undefined)[];
+}) {
+  return (
+    <header className="border-b border-line bg-surface">
+      <div className="flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-4">
+          <button type="button" onClick={retour} className="flex items-center gap-1.5 text-sm text-ink-2 hover:text-accent">
+            <span aria-hidden>←</span> {libelleRetour}
+          </button>
+          <h1 className="text-lg font-semibold text-ink">{titre}</h1>
+        </div>
+        <div className="max-w-[280px] truncate text-sm text-ink-2">{nomLieu}</div>
+      </div>
+      <ol className="mx-auto flex max-w-2xl items-center gap-2 px-6 pb-4" aria-label="Étapes avant l'éditeur">
+        {ETAPES.map((e, i) => {
+          const n = i + 1;
+          const fait = n < etape;
+          const courant = n === etape;
+          return (
+            <li key={e} className="flex flex-1 items-center gap-2" aria-current={courant ? "step" : undefined}>
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                  courant ? "bg-accent text-white" : fait ? "bg-accent/15 text-accent" : "bg-surface-2 text-ink-muted"
+                }`}
+              >
+                {fait ? "✓" : n}
+              </span>
+              <span className={`min-w-0 truncate text-sm ${courant ? "font-semibold text-ink" : fait ? "text-ink-2" : "text-ink-muted"}`}>
+                {e}
+                {fait && details[i] ? <span className="text-ink-muted"> · {details[i]}</span> : null}
+              </span>
+              {n < ETAPES.length && <span aria-hidden className={`h-px flex-1 ${fait ? "bg-accent/40" : "bg-line"}`} />}
+            </li>
+          );
+        })}
+      </ol>
+    </header>
   );
 }
 
