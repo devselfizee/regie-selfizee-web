@@ -712,13 +712,27 @@ const LOTS: { cle: LotJeu; nom: string }[] = [
   { cle: "none", nom: "Perdu" },
 ];
 
+/** Groupe de réglages de l'étape 2 : sur la borne, ou sur la page souvenir (web). */
+function Groupe({ titre, sousTitre, children }: { titre: string; sousTitre: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h3 className="text-base font-semibold text-ink">{titre}</h3>
+        <p className="text-sm text-ink-2">{sousTitre}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu: FicheEvenementLieu["tarifsLieu"]; lieuId: number }) {
   const t = r.tarifs;
   const maj = (p: Partial<ReglagesEvenement["tarifs"]>) => setR((x) => ({ ...x, tarifs: { ...x.tarifs, ...p } }));
   const totalLots = Object.values(t.jeu.lots).reduce((s, v) => s + v, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
+      <Groupe titre="Sur la borne" sousTitre="Ce que l'invité voit et paie devant la borne.">
       <Section titre="Prix des tirages">
         <div className="mb-3 flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="Tarifs de l'événement">
           <label className="flex items-center gap-2">
@@ -751,19 +765,47 @@ function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu:
         <p className="mt-3 text-xs text-ink-muted">Paiement par le terminal Hexapay de la borne.</p>
       </Section>
 
-      <Section titre="Codes promo et jeu">
+      <Section titre="À la borne">
         <div className="space-y-3">
           <Case
             coche={t.codesPromo}
             onChange={(v) => maj({ codesPromo: v })}
-            libelle="Accepter les codes promo à la borne"
-            aide="Lien « J'ai un code promo » sur l'offre. Obligatoire si le jeu est actif : c'est là que se tapent les codes gagnés."
+            libelle="Accepter les codes promo"
+            aide="Lien « J'ai un code promo » sur l'écran d'offre, où l'invité tape un code de remise (menu Codes de remise) ou un code gagné à la carte à gratter. Décoché : la borne n'accepte aucun code."
           />
+          <Case coche={t.photoAppel.actif} onChange={(v) => maj({ photoAppel: { ...t.photoAppel, actif: v } })} libelle="Photo d'appel" aide="La borne prend une photo d'ambiance quand personne ne s'en sert." />
+          {t.photoAppel.actif && (
+            <div className="ml-6 w-48">
+              <Champ libelle="Après (secondes sans activité)">
+                <input className="champ tabular" type="number" min={10} max={3600} value={t.photoAppel.inactiviteSec} onChange={(e) => maj({ photoAppel: { ...t.photoAppel, inactiviteSec: Number(e.target.value) } })} />
+              </Champ>
+            </div>
+          )}
+          <Case
+            coche={t.envoiPostal.actif}
+            onChange={(v) => maj({ envoiPostal: { ...t.envoiPostal, actif: v } })}
+            libelle="Envoi postal si l'imprimante est en panne"
+            aide="Engagement de l'exploitant : le tirage est envoyé par la poste."
+          />
+          {t.envoiPostal.actif && (
+            <div className="ml-6 w-48">
+              <Champ libelle="Frais de port (plan B)">
+                <ChampEuros cents={t.envoiPostal.fraisCents} onChange={(c) => maj({ envoiPostal: { ...t.envoiPostal, fraisCents: c } })} />
+              </Champ>
+            </div>
+          )}
+        </div>
+      </Section>
+      </Groupe>
+
+      <Groupe titre="Page souvenir (web)" sousTitre="Après la photo, sur le téléphone de l'invité (QR code du tirage).">
+      <Section titre="Carte à gratter">
+        <div className="space-y-3">
           <Case
             coche={t.jeu.actif}
             onChange={(v) => maj({ jeu: { ...t.jeu, actif: v }, ...(v ? { codesPromo: true } : {}) })}
-            libelle="Carte à gratter sur la page souvenir"
-            aide="Après l'envoi des photos : un code promo unique pour la prochaine photo, valable 30 jours sur toutes les bornes partenaires."
+            libelle="Proposer la carte à gratter"
+            aide="Après l'envoi des photos : un code promo unique pour la prochaine photo, valable 30 jours sur toutes les bornes partenaires. Active aussi les codes promo à la borne."
           />
           {t.jeu.actif && (
             <div className="rounded-md bg-surface-2 p-3">
@@ -790,38 +832,15 @@ function EcranTarifs({ r, setR, tarifsLieu, lieuId }: PropsEcran & { tarifsLieu:
           )}
         </div>
       </Section>
-
-      <Section titre="Options">
-        <div className="space-y-3">
-          <Case
-            coche={t.reimpressionWeb}
-            onChange={(v) => maj({ reimpressionWeb: v })}
-            libelle="Réimpression payée depuis le mobile"
-            aide="L'invité paie sur la page souvenir et récupère ses tirages à la borne avec son code. À activer quand l'API des crédits sera en production."
-          />
-          <Case coche={t.photoAppel.actif} onChange={(v) => maj({ photoAppel: { ...t.photoAppel, actif: v } })} libelle="Photo d'appel" aide="La borne prend une photo d'ambiance quand personne ne s'en sert." />
-          {t.photoAppel.actif && (
-            <div className="ml-6 w-48">
-              <Champ libelle="Après (secondes sans activité)">
-                <input className="champ tabular" type="number" min={10} max={3600} value={t.photoAppel.inactiviteSec} onChange={(e) => maj({ photoAppel: { ...t.photoAppel, inactiviteSec: Number(e.target.value) } })} />
-              </Champ>
-            </div>
-          )}
-          <Case
-            coche={t.envoiPostal.actif}
-            onChange={(v) => maj({ envoiPostal: { ...t.envoiPostal, actif: v } })}
-            libelle="Envoi postal si l'imprimante est en panne"
-            aide="Engagement de l'exploitant : le tirage est envoyé par la poste."
-          />
-          {t.envoiPostal.actif && (
-            <div className="ml-6 w-48">
-              <Champ libelle="Frais de port (plan B)">
-                <ChampEuros cents={t.envoiPostal.fraisCents} onChange={(c) => maj({ envoiPostal: { ...t.envoiPostal, fraisCents: c } })} />
-              </Champ>
-            </div>
-          )}
-        </div>
+      <Section titre="Réimpression">
+        <Case
+          coche={t.reimpressionWeb}
+          onChange={(v) => maj({ reimpressionWeb: v })}
+          libelle="Réimpression payée depuis le mobile"
+          aide="L'invité paie sur la page souvenir et récupère ses tirages à la borne avec son code. À activer quand l'API des crédits sera en production."
+        />
       </Section>
+      </Groupe>
     </div>
   );
 }
