@@ -216,3 +216,13 @@ body {
   --k-sidebar-rail: 52px;
   --k-topbar-h: 48px;
 }
+
+/* Barre latérale de la plateforme : hauteur de l'écran, mais sa liste (Pilotage, Parc, Argent…) ne
+   défilait pas : le bas était coupé sur un petit écran. La liste défile, « Réduire » reste en bas. */
+.menu-plateforme aside > nav {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+}

@@ -222,7 +222,7 @@ export function Coquille({ children }: { children: ReactNode }) {
         <Navigation sousEntete />
       </div>
       <div className="flex min-h-0 flex-1">
-        <div className="hidden shrink-0 md:block print:hidden">
+        <div className="menu-plateforme hidden shrink-0 md:block print:hidden">
           {plateforme ? (
             <Ilot
               p={plateforme}
