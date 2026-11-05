@@ -286,7 +286,7 @@ export function TarifsDuLieu({ lieuId }: { lieuId: number }) {
   const erreurs = erreursGrille(g);
   return (
     <Section
-      titre="Tarifs"
+      titre="Tarif du lieu"
       actions={propres ? <Badge ton="warn">Tarifs propres au lieu</Badge> : <Badge ton="neutre">Tarifs de base du parc</Badge>}
     >
       <div className="mb-3 flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="Tarifs du lieu">

@@ -11,7 +11,7 @@ import { parametreUrl } from "@/lib/format";
 import { peut, Reserve, useMoi } from "@/lib/session";
 
 // Édition d'un lieu, toutes ses infos au même endroit : onglet « Fiche » (identité, segment, activité,
-// contacts…), « Tarifs » (grille reprise par les événements de la borne) et, pour les admins,
+// contacts…), « Tarif du lieu » (grille reprise par les événements de la borne) et, pour les admins,
 // « Communication » (nom affiché, avis, réseaux, assistance : repris par la borne et la page souvenir).
 // Chacun enregistré à part ; ?onglet=tarifs|communication ouvre le bon.
 
@@ -34,7 +34,7 @@ function Modifier({ id, ongletInitial }: { id: number; ongletInitial?: string })
   if (!data) return <Chargement />;
   const onglets: { cle: Onglet; libelle: string }[] = [
     { cle: "fiche", libelle: "Fiche" },
-    { cle: "tarifs", libelle: "Tarifs" },
+    { cle: "tarifs", libelle: "Tarif du lieu" },
     ...(peut.administrer(moi.role) ? [{ cle: "communication" as const, libelle: "Communication" }] : []),
   ];
   const actif = onglets.some((o) => o.cle === onglet) ? onglet : "fiche";

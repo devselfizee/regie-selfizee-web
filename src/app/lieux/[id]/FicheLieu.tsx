@@ -23,7 +23,6 @@ import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
-import { ResumeTarifLieu } from "@/components/GrilleTarifs";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
@@ -237,12 +236,6 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
           <EmplacementLieu l={l} />
         </Section>
       </div>
-
-      {(moi.role === "ADMIN" || moi.role === "COMMERCIAL") && (
-        <div className="mt-6">
-          <ResumeTarifLieu lieuId={id} />
-        </div>
-      )}
 
       <div className="mt-6">
         <Section titre="Historique des bornes" actions={peut.gererBornes(moi.role) ? <Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link> : undefined}>
