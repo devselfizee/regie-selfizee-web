@@ -18,7 +18,7 @@ interface Resume {
   inscriptions: number;
   optinsLieu: number;
   optinsSelfizee: number;
-  livraisons: { aEnvoyer: number; envoyees: number; enAttenteMedia: number; echecs: number };
+  livraisons: { aEnvoyer: number; envoyees: number; enAttenteMedia: number; introuvables?: number; echecs: number };
   cartes: number;
   lots: Record<Lot, number>;
   codesConsommes: number;
@@ -94,14 +94,19 @@ export function PageSouvenirLieu({ lieuId }: { lieuId: number }) {
                 {r.livraisons.envoyees > 0 && <Badge ton="ok">{r.livraisons.envoyees} envoyé{r.livraisons.envoyees > 1 ? "s" : ""}</Badge>}
                 {r.livraisons.aEnvoyer > 0 && <Badge ton="warn">{r.livraisons.aEnvoyer} à envoyer</Badge>}
                 {r.livraisons.enAttenteMedia > 0 && <Badge ton="neutre">{r.livraisons.enAttenteMedia} en attente de la photo</Badge>}
+                {(r.livraisons.introuvables ?? 0) > 0 && <Badge ton="warn">{r.livraisons.introuvables} photo{r.livraisons.introuvables! > 1 ? "s" : ""} introuvable{r.livraisons.introuvables! > 1 ? "s" : ""}</Badge>}
                 {r.livraisons.echecs > 0 && <Badge ton="crit">{r.livraisons.echecs} en échec</Badge>}
-                {!r.livraisons.envoyees && !r.livraisons.aEnvoyer && !r.livraisons.enAttenteMedia && !r.livraisons.echecs && "—"}
+                {!r.livraisons.envoyees && !r.livraisons.aEnvoyer && !r.livraisons.enAttenteMedia && !r.livraisons.introuvables && !r.livraisons.echecs && "—"}
               </span>
             }
           />
         </dl>
-        {r.livraisons.aEnvoyer > 0 && (
-          <p className="mt-3 text-xs text-ink-muted">« À envoyer » : les mails partiront quand le fournisseur d&apos;e-mails sera branché.</p>
+        {(r.livraisons.aEnvoyer > 0 || r.livraisons.echecs > 0 || (r.livraisons.introuvables ?? 0) > 0) && (
+          <p className="mt-3 text-xs text-ink-muted">
+            Les mails partent dans la minute par Mailjet. « À envoyer » qui dure : Mailjet n&apos;est pas configuré ou refuse l&apos;envoi. « En échec » : adresse
+            refusée par sa boîte, ou envoi impossible après plusieurs essais. « Photo introuvable » : la photo n&apos;est pas arrivée 24 h après la demande,
+            l&apos;invité a été prévenu ; elle part si elle arrive.
+          </p>
         )}
       </Section>
 
