@@ -1085,6 +1085,8 @@ export interface ResumeMedias {
 
 export interface MediaDetail extends MediaResume {
   photoUuid: string | null;
+  /** Page souvenir de la séance (QR imprimé) : base SOUVENIR_QR_BASE_URL + code d'événement + photo_uuid ; null sans JSON */
+  pageSouvenir: string | null;
   dateSave: string | null;
   lieuId: number | null;
   sha256: string | null;

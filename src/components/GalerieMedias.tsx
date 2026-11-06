@@ -280,6 +280,13 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
               </Ligne>
               {m.parcours && <Ligne l="Parcours invité">{m.parcours.issue} · {m.parcours.dureeS} s</Ligne>}
 
+              {m.pageSouvenir && (
+                <Ligne l="Page souvenir">
+                  <a href={m.pageSouvenir} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline" title="La page que l'invité ouvre en scannant le QR du tirage">
+                    Ouvrir la page souvenir <span aria-hidden>↗</span>
+                  </a>
+                </Ligne>
+              )}
               {m.photoUuid && (
                 <Ligne l="photo_uuid">
                   <span className="break-all font-mono text-xs">{m.photoUuid}</span>
