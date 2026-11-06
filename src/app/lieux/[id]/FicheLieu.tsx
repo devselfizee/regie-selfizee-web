@@ -24,6 +24,7 @@ import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
 import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
+import { PageSouvenirLieu } from "@/components/PageSouvenirLieu";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
@@ -57,7 +58,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "configuration" ? peut.administrer(moi.role) : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "configuration" ? peut.administrer(moi.role) : o.cle === "souvenir" ? !prospect && moi.role !== "TECHNICIEN" : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -146,6 +147,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
       {ongletActif === "configuration" && <ConfigurationLieu lieuId={id} />}
+
+      {ongletActif === "souvenir" && <PageSouvenirLieu lieuId={id} />}
 
       {ongletActif === "infos" && (
       <>
@@ -296,7 +299,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration";
+type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration" | "souvenir";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
   { cle: "comportement", libelle: "Comportement" },
@@ -306,6 +309,8 @@ const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "commissions", libelle: "Commissions" },
   // La borne du lieu : infos et tarif repris par chaque événement, puis les événements
   { cle: "configuration", libelle: "Configuration" },
+  // Ce que les invités font de la page de leur QR : entonnoir et contacts opt-in lieu
+  { cle: "souvenir", libelle: "Page souvenir" },
 ];
 
 function Info({ l, children }: { l: string; children: ReactNode }) {
