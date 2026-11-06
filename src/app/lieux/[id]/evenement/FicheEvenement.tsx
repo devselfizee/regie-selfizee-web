@@ -222,9 +222,9 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
             ouverture={enregistrer.isPending}
             dupliquer={dupliquer}
           />
-          {/* Sous-titre comme celui des formats : le thème et les photos d'exemple sont autre chose que les cadres */}
+          {/* Ambiance : thème, ton des textes et photos d'illustration (retour de Sébastien, 05/11/2026) */}
           <section aria-labelledby="titre-theme" className="mt-10">
-            <h2 id="titre-theme" className="mb-5 text-xl font-semibold">Thème et photos d&apos;exemple</h2>
+            <h2 id="titre-theme" className="mb-5 text-xl font-semibold">Ambiance de la borne</h2>
             <IllustrationsEvenement
               lieu={r.lieu}
               majLieu={(p) => setR((x) => ({ ...x, lieu: { ...x.lieu, ...p } }))}
@@ -370,13 +370,6 @@ function Case({ coche, onChange, libelle, aide }: { coche: boolean; onChange: (v
 
 // ─── L'événement (écran Tarifs et options) ──────────────────
 
-const TONS: Record<ReglagesEvenement["lieu"]["ton"], string> = {
-  club: "Club (défaut) : festif, la nuit",
-  bar: "Bar : décontracté",
-  famille: "Famille : tous publics",
-  pro: "Pro : soirée d'entreprise",
-};
-
 /** Réglages propres à l'événement ; nom affiché, ville, avis, assistance et horaires sont ceux du lieu. */
 function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: PropsEcran & {
   lieuId: number;
@@ -402,11 +395,6 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
         </Champ>
         <Champ libelle="Fin *" aide={nom === null ? "Une borne à l'année : plusieurs années." : "Le même jour que le début : une seule journée."}>
           <input className="champ" type="date" required value={l.dateFin} min={l.dateDebut} onChange={(e) => maj({ dateFin: e.target.value })} />
-        </Champ>
-        <Champ libelle="Ton des textes" aide="Consignes de pose et phrases du « +1 pour un pote ».">
-          <select className="champ" value={l.ton} onChange={(e) => maj({ ton: e.target.value as typeof l.ton })}>
-            {Object.entries(TONS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-          </select>
         </Champ>
       </div>
       <p className="mt-3 text-xs text-ink-muted">

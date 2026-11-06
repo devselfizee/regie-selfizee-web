@@ -7,7 +7,7 @@ import { api, type GabaritEvenement, type IllustrationEvenement, type ReglagesEv
 import { IllustrationGabarit, type RemplissagePhotos } from "./IllustrationGabarit";
 import { Badge, Erreur, Section } from "./Etat";
 
-// Photos d'exemple dans les cases des cadres de la borne (kit nightlife, mémo ILLUSTRATIONS-ADMIN-WEB du
+// Photos d'illustration dans les cases des cadres de la borne (kit nightlife, mémo ILLUSTRATIONS-ADMIN-WEB du
 // 05/11/2026) : page « Choisis ton format » et cadres de l'accueil. Série du logiciel, série de la
 // bibliothèque (Paramètres), photos de l'événement (copiées dans le zip), caméra en direct ou cases
 // unies ; l'accueil peut avoir sa série.
@@ -16,9 +16,17 @@ type Lieu = ReglagesEvenement["lieu"];
 type Forme = IllustrationEvenement["forme"];
 export const MAX_PAR_SERIE = 20;
 
+// Ton des consignes de pose et des phrases du « +1 pour un pote » (retour de Sébastien : avec l'ambiance)
+export const TONS: Record<Lieu["ton"], string> = {
+  club: "Club (défaut) : festif, la nuit",
+  bar: "Bar : décontracté",
+  famille: "Famille : tous publics",
+  pro: "Pro : soirée d'entreprise",
+};
+
 const CHOIX_CADRES: { valeur: Lieu["illustrations"]; titre: string; detail: string }[] = [
-  { valeur: "festif", titre: "Série festive", detail: "Photos de soirée du logiciel (défaut)." },
-  { valeur: "chic", titre: "Série chic", detail: "Photos plus habillées, du logiciel." },
+  { valeur: "festif", titre: "Série festive", detail: "Soirée entre amis : couleurs vives, grimaces, confettis (défaut)." },
+  { valeur: "chic", titre: "Série chic", detail: "Tenues habillées, poses élégantes, tons sobres." },
   { valeur: "serie", titre: "Série de la bibliothèque", detail: "Mariage, corporate… gérées dans Paramètres." },
   { valeur: "photos", titre: "Nos photos", detail: "Celles de l'événement : le lieu, l'équipe, la marque…" },
   { valeur: "camera", titre: "Caméra en direct", detail: "L'image de la caméra dans les cases." },
@@ -35,7 +43,7 @@ const LIBELLES_CADRES: Record<Lieu["illustrations"], string> = {
   aucune: "aucune (cases unies)",
 };
 const LIBELLES_ACCUEIL: Record<Lieu["illustrationsAccueil"], string> = {
-  memes: "les mêmes",
+  memes: "même série que les cadres",
   festif: "série festive",
   chic: "série chic",
   serie: "série de la bibliothèque",
@@ -50,6 +58,39 @@ const THEMES: Record<ReglagesEvenement["theme"], string> = { nightlife: "Nightli
  * Le choix se règle avec la fiche (barre « Enregistrer ») ; les photos de l'événement, elles, s'envoient
  * tout de suite à l'API, une fois l'événement enregistré.
  */
+/**
+ * Le style d'une série, en miniature (retour de Sébastien : « Série festive => on montre ») : les vraies photos
+ * quand la Régie les a, sinon une ambiance (couleurs, silhouettes) pour les séries du logiciel.
+ */
+function Style({ choix, apercus }: { choix: Lieu["illustrations"]; apercus: string[] }) {
+  const fond: Record<Lieu["illustrations"], string> = {
+    festif: "bg-gradient-to-br from-fuchsia-500 via-pink-500 to-amber-400",
+    chic: "bg-gradient-to-br from-slate-800 via-slate-600 to-amber-200",
+    serie: "bg-surface-2",
+    photos: "bg-surface-2",
+    camera: "bg-slate-900",
+    aucune: "bg-surface-2",
+  };
+  return (
+    <span className={`mb-2 grid grid-cols-3 gap-1 rounded-md p-1 ${fond[choix]}`} aria-hidden>
+      {Array.from({ length: 3 }, (_, i) =>
+        apercus[i] ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={i} src={apercus[i]} alt="" className="aspect-[3/4] w-full rounded-sm object-cover" />
+        ) : (
+          <span key={i} className={`flex aspect-[3/4] items-end justify-center overflow-hidden rounded-sm ${choix === "aucune" ? "bg-surface" : "bg-white/20"}`}>
+            {choix === "camera" ? (
+              <span className="mb-[40%] size-2 rounded-full bg-red-500" />
+            ) : choix !== "aucune" ? (
+              <svg viewBox="0 0 20 24" className="w-3/4 fill-white/70"><circle cx="10" cy="8" r="5" /><path d="M1 24c0-6 4-9 9-9s9 3 9 9z" /></svg>
+            ) : null}
+          </span>
+        ),
+      )}
+    </span>
+  );
+}
+
 export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarits, apiEvenement, enregistre }: {
   lieu: Lieu;
   majLieu: (p: Partial<Lieu>) => void;
@@ -75,7 +116,9 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
 
   const libelleCadres = lieu.illustrations === "serie" && nomSerie(lieu.illustrationsSerieId) ? `série « ${nomSerie(lieu.illustrationsSerieId)} »` : LIBELLES_CADRES[lieu.illustrations];
   const libelleAccueil =
-    lieu.illustrationsAccueil === "serie" && nomSerie(lieu.illustrationsAccueilSerieId) ? `série « ${nomSerie(lieu.illustrationsAccueilSerieId)} »` : LIBELLES_ACCUEIL[lieu.illustrationsAccueil];
+    lieu.illustrationsAccueil === "memes"
+      ? `même série que les cadres (${libelleCadres})`
+      : lieu.illustrationsAccueil === "serie" && nomSerie(lieu.illustrationsAccueilSerieId) ? `série « ${nomSerie(lieu.illustrationsAccueilSerieId)} »` : LIBELLES_ACCUEIL[lieu.illustrationsAccueil];
 
   // Aperçu : les vraies photos quand la Régie les a (nos photos, série de la bibliothèque), des silhouettes
   // pour les séries du logiciel (leurs photos sont dans la borne)
@@ -109,7 +152,9 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
               <dt className="text-ink-2">Thème de la borne</dt>
               <dd>{THEMES[theme]}</dd>
-              <dt className="text-ink-2">Photos des cadres</dt>
+              <dt className="text-ink-2">Ton des textes</dt>
+              <dd>{TONS[lieu.ton]}</dd>
+              <dt className="text-ink-2">Photos d&apos;illustration</dt>
               <dd className="first-letter:uppercase">{libelleCadres}</dd>
               {lieu.illustrations !== "aucune" && lieu.illustrations !== "camera" && (
                 <>
@@ -118,22 +163,32 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
                 </>
               )}
               <dd className="col-span-2 mt-2 text-xs text-ink-muted">
-                Photos d&apos;exemple dans les cases des cadres (page « Choisis ton format » et accueil), tirées au sort par la borne pour donner envie.
+                Photos d&apos;illustration dans les cases des cadres (page « Choisis ton format » et accueil), tirées au sort par la borne pour donner envie.
               </dd>
             </dl>
           ) : (
             <>
-              <label className="mb-4 block max-w-xs">
-                <span className="etiquette">Thème de la borne</span>
-                <select className="champ" value={theme} onChange={(e) => majTheme(e.target.value as ReglagesEvenement["theme"])}>
-                  {Object.entries(THEMES).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-                </select>
-                <span className="mt-1 block text-xs text-ink-muted">D&apos;autres thèmes (Halloween, personnalisés) viendront.</span>
-              </label>
+              <div className="mb-5 grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="etiquette">Thème de la borne</span>
+                  <select className="champ" value={theme} onChange={(e) => majTheme(e.target.value as ReglagesEvenement["theme"])}>
+                    {Object.entries(THEMES).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                  </select>
+                  <span className="mt-1 block text-xs text-ink-muted">D&apos;autres thèmes (Halloween, personnalisés) viendront.</span>
+                </label>
+                <label className="block">
+                  <span className="etiquette">Ton des textes</span>
+                  <select className="champ" value={lieu.ton} onChange={(e) => majLieu({ ton: e.target.value as Lieu["ton"] })}>
+                    {Object.entries(TONS).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                  </select>
+                  <span className="mt-1 block text-xs text-ink-muted">Consignes de pose et phrases du « +1 pour un pote ».</span>
+                </label>
+              </div>
+              <p className="etiquette">Photos d&apos;illustration</p>
               <p className="mb-2 text-sm text-ink-2">
-                Photos d&apos;exemple dans les cases des cadres (page « Choisis ton format » et cadres de l&apos;accueil), tirées au sort par la borne pour donner envie.
+                Dans les cases des cadres (page « Choisis ton format » et cadres de l&apos;accueil), tirées au sort par la borne pour donner envie.
               </p>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label="Photos d'exemple des cadres">
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3" role="radiogroup" aria-label="Photos d'illustration des cadres">
                 {CHOIX_CADRES.map((c) => {
                   const actif = lieu.illustrations === c.valeur;
                   return (
@@ -145,6 +200,16 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
                       onClick={() => majLieu({ illustrations: c.valeur, ...(c.valeur === "serie" && !lieu.illustrationsSerieId ? { illustrationsSerieId: proposees.find((s) => s.actif)?.id ?? null } : {}) })}
                       className={`rounded-lg border p-3 text-left transition ${actif ? "border-accent bg-accent/5 ring-1 ring-accent" : "border-line hover:border-line-strong"}`}
                     >
+                      <Style
+                        choix={c.valeur}
+                        apercus={
+                          c.valeur === "serie"
+                            ? ((series.data ?? []).find((s) => s.id === lieu.illustrationsSerieId)?.apercus ?? proposees.find((s) => s.actif)?.apercus ?? [])
+                            : c.valeur === "photos"
+                              ? (photos.data ?? []).filter((p) => p.cible === "cadres").map((p) => p.vignette)
+                              : []
+                        }
+                      />
                       <span className={`block text-sm font-semibold ${actif ? "text-accent" : "text-ink"}`}>{c.titre}</span>
                       <span className="mt-0.5 block text-xs text-ink-2">{c.detail}</span>
                     </button>
@@ -170,7 +235,7 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
                         else majLieu({ illustrationsAccueil: v as Lieu["illustrationsAccueil"] });
                       }}
                     >
-                      <option value="memes">Les mêmes que les cadres</option>
+                      <option value="memes">La même série que les cadres ({libelleCadres})</option>
                       <option value="festif">Série festive</option>
                       <option value="chic">Série chic</option>
                       {proposees.map((s) => (
