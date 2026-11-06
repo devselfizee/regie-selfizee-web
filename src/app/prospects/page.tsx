@@ -268,6 +268,11 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
       client.invalidateQueries({ queryKey: ["emplacements-concurrents"] });
     },
   });
+  // Lieu introuvable par la recherche : catégorie choisie à la main, une fois (ensuite affichée en texte)
+  const categoriser = useMutation({
+    mutationFn: ({ id, typeLieuId }: { id: number; typeLieuId: number }) => api(`/concurrents/emplacements/${id}`, { method: "PATCH", json: { typeLieuId } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["emplacements-concurrents"] }),
+  });
   if (chargement) return <Chargement />;
   if (!emplacements) return null;
   const n = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -344,7 +349,18 @@ function ListeEmplacements({ emplacements, chargement }: { emplacements: Emplace
                     <span className="font-medium">{e.nom}</span>
                   </td>
                   <td className="px-4 py-2.5">
-                    {e.typeLieu?.libelle ?? <span className="text-warn-ink">À catégoriser</span>}
+                    {e.typeLieu?.libelle ?? (
+                      <select
+                        className="champ !w-auto !py-1 text-sm text-warn-ink"
+                        aria-label={`Catégorie de ${e.nom}`}
+                        value=""
+                        disabled={categoriser.isPending}
+                        onChange={(ev) => ev.target.value && categoriser.mutate({ id: e.id, typeLieuId: Number(ev.target.value) })}
+                      >
+                        <option value="">À catégoriser</option>
+                        {typesLieu.map((t) => <option key={t.id} value={t.id}>{t.libelle}</option>)}
+                      </select>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     {e.concurrent.nom}
