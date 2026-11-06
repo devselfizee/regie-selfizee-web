@@ -169,11 +169,11 @@ function ReponseAlerte({ e }: { e: ElementTimeline }) {
   );
 }
 
-/** Un commentaire : texte avec les mentions en évidence ; modifiable par son auteur (ou un admin) */
+/** Un commentaire : texte avec les mentions en évidence ; modifiable et supprimable par son seul auteur */
 function Commentaire({ c, personnes, onChange }: { c: CommentaireLieu; personnes: Mentionnable[]; onChange: () => void }) {
   const moi = useMoi();
   const [edition, setEdition] = useState(false);
-  const modifiable = c.auteur?.id === moi.id || moi.role === "ADMIN";
+  const modifiable = c.auteur?.id === moi.id;
   const maj = useMutation({
     mutationFn: (v: { texte: string; mentionIds: number[] }) => api(`/commentaires/${c.id}`, { method: "PUT", json: v }),
     onSuccess: () => {
