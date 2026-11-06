@@ -1075,6 +1075,10 @@ export interface PageMedias {
 export interface ResumeMedias {
   total: number;
   derniere: string | null;
+  /** Fichiers annoncés par PikCloud pas encore copiés (le worker repasse chaque minute) */
+  enAttente: number;
+  /** Fichiers abandonnés après les tentatives : relance manuelle (admin) ou renvoi PikCloud */
+  enErreur: number;
   parEvenement: { id: number; code: string; nom: string | null; habituel: boolean; total: number }[];
   parType: { type: string; total: number }[];
 }

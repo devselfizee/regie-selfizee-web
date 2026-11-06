@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, fichierProtege, libelleTypeMedia, qs, telecharger, type MediaDetail, type MediaResume, type PageMedias, type ResumeMedias } from "@/lib/api";
 import { Badge, Chargement, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
-import { date, dateHeure, euros, libelleMoyen, nombre } from "@/lib/format";
+import { useMoi } from "@/lib/session";
+import { dateHeure, euros, libelleMoyen, nombre } from "@/lib/format";
 
 // Galerie des médias reçus de PikCloud pour un lieu (onglet Galerie de la fiche lieu) : les photos et vidéos
 // des séances, par événement. Les vignettes arrivent avec la liste ; le fichier en taille réelle est lu avec
@@ -29,6 +30,8 @@ const libelleEvenement = (e: { code: string; nom: string | null; habituel: boole
 const evenementDemande = () => (typeof window === "undefined" ? "" : new URL(window.location.href).searchParams.get("evenement") ?? "");
 
 export function GalerieMedias({ lieuId }: { lieuId: number }) {
+  const moi = useMoi();
+  const client = useQueryClient();
   const [evenement, setEvenement] = useState(evenementDemande);
   const [type, setType] = useState("");
   const [du, setDu] = useState("");
@@ -50,8 +53,15 @@ export function GalerieMedias({ lieuId }: { lieuId: number }) {
     setPage(1);
   };
 
+  // Relance de tous les téléchargements en attente ou en erreur du lieu (admin) ; le worker repasse aussitôt
+  const relancer = useMutation({
+    mutationFn: () => api<{ relances: number }>(`/lieux/${lieuId}/medias/relancer`, { method: "POST" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["medias"] }).then(() => client.invalidateQueries({ queryKey: ["medias-resume", lieuId] })),
+  });
+
   const r = resume.data;
   const pages = liste.data ? Math.max(1, Math.ceil(liste.data.total / PAR_PAGE)) : 1;
+  const aRelancer = r ? r.enAttente + r.enErreur : 0;
 
   return (
     <div className="space-y-4">
@@ -60,6 +70,21 @@ export function GalerieMedias({ lieuId }: { lieuId: number }) {
           <span className="font-semibold tabular text-ink">{nombre(r.total)}</span> {r.total > 1 ? "médias reçus" : "média reçu"}
           {r.derniere && <> · dernière séance le {dateHeure(r.derniere)}</>}
           {r.parType.length > 0 && <> · {r.parType.map((t) => `${nombre(t.total)} ${libelleTypeMedia(t.type).toLowerCase()}`).join(", ")}</>}
+        </p>
+      )}
+      {r && aRelancer > 0 && (
+        <p className="flex flex-wrap items-center gap-3 rounded-md bg-surface-2 px-3 py-2 text-sm">
+          <span>
+            {r.enAttente > 0 && <>{nombre(r.enAttente)} fichier{r.enAttente > 1 ? "s" : ""} en attente de téléchargement</>}
+            {r.enAttente > 0 && r.enErreur > 0 && " · "}
+            {r.enErreur > 0 && <span className="text-crit-ink">{nombre(r.enErreur)} en erreur</span>}
+          </span>
+          {moi.role === "ADMIN" && (
+            <button type="button" className="bouton-second" disabled={relancer.isPending} onClick={() => relancer.mutate()}>
+              {relancer.isPending ? "Relance…" : "Relancer les téléchargements"}
+            </button>
+          )}
+          {relancer.error && <Erreur erreur={relancer.error} />}
         </p>
       )}
 
@@ -122,11 +147,7 @@ export function GalerieMedias({ lieuId }: { lieuId: number }) {
                     <span className="rounded bg-ink/70 px-1.5 py-0.5 text-[0.65rem] font-medium text-white">{libelleTypeMedia(m.type)}</span>
                     {m.test && <span className="rounded bg-warn-bg px-1.5 py-0.5 text-[0.65rem] font-medium text-warn-ink">test</span>}
                   </span>
-                  {m.nbTirages !== null && m.nbTirages > 0 && (
-                    <span className="absolute right-1 top-1 rounded bg-surface/90 px-1.5 py-0.5 text-[0.65rem] text-ink shadow" title="Tirages">
-                      {m.nbTirages} 🖨
-                    </span>
-                  )}
+
                 </button>
                 <p className="mt-1 truncate text-xs text-ink-muted">{m.datePhoto ? dateHeure(m.datePhoto) : "Date inconnue"}</p>
               </li>
@@ -167,8 +188,14 @@ function Vignette({ m }: { m: MediaResume }) {
 }
 
 function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void }) {
+  const moi = useMoi();
+  const client = useQueryClient();
   const detail = useQuery({ queryKey: ["media", uuid], queryFn: () => api<MediaDetail>(`/medias/${uuid}`) });
   const m = detail.data;
+  const relancer = useMutation({
+    mutationFn: () => api<{ relances: number }>(`/medias/${uuid}/relancer`, { method: "POST" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["media", uuid] }).then(() => client.invalidateQueries({ queryKey: ["medias"] })),
+  });
   const [url, setUrl] = useState<string | null>(null);
   const [erreurFichier, setErreurFichier] = useState<unknown>(null);
 
@@ -220,15 +247,16 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
               <Ligne l="Borne">{m.borne}</Ligne>
               <Ligne l="Prise de vue">{dateHeure(m.datePhoto)}</Ligne>
 
-              <Ligne l="Tirages">{m.nbTirages ?? "—"}</Ligne>
+
               <Ligne l="Fichier">
                 {m.nomFichier ?? (m.extension ? `${m.filename}.${m.extension}` : m.filename)}
                 {m.taille !== null && <span className="text-xs text-ink-muted"> · {octets(m.taille)}</span>}
               </Ligne>
-              <Ligne l="État">
-                <Badge ton={m.statut === "TELECHARGE" ? "ok" : m.statut === "ERREUR" ? "crit" : "neutre"}>{STATUTS[m.statut]}</Badge>
-                {m.test && <Badge ton="warn">Séance de test</Badge>}
-              </Ligne>
+              {m.test && (
+                <Ligne l="Séance">
+                  <Badge ton="warn">Séance de test</Badge>
+                </Ligne>
+              )}
               <Ligne l="Vente">
                 {m.vente ? (
                   <>
@@ -242,7 +270,7 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
                 )}
               </Ligne>
               {m.parcours && <Ligne l="Parcours invité">{m.parcours.issue} · {m.parcours.dureeS} s</Ligne>}
-              <Ligne l="Reçu le">{date(m.recuLe)}</Ligne>
+
               {m.photoUuid && (
                 <Ligne l="photo_uuid">
                   <span className="break-all font-mono text-xs">{m.photoUuid}</span>
@@ -252,6 +280,11 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
           </div>
         )}
         <div className="mt-4 flex justify-end gap-2">
+          {m && m.statut !== "TELECHARGE" && moi.role === "ADMIN" && (
+            <button type="button" className="bouton-second" disabled={relancer.isPending} onClick={() => relancer.mutate()} title="Remet le fichier en attente : le téléchargement repart tout de suite">
+              {relancer.isPending ? "Relance…" : "Relancer le téléchargement"}
+            </button>
+          )}
           {m?.statut === "TELECHARGE" && (
             <button type="button" className="bouton-second" onClick={() => telecharger(`/medias/${uuid}/fichier?telecharger=1`)}>
               <span aria-hidden>↓</span> Télécharger
