@@ -219,7 +219,7 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
               <Ligne l="Événement">{m.evenement ? libelleEvenement(m.evenement) : <span className="text-warn-ink">Inconnu ({m.codeEvent})</span>}</Ligne>
               <Ligne l="Borne">{m.borne}</Ligne>
               <Ligne l="Prise de vue">{dateHeure(m.datePhoto)}</Ligne>
-              <Ligne l="Premier tirage">{m.datePrint ? dateHeure(m.datePrint) : "Aucun"}</Ligne>
+
               <Ligne l="Tirages">{m.nbTirages ?? "—"}</Ligne>
               <Ligne l="Fichier">
                 {m.nomFichier ?? (m.extension ? `${m.filename}.${m.extension}` : m.filename)}
@@ -236,7 +236,7 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
                     <span className="block text-xs text-ink-muted">{dateHeure(m.vente.horodatage)}</span>
                   </>
                 ) : m.photoUuid ? (
-                  <span className="text-ink-muted">Aucune vente avec ce photo_uuid</span>
+                  <span className="text-ink-muted">Aucune vente</span>
                 ) : (
                   <span className="text-ink-muted">JSON de séance pas encore reçu</span>
                 )}
