@@ -14,6 +14,8 @@ interface Utilisateur {
   prenom: string;
   telephone: string | null;
   role: Role;
+  /** Rôle lu dans Keycloak à la dernière connexion (sinon : rôle provisoire, à définir dans Keycloak) */
+  roleKeycloak: boolean;
   isActive: boolean;
   lieuId: number | null;
   lieu: { id: number; enseigne: string } | null;
@@ -51,7 +53,7 @@ function Utilisateurs() {
     <>
       <EnTete
         titre="Utilisateurs"
-        sousTitre="Chaque personne se connecte avec son compte Keycloak ; l'accès et le rôle se donnent ici, par adresse e-mail."
+        sousTitre="Identité et rôle viennent de Keycloak, à chaque connexion. Ici : ajouter une personne, rattacher un partenaire à son lieu, couper un accès."
         actions={<button className="bouton" onClick={() => setEdition("nouveau")}>Ajouter un utilisateur</button>}
       />
       {error && <Erreur erreur={error} />}
@@ -76,7 +78,14 @@ function Utilisateurs() {
                     <div className="font-medium">{[u.prenom, u.nom].filter(Boolean).join(" ")}</div>
                     <div className="text-xs text-ink-muted">{u.email}</div>
                   </td>
-                  <td className="px-4 py-3">{libelleRole(u.role)}</td>
+                  <td className="px-4 py-3">
+                    {libelleRole(u.role)}
+                    {!u.roleKeycloak && (
+                      <span className="block text-xs text-warn-ink" title="Le jeton Keycloak de cette personne ne porte aucun rôle de la Régie">
+                        {u.dejaConnecte ? "à définir dans Keycloak" : "lu à la première connexion"}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-ink-2">
                     {u.role === "ADMIN" || u.role === "TECHNICIEN"
                       ? "Tous les lieux"
@@ -95,7 +104,9 @@ function Utilisateurs() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Changer l&apos;accès</button>
+                      {u.role === "PARTENAIRE" && (
+                        <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Lieu du partenaire</button>
+                      )}
                       {u.id !== moi.id && (
                         <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => basculer.mutate(u)}>
                           {u.isActive ? "Désactiver" : "Réactiver"}
@@ -111,7 +122,7 @@ function Utilisateurs() {
       )}
 
       <Modale
-        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Accès de l'utilisateur"}
+        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Lieu du partenaire"}
         ouverte={edition !== null}
         onFermer={() => setEdition(null)}
       >
@@ -123,23 +134,12 @@ function Utilisateurs() {
 
 function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => void }) {
   const client = useQueryClient();
-  const [f, setF] = useState({
-    email: u?.email ?? "",
-    role: (u?.role ?? "COMMERCIAL") as Role,
-    lieuId: u?.lieuId ? String(u.lieuId) : "",
-  });
-  const { data: lieux } = useQuery({
-    queryKey: ["lieux", ""],
-    queryFn: () => api<LieuListe[]>("/lieux"),
-    enabled: f.role === "PARTENAIRE",
-  });
+  const [f, setF] = useState({ email: u?.email ?? "", lieuId: u?.lieuId ? String(u.lieuId) : "" });
+  const { data: lieux } = useQuery({ queryKey: ["lieux", ""], queryFn: () => api<LieuListe[]>("/lieux") });
   const enregistrer = useMutation({
     mutationFn: () => {
-      // Seul l'accès se règle ici : nom, prénom et téléphone viennent de Keycloak à la connexion
-      const corps = {
-        role: f.role,
-        lieuId: f.role === "PARTENAIRE" && f.lieuId ? Number(f.lieuId) : null,
-      };
+      // Identité et rôle viennent de Keycloak : seul le lieu d'un partenaire se règle ici
+      const corps = { lieuId: f.lieuId ? Number(f.lieuId) : null };
       return u
         ? api(`/utilisateurs/${u.id}`, { method: "PATCH", json: corps })
         : api("/utilisateurs", { method: "POST", json: { ...corps, email: f.email } });
@@ -156,44 +156,26 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
         <div className="rounded-md bg-surface-2 p-3 text-sm">
           <div className="font-medium">{[u.prenom, u.nom].filter(Boolean).join(" ")}</div>
           <div className="text-ink-2">{u.email}</div>
-          {u.telephone && <div className="text-ink-2">{u.telephone}</div>}
-          <p className="mt-1 text-xs text-ink-muted">
-            {u.dejaConnecte ? "Identité reprise du compte Keycloak à chaque connexion : elle se modifie dans Keycloak, pas ici." : "Nom et téléphone repris de Keycloak à sa première connexion."}
-          </p>
+          <div className="text-ink-2">{libelleRole(u.role)}</div>
+          <p className="mt-1 text-xs text-ink-muted">Identité et rôle viennent de Keycloak : ils se modifient là-bas, pas ici.</p>
         </div>
       ) : (
         <label className="block">
           <span className="etiquette">E-mail (celui du compte Keycloak) *</span>
           <input className="champ" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
-          <span className="mt-1 block text-xs text-ink-muted">Nom, prénom et téléphone seront repris de Keycloak à sa première connexion.</span>
+          <span className="mt-1 block text-xs text-ink-muted">
+            Nom, prénom, téléphone et rôle sont repris de Keycloak à sa première connexion. Sans rôle de la Régie dans Keycloak, elle entre comme commercial.
+          </span>
         </label>
       )}
-      <fieldset>
-        <legend className="etiquette">Rôle *</legend>
-        <div className="space-y-1">
-          {ROLES.map((r) => (
-            <label key={r.value} className={`flex cursor-pointer gap-2 rounded-md border px-3 py-2 text-sm ${f.role === r.value ? "border-accent bg-accent/5" : "border-line"}`}>
-              <input type="radio" name="role" checked={f.role === r.value} onChange={() => setF({ ...f, role: r.value })} />
-              <span>
-                <span className="font-medium">{r.label}</span>
-                <span className="block text-xs text-ink-muted">{r.description}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      {f.role === "PARTENAIRE" && (
-        <label className="block">
-          <span className="etiquette">Lieu du partenaire *</span>
-          <select className="champ" required value={f.lieuId} onChange={(e) => setF({ ...f, lieuId: e.target.value })}>
-            <option value="">—</option>
-            {lieux?.map((l) => <option key={l.id} value={l.id}>{l.enseigne}</option>)}
-          </select>
-        </label>
-      )}
-      {f.role === "COMMERCIAL" && (
-        <p className="text-xs text-ink-2">Ses lieux sont ceux dont il est le commercial responsable (fiche lieu).</p>
-      )}
+      <label className="block">
+        <span className="etiquette">{u ? "Lieu du partenaire *" : "Lieu, si c'est un partenaire"}</span>
+        <select className="champ" required={!!u} value={f.lieuId} onChange={(e) => setF({ ...f, lieuId: e.target.value })}>
+          <option value="">—</option>
+          {lieux?.map((l) => <option key={l.id} value={l.id}>{l.enseigne}</option>)}
+        </select>
+        <span className="mt-1 block text-xs text-ink-muted">Un partenaire ne voit que ce lieu, en lecture seule.</span>
+      </label>
       {enregistrer.error && <p role="alert" className="text-sm text-bad">{enregistrer.error.message}</p>}
       <button className="bouton" disabled={enregistrer.isPending}>{u ? "Enregistrer" : "Ajouter"}</button>
     </form>
