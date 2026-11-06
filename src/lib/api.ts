@@ -1045,6 +1045,8 @@ export const libelleTypeMedia = (type: string) => TYPES_MEDIA[type] ?? type;
 export interface MediaResume {
   uuid: string;
   filename: string;
+  /** Nom du média avec extension, tel que PikCloud le donne (name_photo du JSON, sinon le lien) */
+  nomFichier: string | null;
   codeEvent: string;
   type: string;
   video: boolean;

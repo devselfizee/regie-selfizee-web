@@ -221,7 +221,10 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
               <Ligne l="Prise de vue">{dateHeure(m.datePhoto)}</Ligne>
               <Ligne l="Premier tirage">{m.datePrint ? dateHeure(m.datePrint) : "Aucun"}</Ligne>
               <Ligne l="Tirages">{m.nbTirages ?? "—"}</Ligne>
-              <Ligne l="Fichier">{m.extension ? `${m.extension.toUpperCase()} · ${octets(m.taille)}` : "—"}</Ligne>
+              <Ligne l="Fichier">
+                {m.nomFichier ?? (m.extension ? `${m.filename}.${m.extension}` : m.filename)}
+                {m.taille !== null && <span className="text-xs text-ink-muted"> · {octets(m.taille)}</span>}
+              </Ligne>
               <Ligne l="État">
                 <Badge ton={m.statut === "TELECHARGE" ? "ok" : m.statut === "ERREUR" ? "crit" : "neutre"}>{STATUTS[m.statut]}</Badge>
                 {m.test && <Badge ton="warn">Séance de test</Badge>}
