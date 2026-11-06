@@ -23,7 +23,6 @@ import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
-import { GalerieMedias } from "@/components/GalerieMedias";
 import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
 import type { Alerte } from "@/lib/api";
 
@@ -58,7 +57,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "galerie" ? moi.role !== "TECHNICIEN" : o.cle === "configuration" ? peut.administrer(moi.role) : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "configuration" ? peut.administrer(moi.role) : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -143,8 +142,6 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} />}
 
       {ongletActif === "suivi" && <SuiviLieu lieuId={id} />}
-
-      {ongletActif === "galerie" && <GalerieMedias lieuId={id} />}
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
@@ -299,15 +296,13 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "galerie" | "commissions" | "configuration";
+type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration";
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
   { cle: "comportement", libelle: "Comportement" },
   { cle: "ventes", libelle: "Ventes" },
   { cle: "infos", libelle: "Informations" },
   { cle: "suivi", libelle: "Suivi" },
-  // Photos et vidéos des séances, reçues de PikCloud (pas pour le technicien : photos de personnes)
-  { cle: "galerie", libelle: "Galerie" },
   { cle: "commissions", libelle: "Commissions" },
   // La borne du lieu : infos et tarif repris par chaque événement, puis les événements
   { cle: "configuration", libelle: "Configuration" },

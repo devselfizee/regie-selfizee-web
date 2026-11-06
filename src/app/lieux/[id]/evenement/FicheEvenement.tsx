@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEvenementLieu, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
+import { GalerieMedias } from "@/components/GalerieMedias";
 import { Reserve } from "@/lib/session";
 import { Badge, Chargement, Erreur, Section } from "@/components/Etat";
 import { dateHeure, parametreUrl } from "@/lib/format";
@@ -176,11 +177,9 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {fiche.id !== null && (
-              <Link href={`/lieux/${lieuId}?onglet=galerie&evenement=${fiche.id}`} className="bouton-second" title="Les photos et vidéos des séances de cet événement, reçues de PikCloud">
-                <span aria-hidden>🖼</span> Galerie
-              </Link>
-            )}
+            <a href="#galerie" className="bouton-second" title="Les photos et vidéos des séances de cet événement, reçues de PikCloud (en bas de la page)">
+              <span aria-hidden>🖼</span> Galerie
+            </a>
             <button type="button" className="bouton-second" disabled={zipEnCours} onClick={telechargerZip} title="Le zip de l'événement : config.json, cadres et éléments du kit">
               <span aria-hidden>↓</span> {zipEnCours ? "Préparation…" : "Télécharger"}
             </button>
@@ -300,6 +299,17 @@ function Editeur({ lieuId, eid, enseigne, fiche, ecran, setEcran }: { lieuId: nu
           {enregistrer.error && <div className="w-full"><Erreur erreur={enregistrer.error} /></div>}
         </div>
       )}
+
+      {/* Ce que la borne a produit avec cet événement : les séances synchronisées depuis PikCloud */}
+      <section id="galerie" aria-labelledby="titre-galerie" className="mt-12 scroll-mt-6 border-t border-line pt-8">
+        <h2 id="titre-galerie" className="mb-1 text-xl font-semibold">Photos et vidéos reçues</h2>
+        <p className="mb-5 text-sm text-ink-2">Les séances faites sur la borne avec cet événement, synchronisées depuis PikCloud quelques minutes après chaque prise de vue.</p>
+        {fiche.id !== null ? (
+          <GalerieMedias lieuId={lieuId} evenementId={fiche.id} />
+        ) : (
+          <p className="text-sm text-ink-muted">Les médias arriveront une fois l&apos;événement enregistré et installé sur la borne.</p>
+        )}
+      </section>
     </div>
   );
 }

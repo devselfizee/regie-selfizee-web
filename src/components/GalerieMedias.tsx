@@ -29,10 +29,14 @@ const libelleEvenement = (e: { code: string; nom: string | null; habituel: boole
 /** Paramètre « evenement » de l'adresse, posé par le lien « Galerie » de la fiche événement. */
 const evenementDemande = () => (typeof window === "undefined" ? "" : new URL(window.location.href).searchParams.get("evenement") ?? "");
 
-export function GalerieMedias({ lieuId }: { lieuId: number }) {
+/**
+ * Galerie d'un lieu (sélecteur d'événement) ou, avec `evenementId`, d'un seul événement depuis sa fiche :
+ * le filtre est alors fixe et le sélecteur caché.
+ */
+export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; evenementId?: number }) {
   const moi = useMoi();
   const client = useQueryClient();
-  const [evenement, setEvenement] = useState(evenementDemande);
+  const [evenement, setEvenement] = useState(() => (evenementId ? String(evenementId) : evenementDemande()));
   const [type, setType] = useState("");
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
@@ -62,14 +66,17 @@ export function GalerieMedias({ lieuId }: { lieuId: number }) {
   const r = resume.data;
   const pages = liste.data ? Math.max(1, Math.ceil(liste.data.total / PAR_PAGE)) : 1;
   const aRelancer = r ? r.enAttente + r.enErreur : 0;
+  // Depuis la fiche événement : le compte de cet événement seulement (les types et la dernière séance sont ceux du lieu)
+  const total = r ? (evenementId ? (r.parEvenement.find((e) => e.id === evenementId)?.total ?? 0) : r.total) : 0;
 
   return (
     <div className="space-y-4">
       {r && (
         <p className="text-sm text-ink-2">
-          <span className="font-semibold tabular text-ink">{nombre(r.total)}</span> {r.total > 1 ? "médias reçus" : "média reçu"}
-          {r.derniere && <> · dernière séance le {dateHeure(r.derniere)}</>}
-          {r.parType.length > 0 && <> · {r.parType.map((t) => `${nombre(t.total)} ${libelleTypeMedia(t.type).toLowerCase()}`).join(", ")}</>}
+          <span className="font-semibold tabular text-ink">{nombre(total)}</span> {total > 1 ? "médias reçus" : "média reçu"}
+          {evenementId && " pour cet événement"}
+          {!evenementId && r.derniere && <> · dernière séance le {dateHeure(r.derniere)}</>}
+          {!evenementId && r.parType.length > 0 && <> · {r.parType.map((t) => `${nombre(t.total)} ${libelleTypeMedia(t.type).toLowerCase()}`).join(", ")}</>}
         </p>
       )}
       {r && aRelancer > 0 && (
@@ -89,17 +96,19 @@ export function GalerieMedias({ lieuId }: { lieuId: number }) {
       )}
 
       <div className="flex flex-wrap items-end gap-3">
-        <label className="block">
-          <span className="etiquette">Événement</span>
-          <select id="galerie-evenement" className="champ" value={evenement} onChange={(e) => changer(setEvenement)(e.target.value)}>
-            <option value="">Tous</option>
-            {r?.parEvenement.map((e) => (
-              <option key={e.id} value={e.id}>
-                {libelleEvenement(e)} ({e.total})
-              </option>
-            ))}
-          </select>
-        </label>
+        {!evenementId && (
+          <label className="block">
+            <span className="etiquette">Événement</span>
+            <select id="galerie-evenement" className="champ" value={evenement} onChange={(e) => changer(setEvenement)(e.target.value)}>
+              <option value="">Tous</option>
+              {r?.parEvenement.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {libelleEvenement(e)} ({e.total})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="block">
           <span className="etiquette">Type</span>
           <select id="galerie-type" className="champ" value={type} onChange={(e) => changer(setType)(e.target.value)}>
@@ -130,7 +139,7 @@ export function GalerieMedias({ lieuId }: { lieuId: number }) {
       ) : !liste.data ? (
         <Chargement />
       ) : liste.data.medias.length === 0 ? (
-        <Vide>{r && r.total === 0 ? "Aucun média reçu pour ce lieu. Ils arrivent de PikCloud quelques minutes après chaque séance sur la borne." : "Aucun média ne correspond à ces filtres."}</Vide>
+        <Vide>{total === 0 ? `Aucun média reçu pour ${evenementId ? "cet événement" : "ce lieu"}. Ils arrivent de PikCloud quelques minutes après chaque séance sur la borne.` : "Aucun média ne correspond à ces filtres."}</Vide>
       ) : (
         <>
           <ul className={`grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6 ${liste.isPlaceholderData ? "opacity-60" : ""}`}>
