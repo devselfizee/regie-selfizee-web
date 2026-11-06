@@ -16,6 +16,8 @@ interface Utilisateur {
   role: Role;
   /** Rôle lu dans Keycloak à la dernière connexion (sinon : rôle provisoire, à définir dans Keycloak) */
   roleKeycloak: boolean;
+  /** Reçoit les SMS des alertes critiques (désigné ici ; personne par défaut) */
+  alertesSms: boolean;
   isActive: boolean;
   lieuId: number | null;
   lieu: { id: number; enseigne: string } | null;
@@ -48,6 +50,10 @@ function Utilisateurs() {
     mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { isActive: !u.isActive } }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["utilisateurs"] }),
   });
+  const sms = useMutation({
+    mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { alertesSms: !u.alertesSms } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["utilisateurs"] }),
+  });
 
   return (
     <>
@@ -59,6 +65,10 @@ function Utilisateurs() {
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
       {basculer.error && <Erreur erreur={basculer.error} />}
+      {sms.error && <Erreur erreur={sms.error} />}
+      <p className="mb-3 text-xs text-ink-2">
+        SMS des alertes critiques (borne muette…) : seulement aux personnes cochées, à leur numéro du Hub. Les autres alertes partent par e-mail.
+      </p>
       {data && (
         <div className="carte overflow-x-auto">
           <table className="w-full text-sm">
@@ -67,6 +77,7 @@ function Utilisateurs() {
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Rôle</th>
                 <th className="px-4 py-3 font-medium">Périmètre</th>
+                <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…) ; les autres arrivent par e-mail">SMS des alertes</th>
                 <th className="px-4 py-3 font-medium">État</th>
                 <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
               </tr>
@@ -92,6 +103,14 @@ function Utilisateurs() {
                       : u.role === "PARTENAIRE"
                         ? u.lieu?.enseigne ?? "—"
                         : `${u.nbLieux} lieu${u.nbLieux > 1 ? "x" : ""}`}
+                  </td>
+                  <td className="px-4 py-3">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={u.alertesSms} disabled={sms.isPending} onChange={() => sms.mutate(u)} aria-label={`SMS des alertes pour ${u.email}`} />
+                      <span className={`text-xs ${u.telephone ? "text-ink-2" : u.alertesSms ? "text-warn-ink" : "text-ink-muted"}`}>
+                        {u.telephone ?? "pas de numéro dans le Hub"}
+                      </span>
+                    </label>
                   </td>
                   <td className="px-4 py-3">
                     {!u.isActive ? (
