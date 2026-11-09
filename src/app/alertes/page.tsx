@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type Alerte, type NiveauAlerte } from "@/lib/api";
-import { Reserve, useMoi } from "@/lib/session";
+import { PageGuard, usePerm } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { ListeAlertes, NIVEAUX } from "@/components/ListeAlertes";
 
@@ -15,14 +15,15 @@ const ONGLETS = [
 
 export default function PageAlertes() {
   return (
-    <Reserve roles={["ADMIN", "TECHNICIEN", "COMMERCIAL"]}>
+    <PageGuard perm="pages.alertes.view">
       <Alertes />
-    </Reserve>
+    </PageGuard>
   );
 }
 
 function Alertes() {
-  const moi = useMoi();
+  // Relancer la vérification : réservé à qui règle les alertes
+  const voitRegles = usePerm("alertes.regles_edit");
   const client = useQueryClient();
   const [onglet, setOnglet] = useState(ONGLETS[0]);
   const [niveau, setNiveau] = useState<NiveauAlerte | "">("");
@@ -43,7 +44,7 @@ function Alertes() {
         titre="Alertes"
         sousTitre="Chaque lieu est comparé à son propre historique, uniquement sur ses jours et heures d'ouverture. Vérification toutes les 15 minutes."
         actions={
-          moi.role === "ADMIN" ? (
+          voitRegles ? (
             <button className="bouton-second" disabled={evaluer.isPending} onClick={() => evaluer.mutate()}>
               {evaluer.isPending ? "Vérification…" : "Vérifier maintenant"}
             </button>

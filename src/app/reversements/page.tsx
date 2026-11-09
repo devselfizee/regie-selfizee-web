@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type Reversement, type StatutReversement } from "@/lib/api";
 import { STATUTS, versCents } from "@/lib/commissions";
 import { euros } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Exporter } from "@/components/BoutonExport";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
@@ -21,9 +21,9 @@ const ONGLETS: { cle: string; libelle: string; statuts: StatutReversement[] | nu
 
 export default function PageReversements() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.commissions.view">
       <Reversements />
-    </Reserve>
+    </PageGuard>
   );
 }
 

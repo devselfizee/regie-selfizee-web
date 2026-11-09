@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type EvenementMarketing } from "@/lib/api";
 import { Chargement, Erreur } from "./Etat";
+import { Gate } from "@/lib/perms";
 
 // L'API renvoie des dates complètes (« 2026-05-31T00:00:00.000Z ») : seul le jour compte
 const ymd = (d: string) => d.slice(0, 10);
@@ -67,7 +68,9 @@ export function CalendrierMarketing() {
           {edition === "nouveau" ? (
             <Formulaire onFini={fini} onAnnuler={() => setEdition(null)} />
           ) : (
-            <button type="button" className="bouton-second" onClick={() => setEdition("nouveau")}>Ajouter un événement</button>
+            <Gate perm="marketing.edit">
+              <button type="button" className="bouton-second" onClick={() => setEdition("nouveau")}>Ajouter un événement</button>
+            </Gate>
           )}
         </div>
       )}

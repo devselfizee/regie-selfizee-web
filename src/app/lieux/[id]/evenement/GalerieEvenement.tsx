@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api, type LieuFiche, type ResumeMedias } from "@/lib/api";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Chargement, Erreur, Vide } from "@/components/Etat";
 import { FilAriane } from "@/components/FilAriane";
 import { GalerieMedias } from "@/components/GalerieMedias";
@@ -17,9 +17,9 @@ const pageEvenement = (lieuId: number, eid?: number) => (eid ? `/lieux/${lieuId}
 
 export function GalerieEvenement({ id, eid }: { id: number; eid?: number }) {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL", "PARTENAIRE"]}>
+    <PageGuard perm="medias.view">
       <Contenu id={id} eid={eid} />
-    </Reserve>
+    </PageGuard>
   );
 }
 

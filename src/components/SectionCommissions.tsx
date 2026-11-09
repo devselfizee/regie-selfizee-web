@@ -6,15 +6,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type CommissionsLieu } from "@/lib/api";
 import { STATUTS } from "@/lib/commissions";
 import { date, euros } from "@/lib/format";
-import { useMoi } from "@/lib/session";
+import { usePerm } from "@/lib/perms";
 import { Badge, Chargement, Erreur, Section, Vide } from "./Etat";
 import { FormContrat } from "./FormContrat";
 import { Modale } from "./Modale";
 
 /** Contrat de commission, commission en cours et reversements d'un lieu (admin, partenaire). */
 export function SectionCommissions({ lieuId }: { lieuId: number }) {
-  const moi = useMoi();
-  const admin = moi.role === "ADMIN";
+  // Gestion du contrat et des reversements (le partenaire, lui, consulte)
+  const admin = usePerm("commissions.edit");
   const client = useQueryClient();
   const [formulaire, setFormulaire] = useState(false);
   const { data, error } = useQuery({

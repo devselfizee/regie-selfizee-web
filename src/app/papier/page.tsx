@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { dateHeure, depuis, nombre } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
 
@@ -15,9 +15,9 @@ const SEUILS = [50, 100, 150, 200];
 
 export default function PagePapier() {
   return (
-    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+    <PageGuard perm="pages.papier.view">
       <Papier />
-    </Reserve>
+    </PageGuard>
   );
 }
 

@@ -5,54 +5,55 @@ import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, type MesMentions } from "@/lib/api";
 import { jeton, keycloak } from "@/lib/auth";
-import { useMoi, type Role } from "@/lib/session";
+import { useMoi } from "@/lib/session";
+import { useDroits } from "@/lib/perms";
 import { chargerPlateforme, PLATEFORME_URL, type Plateforme, type Racine18 } from "@/lib/plateforme";
 import { Navigation } from "./Navigation";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- composants React 18 chargés à l'exécution */
 
-// Menu de la barre latérale (icônes Lucide), filtré selon le rôle
-const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone: string; roles: Role[] }[] }[] = [
+// Menu de la barre latérale (icônes Lucide), filtré selon les droits Konitys (une clé pages.<x>.view par entrée)
+const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone: string; perm: string }[] }[] = [
   {
     libelle: "Pilotage",
     liens: [
-      { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/lieux/carte", libelle: "Analyse géographique", icone: "Map", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/comportements", libelle: "Comportements", icone: "Footprints", roles: ["ADMIN", "COMMERCIAL"] },
-      { href: "/alertes", libelle: "Alertes", icone: "Bell", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
-      { href: "/mentions", libelle: "Mes mentions", icone: "AtSign", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
+      { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", perm: "pages.tableau_de_bord.view" },
+      { href: "/lieux/carte", libelle: "Analyse géographique", icone: "Map", perm: "pages.analyse_geo.view" },
+      { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", perm: "pages.analyse.view" },
+      { href: "/comportements", libelle: "Comportements", icone: "Footprints", perm: "pages.comportements.view" },
+      { href: "/alertes", libelle: "Alertes", icone: "Bell", perm: "pages.alertes.view" },
+      { href: "/mentions", libelle: "Mes mentions", icone: "AtSign", perm: "pages.mentions.view" },
     ],
   },
   {
     libelle: "Parc",
     liens: [
-      { href: "/lieux", libelle: "Lieux", icone: "MapPin", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
-      { href: "/bornes", libelle: "Bornes", icone: "Monitor", roles: ["ADMIN", "TECHNICIEN"] },
-      { href: "/monitoring", libelle: "Monitoring live", icone: "Activity", roles: ["ADMIN", "TECHNICIEN"] },
-      { href: "/papier", libelle: "Papier", icone: "Printer", roles: ["ADMIN", "TECHNICIEN"] },
+      { href: "/lieux", libelle: "Lieux", icone: "MapPin", perm: "pages.lieux.view" },
+      { href: "/bornes", libelle: "Bornes", icone: "Monitor", perm: "pages.bornes.view" },
+      { href: "/monitoring", libelle: "Monitoring live", icone: "Activity", perm: "pages.monitoring.view" },
+      { href: "/papier", libelle: "Papier", icone: "Printer", perm: "pages.papier.view" },
       // Journal des bornes et erreurs d'import : techniques, rangés dans « Suivi technique » de la page Bornes
     ],
   },
   {
     libelle: "Argent",
     liens: [
-      { href: "/reversements", libelle: "Commissions", icone: "Banknote", roles: ["ADMIN"] },
-      { href: "/paiements", libelle: "Paiements", icone: "Receipt", roles: ["ADMIN"] },
-      { href: "/codes", libelle: "Codes de remise", icone: "Ticket", roles: ["ADMIN"] },
-      { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", roles: ["ADMIN"] },
-      { href: "/rentabilite", libelle: "Rentabilité", icone: "TrendingUp", roles: ["ADMIN"] },
+      { href: "/reversements", libelle: "Commissions", icone: "Banknote", perm: "pages.commissions.view" },
+      { href: "/paiements", libelle: "Paiements", icone: "Receipt", perm: "pages.paiements.view" },
+      { href: "/codes", libelle: "Codes de remise", icone: "Ticket", perm: "pages.codes_remise.view" },
+      { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", perm: "pages.rapprochement.view" },
+      { href: "/rentabilite", libelle: "Rentabilité", icone: "TrendingUp", perm: "pages.rentabilite.view" },
     ],
   },
   {
     libelle: "Commercial",
-    liens: [{ href: "/prospects", libelle: "Prospects", icone: "Target", roles: ["ADMIN", "COMMERCIAL"] }],
+    liens: [{ href: "/prospects", libelle: "Prospects", icone: "Target", perm: "pages.prospects.view" }],
   },
   {
     libelle: "Administration",
     liens: [
-      { href: "/utilisateurs", libelle: "Utilisateurs", icone: "Users", roles: ["ADMIN"] },
-      { href: "/parametres", libelle: "Paramètres", icone: "Settings", roles: ["ADMIN"] },
+      { href: "/utilisateurs", libelle: "Utilisateurs", icone: "Users", perm: "pages.utilisateurs.view" },
+      { href: "/parametres", libelle: "Paramètres", icone: "Settings", perm: "pages.parametres.view" },
     ],
   },
 ];
@@ -137,17 +138,25 @@ export function Coquille({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, []);
 
+  // Droits du menu : les clés accordées, et leur empreinte (dépendance du menu mémorisé)
+  const a = useDroits();
+  const permis = new Set(SECTIONS.flatMap((s) => s.liens.map((l) => l.perm)).filter((p) => a(p)));
+  const cleDroits = [...permis].join("|");
+  const voitAlertes = a("pages.alertes.view");
+  const voitMentions = a("pages.mentions.view");
+  const monLieuSeul = !a("pages.lieux.view") && !!moi.lieuId;
+
   const { data: compteur } = useQuery({
     queryKey: ["alertes", "compteur"],
     queryFn: () => api<{ nouvelles: number; critiques: number }>("/alertes/compteur"),
-    enabled: moi.role !== "PARTENAIRE",
+    enabled: voitAlertes,
     refetchInterval: 60_000,
   });
 
   const { data: mentions } = useQuery({
     queryKey: ["mentions"],
     queryFn: () => api<MesMentions>("/commentaires/mentions"),
-    enabled: moi.role !== "PARTENAIRE",
+    enabled: voitMentions,
     refetchInterval: 60_000,
   });
 
@@ -155,12 +164,12 @@ export function Coquille({ children }: { children: ReactNode }) {
   const nbMentions = mentions?.nonLues ?? 0;
   const sections = useMemo(() => {
     if (!plateforme) return [];
-    if (moi.role === "PARTENAIRE" && moi.lieuId)
-      return [{ label: "Mon lieu", items: [{ icon: plateforme.icone("MapPin"), label: "Mon lieu", path: `/lieux/${moi.lieuId}` }] }];
+    // Sans la liste des lieux mais rattaché à un lieu (partenaire) : un menu réduit à « Mon lieu »
+    if (monLieuSeul) return [{ label: "Mon lieu", items: [{ icon: plateforme.icone("MapPin"), label: "Mon lieu", path: `/lieux/${moi.lieuId}` }] }];
     return SECTIONS.map((s) => ({
       label: s.libelle,
       items: s.liens
-        .filter((l) => l.roles.includes(moi.role))
+        .filter((l) => permis.has(l.perm))
         .map((l) => ({
           icon: plateforme.icone(l.icone),
           label: l.libelle,
@@ -169,7 +178,9 @@ export function Coquille({ children }: { children: ReactNode }) {
           ...(l.href === "/mentions" && nbMentions ? { badge: nbMentions } : {}),
         })),
     })).filter((s) => s.items.length);
-  }, [plateforme, moi.role, moi.lieuId, nbAlertes, nbMentions]);
+    // permis : recalculé à chaque rendu, comparé par sa clé texte
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plateforme, cleDroits, monLieuSeul, moi.lieuId, nbAlertes, nbMentions]);
 
   // La barre latérale ne surligne que le chemin exact : on lui donne l'entrée de menu qui contient la page
   const cheminActif = useMemo(() => {

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type Rentabilite } from "@/lib/api";
 import { euros, jour, pct } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { preset, PRESETS } from "@/components/Filtres";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 
@@ -19,9 +19,9 @@ interface Ligne extends Rentabilite {
 
 export default function PageRentabilite() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.rentabilite.view">
       <Contenu />
-    </Reserve>
+    </PageGuard>
   );
 }
 

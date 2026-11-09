@@ -1,11 +1,11 @@
 import { FormLieu } from "@/components/FormLieu";
 import { EnTete } from "@/components/Etat";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 
 export default async function NouveauLieu({ searchParams }: PageProps<"/lieux/nouveau">) {
   const prospect = (await searchParams).statut === "PROSPECT";
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL"]}>
+    <PageGuard perm="lieux.create">
       <EnTete
         titre={prospect ? "Nouveau prospect" : "Nouveau lieu"}
         sousTitre={
@@ -15,6 +15,6 @@ export default async function NouveauLieu({ searchParams }: PageProps<"/lieux/no
         }
       />
       <FormLieu statut={prospect ? "PROSPECT" : undefined} />
-    </Reserve>
+    </PageGuard>
   );
 }

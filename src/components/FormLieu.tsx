@@ -9,7 +9,7 @@ import { JOURS_SEMAINE } from "@/lib/format";
 import { useReferentiel } from "./Filtres";
 import { Chargement } from "./Etat";
 import { ChoixRecherche } from "./ChoixLieu";
-import { useMoi } from "@/lib/session";
+import { usePerm } from "@/lib/perms";
 import { MATERIELS, useConcurrents } from "./Concurrents";
 
 // État du formulaire : tout en chaînes (champs HTML), converti à l'envoi.
@@ -108,7 +108,8 @@ export function FormLieu({ lieu, statut }: { lieu?: LieuFiche; statut?: string }
 function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentiel; statut?: string }) {
   const router = useRouter();
   const client = useQueryClient();
-  const moi = useMoi();
+  // Choisir le commercial responsable : réservé à qui gère les utilisateurs (avant : tous sauf les commerciaux)
+  const choisitCommercial = usePerm("utilisateurs.manage");
   const [e, setE] = useState<Etat>(() => depuisFiche(lieu, statut));
   // Fiche prospect allégée (retour de Sébastien) : sans fréquentation, environnement, emplacement ni bloc commercial
   const prospect = e.statut === "PROSPECT";
@@ -294,7 +295,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {champ("dateSignature", "Date de signature", { type: "date" })}
         {champ("dateInstallation", "Date d'installation", { type: "date" })}
         {champ("dureeContratMois", "Durée du contrat (mois)", { type: "number" })}
-        {moi.role !== "COMMERCIAL" &&
+        {choisitCommercial &&
           select("commercialId", "Commercial responsable", refs.commerciaux.map((c) => ({ value: String(c.id), label: `${c.prenom} ${c.nom}` })))}
         {select("antenneId", "Ville principale", options("ANTENNE"))}
         {select("parc", "Parc", [

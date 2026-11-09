@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { api, MAX_COMPOSITIONS, telecharger, type CadreEvenement, type FicheEvenementLieu, type LieuFiche, type LotJeu, type ReglagesEvenement } from "@/lib/api";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Badge, Chargement, Erreur, Section } from "@/components/Etat";
 import { dateHeure, parametreUrl } from "@/lib/format";
 import { EditeurGrille, ResumeGrille } from "@/components/GrilleTarifs";
@@ -31,9 +31,9 @@ export const cheminsEvenement = (lieuId: number, eid?: number | null) =>
 
 export function FicheEvenement({ id, eid }: { id: number; eid?: number }) {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="evenements.view">
       <Chargeur id={id} eid={eid} />
-    </Reserve>
+    </PageGuard>
   );
 }
 

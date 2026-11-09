@@ -6,7 +6,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Effet, EXPLICATION_EFFETS, lignesEffets, SOURCES_METEO } from "@/components/Contexte";
 import { api, qs, type ContexteSegments } from "@/lib/api";
 import { euros, jour, nombre } from "@/lib/format";
-import { Reserve, useMoi } from "@/lib/session";
+import { PageGuard, usePerm } from "@/lib/perms";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
@@ -51,15 +51,15 @@ const PEU_DE_LIEUX = 3;
 
 export default function PageAnalyse() {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL"]}>
+    <PageGuard perm="pages.analyse.view">
       <Analyse />
-    </Reserve>
+    </PageGuard>
   );
 }
 
 function Analyse() {
-  const moi = useMoi();
-  const indicateurs = INDICATEURS.filter((i) => !i.admin || moi.role === "ADMIN");
+  const voitMarges = usePerm("ventes.marges_view");
+  const indicateurs = INDICATEURS.filter((i) => !i.admin || voitMarges);
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const [x, setX] = useState("typeLieu");
   const [y, setY] = useState("heureFermeture");

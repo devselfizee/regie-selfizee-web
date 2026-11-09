@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type EmplacementConcurrent, type ListeProspects, type Prospect } from "@/lib/api";
 import { euros, eurosRond, pct } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { Gate, PageGuard } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Classe, CONFIANCE, Precision } from "@/components/Prospect";
 import { CarteLieux, type PointCarte } from "@/components/CarteLieux";
@@ -15,11 +15,11 @@ import { useReferentiel } from "@/components/Filtres";
 
 export default function PageProspects() {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL"]}>
+    <PageGuard perm="pages.prospects.view">
       <Suspense>
         <Prospects />
       </Suspense>
-    </Reserve>
+    </PageGuard>
   );
 }
 
@@ -109,7 +109,9 @@ function Prospects() {
                 </button>
               ))}
             </div>
-            <Link href="/lieux/nouveau?statut=PROSPECT" className="bouton">Nouveau prospect</Link>
+            <Gate perm="prospects.edit">
+              <Link href="/lieux/nouveau?statut=PROSPECT" className="bouton">Nouveau prospect</Link>
+            </Gate>
           </>
         }
       />

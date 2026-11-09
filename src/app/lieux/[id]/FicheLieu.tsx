@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
-import { peut, useMoi } from "@/lib/session";
+import { Gate, useDroits } from "@/lib/perms";
 import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, nombre, pct, parametreUrl } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { KpiCouleur } from "@/components/KpiCouleur";
@@ -28,8 +28,9 @@ import { PageSouvenirLieu } from "@/components/PageSouvenirLieu";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
-  const moi = useMoi();
-  const voitVentesRole = peut.voirVentes(moi.role);
+  // Droits Konitys (Admin Panel) : onglets et boutons
+  const a = useDroits();
+  const voitVentesRole = a("ventes.view");
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
   const [ht, setHt] = usePreferenceHt();
   // « evenements » : ancien nom de l'onglet Configuration (liens déjà partagés)
@@ -48,7 +49,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const alertes = useQuery({
     queryKey: ["alertes", "lieu", id],
     queryFn: () => api<Alerte[]>(`/alertes${qs({ lieuId: id, statut: "NOUVELLE,PRISE_EN_CHARGE" })}`),
-    enabled: moi.role !== "PARTENAIRE",
+    enabled: a("alertes.ventes_view") || a("alertes.techniques_view"),
   });
 
   if (lieu.error) return <Erreur erreur={lieu.error} />;
@@ -57,8 +58,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   // Un prospect n'a pas encore de ventes : on montre son potentiel estimé à la place
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
-  const voitCommissions = moi.role === "ADMIN" || moi.role === "PARTENAIRE";
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && moi.role === "ADMIN" : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? moi.role !== "PARTENAIRE" : o.cle === "configuration" ? peut.administrer(moi.role) : o.cle === "souvenir" ? !prospect && moi.role !== "TECHNICIEN" : true));
+  const voitCommissions = a("commissions.view");
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -69,10 +70,12 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         actions={
           <>
             {ongletActif === "stats" && voitVentes && <BasculeHt ht={ht} onChange={setHt} />}
-            {voitVentes && (
+            {voitVentes && a("ventes.export") && (
               <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ ...filtres, parc: undefined, lieuId: id }) }]} />
             )}
-            {peut.gererLieux(moi.role) && <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>}
+            <Gate perm="lieux.edit">
+              <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>
+            </Gate>
           </>
         }
       />
@@ -102,7 +105,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         ))}
       </nav>
 
-      {ongletActif === "stats" && prospect && (moi.role === "ADMIN" || moi.role === "COMMERCIAL") && (
+      {ongletActif === "stats" && prospect && a("prospects.view") && (
         <div className="mb-6">
           <SectionPotentiel lieuId={id} />
         </div>
@@ -136,7 +139,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
 
       {ongletActif === "stats" && (
         <div className="mt-6">
-          <JournalEvenements lieuId={id} peutEcrire={moi.role !== "PARTENAIRE"} />
+          <JournalEvenements lieuId={id} peutEcrire={a("contexte.edit")} />
         </div>
       )}
 
@@ -259,14 +262,14 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </Section>
       </div>
 
-      {moi.role === "ADMIN" && (
+      <Gate perm="codes_remise.view">
         <div className="mt-6">
           <CodesRemiseLieu lieuId={l.id} />
         </div>
-      )}
+      </Gate>
 
       <div className="mt-6">
-        <Section titre="Historique des bornes" actions={peut.gererBornes(moi.role) ? <Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link> : undefined}>
+        <Section titre="Historique des bornes" actions={a("bornes.view") ? <Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link> : undefined}>
           {l.affectations.length ? (
             <table className="w-full text-sm">
               <thead className="text-left text-xs text-ink-2">
@@ -325,7 +328,7 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
 function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId: number; horaires: LieuFiche["horaires"]; ht: boolean }) {
   // En HT : montants convertis à 20 % de TVA quand l'API ne donne que le TTC (le CA des KPI et de la courbe, lui, est exact)
   const s = ht ? enHt(brut) : brut;
-  const voitBornes = peut.gererBornes(useMoi().role);
+  const voitBornes = useDroits()("bornes.view");
   const suffixe = ht ? "HT" : "TTC";
   const { courant: c, precedente: p } = s.kpis;
   const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);

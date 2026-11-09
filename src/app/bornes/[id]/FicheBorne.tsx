@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type BorneDetail, type CategorieCout, type Cout, type Intervention, type Rentabilite, type RetourInvestissement } from "@/lib/api";
 import { date, dateHeure, depuis, euros, eurosRond, jour, pct } from "@/lib/format";
 import { depuisCents, versCents } from "@/lib/commissions";
-import { Reserve, useMoi } from "@/lib/session";
+import { Gate, PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
@@ -22,14 +22,13 @@ export const CATEGORIES: Record<CategorieCout, string> = {
 
 export function FicheBorne({ id }: { id: number }) {
   return (
-    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+    <PageGuard perm="bornes.view">
       <Fiche id={id} />
-    </Reserve>
+    </PageGuard>
   );
 }
 
 function Fiche({ id }: { id: number }) {
-  const moi = useMoi();
   const { data: b, error } = useQuery({ queryKey: ["borne", id], queryFn: () => api<BorneDetail>(`/bornes/${id}`) });
   const [edition, setEdition] = useState(false);
   const [dates, setDates] = useState<BorneDetail["affectations"][number] | null>(null);
@@ -64,7 +63,9 @@ function Fiche({ id }: { id: number }) {
       {b.ventesSansLieu && <VentesSansLieu borne={b} />}
 
       <div className="space-y-6">
-        {moi.role === "ADMIN" && <SectionRentabilite id={id} />}
+        <Gate perm="rentabilite.view">
+          <SectionRentabilite id={id} />
+        </Gate>
         <SectionModule borne={b} />
         <SectionInterventions id={id} />
         <SectionCouts id={id} />

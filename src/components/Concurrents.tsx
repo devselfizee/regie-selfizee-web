@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Concurrent } from "@/lib/api";
 import { nombre } from "@/lib/format";
 import { Badge, Chargement, Erreur } from "./Etat";
+import { Gate } from "@/lib/perms";
 
 export const MATERIELS: Record<"CABINE" | "BORNE", string> = { CABINE: "Cabine", BORNE: "Borne" };
 
@@ -83,7 +84,9 @@ export function Concurrents() {
           {edition === "nouveau" ? (
             <Formulaire onFini={fini} onAnnuler={() => setEdition(null)} />
           ) : (
-            <button type="button" className="bouton-second" onClick={() => setEdition("nouveau")}>Ajouter un concurrent</button>
+            <Gate perm="concurrents.edit">
+              <button type="button" className="bouton-second" onClick={() => setEdition("nouveau")}>Ajouter un concurrent</button>
+            </Gate>
           )}
           {import_ && <ImportEmplacements concurrent={import_} onFini={() => { setImport(null); fini(); }} />}
         </div>

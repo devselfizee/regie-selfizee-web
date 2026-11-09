@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type GrilleTarifs, type TarifsLieu } from "@/lib/api";
 import { dateHeure, euros } from "@/lib/format";
-import { useMoi } from "@/lib/session";
+import { usePerm } from "@/lib/perms";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
 
 // Tarifs en trois niveaux (demande de Sébastien) : base du parc → lieu → événement.
@@ -210,7 +210,8 @@ export const resumeGrille = (g: GrilleTarifs) =>
 
 /** Paramètres : tarifs de base du parc Selfizee, repris par chaque lieu sans tarifs propres. */
 export function TarifsBase() {
-  const moi = useMoi();
+  // Tarifs de base du parc : modifiables avec les réglages (Paramètres)
+  const admin = usePerm("referentiel.edit");
   const client = useQueryClient();
   const { data, error } = useQuery({
     queryKey: ["tarifs-base"],
@@ -230,7 +231,6 @@ export function TarifsBase() {
   if (!data) return <Chargement />;
   const g = brouillon ?? data.grille;
   const erreurs = erreursGrille(g);
-  const admin = moi.role === "ADMIN";
   return (
     <Section titre="Tarifs de base du parc">
       <p className="mb-3 text-sm text-ink-2">
