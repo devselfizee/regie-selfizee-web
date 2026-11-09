@@ -14,6 +14,9 @@ ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
 # Studio de cadres, facultatives (les autres variables du studio se lisent à l'exécution, cf. .env.example)
 ARG NEXT_PUBLIC_BIBLIOTHEQUES_URL=
 ARG NEXT_PUBLIC_STUDIO_BACKEND_URL=
+# Droits Konitys : gateway (SDK des droits, page « Accès refusé ») ; vide = tout autorisé côté écran (l'API contrôle toujours)
+ARG NEXT_PUBLIC_GATEWAY_URL=
+ENV NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL
 ENV NEXT_PUBLIC_BIBLIOTHEQUES_URL=$NEXT_PUBLIC_BIBLIOTHEQUES_URL
 ENV NEXT_PUBLIC_STUDIO_BACKEND_URL=$NEXT_PUBLIC_STUDIO_BACKEND_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
