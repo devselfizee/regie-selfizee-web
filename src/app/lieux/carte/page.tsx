@@ -57,7 +57,7 @@ export default function PageCarte() {
 }
 
 function Carte() {
-  const peutPlacer = usePerm("lieux.edit");
+  const peutPlacer = usePerm("referentiel.edit"); // même clé que POST /api/lieux/geocoder
   const router = useRouter();
   const client = useQueryClient();
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
