@@ -6,6 +6,7 @@ import { api, type CommentaireLieu, type ElementTimeline, type Mentionnable } fr
 import { dateHeure } from "@/lib/format";
 import { useMoi } from "@/lib/session";
 import { Chargement, Erreur, Vide } from "./Etat";
+import { Gate } from "@/lib/perms";
 
 // Suivi de la fiche lieu (demande de Sébastien) : commentaires de l'équipe avec @mentions,
 // mêlés à l'histoire du lieu (bornes, interventions, alertes, contrat…) dans une timeline.
@@ -73,6 +74,7 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
 
   return (
     <div className="grid gap-6">
+      <Gate perm="suivi.comment">
       <section className="carte p-4">
         <h2 className="mb-3 text-sm font-semibold">Ajouter un commentaire</h2>
         <Saisie
@@ -83,6 +85,7 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
           onEnvoyer={(c, vider) => ajout.mutate(c, { onSuccess: vider })}
         />
       </section>
+      </Gate>
 
       <section className="carte p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">

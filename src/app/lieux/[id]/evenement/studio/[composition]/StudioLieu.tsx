@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ErreurApi, MAX_COMPOSITIONS, type FicheEvenementLieu, type GabaritEvenement } from "@/lib/api";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Chargement, Erreur } from "@/components/Etat";
 import { nouvelId } from "@/lib/gabaritsEvenement";
 import { StudioRegie, type CadreARouvrir, type Depart } from "@/studio/regie/StudioRegie";
@@ -16,9 +16,9 @@ import { cheminsEvenement } from "../../FicheEvenement";
 /** `compositionId` « nouveau » : format ajouté depuis la fiche, choisi à l'étape 1 du studio. */
 export function StudioLieu({ lieuId, compositionId, eid }: { lieuId: number; compositionId: string; eid?: number }) {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="evenements.edit">
       <Chargeur lieuId={lieuId} compositionId={compositionId} eid={eid} />
-    </Reserve>
+    </PageGuard>
   );
 }
 

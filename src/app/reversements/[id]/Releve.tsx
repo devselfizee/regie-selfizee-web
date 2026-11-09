@@ -6,15 +6,17 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type ReleveReversement } from "@/lib/api";
 import { STATUTS } from "@/lib/commissions";
 import { date, dateHeure, euros, jour, nombre, pct } from "@/lib/format";
-import { useMoi } from "@/lib/session";
 import { Badge, Chargement, Erreur } from "@/components/Etat";
 import { BoutonExport } from "@/components/BoutonExport";
 import { EnvoiReleve } from "@/components/EnvoiReleve";
 import { Modale } from "@/components/Modale";
+import { useDroits } from "@/lib/perms";
 
 /** Relevé de commission d'un lieu pour une période : à imprimer ou enregistrer en PDF. */
 export function Releve({ id }: { id: number }) {
-  const moi = useMoi();
+  const a = useDroits();
+  const voitListe = a("pages.commissions.view");
+  const peutEnvoyer = a("commissions.edit");
   const [envoi, setEnvoi] = useState(false);
   const { data: r, error } = useQuery({ queryKey: ["releve", id], queryFn: () => api<ReleveReversement>(`/reversements/${id}`) });
   if (error) return <Erreur erreur={error} />;
@@ -24,11 +26,11 @@ export function Releve({ id }: { id: number }) {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <Link href={moi.role === "ADMIN" ? "/reversements" : `/lieux/${r.lieuId}`} className="text-sm text-accent hover:underline">← Retour</Link>
+        <Link href={voitListe ? "/reversements" : `/lieux/${r.lieuId}`} className="text-sm text-accent hover:underline">← Retour</Link>
         <div className="flex flex-wrap items-center gap-2">
           {r.envoyeLe && <span className="text-xs text-ink-2">Envoyé au lieu le {dateHeure(r.envoyeLe)}</span>}
           <BoutonExport chemin={`/reversements/${r.id}/releve.pdf`}>Télécharger le PDF</BoutonExport>
-          {moi.role === "ADMIN" && ["VALIDE", "FACTURE_PAR_LIEU", "AUTOFACTURE", "PAYE"].includes(r.statut) && (
+          {peutEnvoyer && ["VALIDE", "FACTURE_PAR_LIEU", "AUTOFACTURE", "PAYE"].includes(r.statut) && (
             <button className="bouton" onClick={() => setEnvoi(true)}>Envoyer par e-mail</button>
           )}
         </div>

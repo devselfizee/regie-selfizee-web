@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { qs } from "@/lib/api";
 import { jour } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { EnTete } from "@/components/Etat";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { Comportement } from "@/components/Entonnoir";
@@ -11,9 +11,9 @@ import { Comportement } from "@/components/Entonnoir";
 // Comportement des invités (retour de Sébastien : le parcours n'avait pas sa place sur le tableau de bord)
 export default function PageComportements() {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL"]}>
+    <PageGuard perm="pages.comportements.view">
       <Comportements />
-    </Reserve>
+    </PageGuard>
   );
 }
 

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs } from "@/lib/api";
 import { euros, eurosRond, jour, pct } from "@/lib/format";
-import { Reserve, useMoi } from "@/lib/session";
+import { PageGuard, usePerm } from "@/lib/perms";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { CarteLieux, type PointCarte } from "@/components/CarteLieux";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
@@ -50,14 +50,14 @@ const DIVERGENTE = [
 
 export default function PageCarte() {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL"]}>
+    <PageGuard perm="pages.analyse_geo.view">
       <Carte />
-    </Reserve>
+    </PageGuard>
   );
 }
 
 function Carte() {
-  const moi = useMoi();
+  const peutPlacer = usePerm("referentiel.edit"); // même clé que POST /api/lieux/geocoder
   const router = useRouter();
   const client = useQueryClient();
   const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
@@ -172,7 +172,7 @@ function Carte() {
           {sansPosition.length > 0 && (
             <div className="rounded-md bg-warn-bg px-4 py-3 text-sm text-warn-ink">
               {sansPosition.length} lieu(x) sans position, donc absent(s) de la carte : {sansPosition.map((l) => l.enseigne).join(", ")}.
-              {moi.role === "ADMIN" ? (
+              {peutPlacer ? (
                 <button className="ml-2 font-medium underline" disabled={geocoder.isPending} onClick={() => geocoder.mutate()}>
                   {geocoder.isPending ? "Localisation…" : "Les placer d'après leur adresse"}
                 </button>

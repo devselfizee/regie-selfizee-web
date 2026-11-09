@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api, type MesMentions } from "@/lib/api";
 import { dateHeure } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 
 export default function PageMentions() {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL", "TECHNICIEN"]}>
+    <PageGuard perm="pages.mentions.view">
       <Mentions />
-    </Reserve>
+    </PageGuard>
   );
 }
 

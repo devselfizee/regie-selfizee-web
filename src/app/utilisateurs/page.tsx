@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type LieuListe } from "@/lib/api";
-import { Reserve, useMoi, type Role } from "@/lib/session";
+import { useMoi } from "@/lib/session";
+import { Gate, PageGuard, usePerm } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 
@@ -13,11 +14,10 @@ interface Utilisateur {
   nom: string;
   prenom: string;
   telephone: string | null;
-  role: Role;
-  /** Rôle lu dans Keycloak à la dernière connexion (sinon : rôle provisoire, à définir dans Keycloak) */
-  roleKeycloak: boolean;
   /** Reçoit les SMS des alertes critiques (désigné ici ; personne par défaut) */
   alertesSms: boolean;
+  /** Reçoit les e-mails des alertes et le récapitulatif quotidien (désigné ici) */
+  alertesEmail: boolean;
   isActive: boolean;
   lieuId: number | null;
   lieu: { id: number; enseigne: string } | null;
@@ -25,24 +25,20 @@ interface Utilisateur {
   nbLieux: number;
 }
 
-const ROLES: { value: Role; label: string; description: string }[] = [
-  { value: "ADMIN", label: "Administrateur", description: "Tout, dont les réglages, les contrats et les utilisateurs" },
-  { value: "COMMERCIAL", label: "Commercial", description: "Fiches et statistiques de ses lieux" },
-  { value: "TECHNICIEN", label: "Technicien", description: "Bornes, affectations, imports (sans le CA)" },
-  { value: "PARTENAIRE", label: "Partenaire", description: "Lecture seule de son lieu" },
-];
-const libelleRole = (r: Role) => ROLES.find((x) => x.value === r)?.label ?? r;
+// Adresse de l'Admin Panel (profils et droits), d'après celle de la plateforme
+const ADMIN_PANEL = (process.env.NEXT_PUBLIC_PLATEFORM_URL ?? "").replace(/\/$/, "").replace("://plateform.", "://adminpanel.");
 
 export default function PageUtilisateurs() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.utilisateurs.view">
       <Utilisateurs />
-    </Reserve>
+    </PageGuard>
   );
 }
 
 function Utilisateurs() {
   const moi = useMoi();
+  const gere = usePerm("utilisateurs.manage");
   const client = useQueryClient();
   const [edition, setEdition] = useState<Utilisateur | "nouveau" | null>(null);
   const { data, error, isPending } = useQuery({ queryKey: ["utilisateurs"], queryFn: () => api<Utilisateur[]>("/utilisateurs") });
@@ -54,20 +50,39 @@ function Utilisateurs() {
     mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { alertesSms: !u.alertesSms } }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["utilisateurs"] }),
   });
+  const emails = useMutation({
+    mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { alertesEmail: !u.alertesEmail } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["utilisateurs"] }),
+  });
 
   return (
     <>
       <EnTete
         titre="Utilisateurs"
-        sousTitre="Identité et rôle viennent de Keycloak, à chaque connexion. Ici : ajouter une personne, rattacher un partenaire à son lieu, couper un accès."
-        actions={<button className="bouton" onClick={() => setEdition("nouveau")}>Ajouter un utilisateur</button>}
+        sousTitre="L'identité vient de Keycloak, les droits de l'Admin Panel Konitys. Ici : ajouter une personne, rattacher un partenaire à son lieu, les SMS des alertes, couper un accès."
+        actions={
+          <Gate perm="utilisateurs.manage">
+            <button className="bouton" onClick={() => setEdition("nouveau")}>Ajouter un utilisateur</button>
+          </Gate>
+        }
       />
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
       {basculer.error && <Erreur erreur={basculer.error} />}
       {sms.error && <Erreur erreur={sms.error} />}
+      {emails.error && <Erreur erreur={emails.error} />}
+      <p className="mb-2 text-sm text-ink-2">
+        Ce que chacun peut voir et faire se règle dans l&apos;Admin Panel → <strong>Profils &amp; Droits</strong> (application « Régie »), selon le profil de son compte.
+        {ADMIN_PANEL && (
+          <>
+            {" "}
+            <a href={`${ADMIN_PANEL}/hub/droits`} target="_blank" rel="noreferrer" className="text-accent hover:underline">Ouvrir l&apos;Admin Panel</a>
+          </>
+        )}
+      </p>
       <p className="mb-3 text-xs text-ink-2">
-        SMS des alertes critiques (borne muette…) : seulement aux personnes cochées, à leur numéro du Hub. Les autres alertes partent par e-mail.
+        Alertes : par e-mail (Warning et Critique, plus le récapitulatif quotidien) et par SMS (critiques : borne muette…) aux seules personnes cochées. Le commercial
+        responsable d&apos;un lieu reçoit en plus par e-mail les alertes de vente de ce lieu.
       </p>
       {data && (
         <div className="carte overflow-x-auto">
@@ -75,9 +90,9 @@ function Utilisateurs() {
             <thead className="text-left text-xs text-ink-2">
               <tr>
                 <th className="px-4 py-3 font-medium">Nom</th>
-                <th className="px-4 py-3 font-medium">Rôle</th>
-                <th className="px-4 py-3 font-medium">Périmètre</th>
-                <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…) ; les autres arrivent par e-mail">SMS des alertes</th>
+                <th className="px-4 py-3 font-medium">Lieu</th>
+                <th className="px-4 py-3 font-medium" title="Alertes Warning et Critique, et récapitulatif quotidien">E-mails des alertes</th>
+                <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…)">SMS des alertes</th>
                 <th className="px-4 py-3 font-medium">État</th>
                 <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
               </tr>
@@ -89,23 +104,25 @@ function Utilisateurs() {
                     <div className="font-medium">{[u.prenom, u.nom].filter(Boolean).join(" ")}</div>
                     <div className="text-xs text-ink-muted">{u.email}</div>
                   </td>
-                  <td className="px-4 py-3">
-                    {libelleRole(u.role)}
-                    {!u.roleKeycloak && (
-                      <span className="block text-xs text-warn-ink" title="Le jeton Keycloak de cette personne ne porte aucun rôle de la Régie">
-                        {u.dejaConnecte ? "à définir dans Keycloak" : "lu à la première connexion"}
-                      </span>
-                    )}
-                  </td>
                   <td className="px-4 py-3 text-ink-2">
-                    {u.role === "PARTENAIRE" ? (u.lieu?.enseigne ?? "—") : "Tous les lieux"}
-                    {u.role === "COMMERCIAL" && u.nbLieux > 0 && (
+                    {/* Lieu rattaché : celui d'un partenaire (son périmètre « ses lieux ») */}
+                    {u.lieu?.enseigne ?? "—"}
+                    {u.nbLieux > 0 && (
                       <span className="block text-xs text-ink-muted">responsable de {u.nbLieux} lieu{u.nbLieux > 1 ? "x" : ""}</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={u.alertesEmail}
+                      disabled={!gere || emails.isPending}
+                      onChange={() => emails.mutate(u)}
+                      aria-label={`E-mails des alertes pour ${u.email}`}
+                    />
+                  </td>
+                  <td className="px-4 py-3">
                     <label className="flex items-center gap-2">
-                      <input type="checkbox" checked={u.alertesSms} disabled={sms.isPending} onChange={() => sms.mutate(u)} aria-label={`SMS des alertes pour ${u.email}`} />
+                      <input type="checkbox" checked={u.alertesSms} disabled={!gere || sms.isPending} onChange={() => sms.mutate(u)} aria-label={`SMS des alertes pour ${u.email}`} />
                       <span className={`text-xs ${u.telephone ? "text-ink-2" : u.alertesSms ? "text-warn-ink" : "text-ink-muted"}`}>
                         {u.telephone ?? "pas de numéro dans le Hub"}
                       </span>
@@ -122,10 +139,10 @@ function Utilisateurs() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      {u.role === "PARTENAIRE" && (
-                        <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Lieu du partenaire</button>
+                      {gere && (
+                        <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Lieu rattaché</button>
                       )}
-                      {u.id !== moi.id && (
+                      {gere && u.id !== moi.id && (
                         <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => basculer.mutate(u)}>
                           {u.isActive ? "Désactiver" : "Réactiver"}
                         </button>
@@ -140,7 +157,7 @@ function Utilisateurs() {
       )}
 
       <Modale
-        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Lieu du partenaire"}
+        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Lieu rattaché"}
         ouverte={edition !== null}
         onFermer={() => setEdition(null)}
       >
@@ -156,7 +173,7 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
   const { data: lieux } = useQuery({ queryKey: ["lieux", ""], queryFn: () => api<LieuListe[]>("/lieux") });
   const enregistrer = useMutation({
     mutationFn: () => {
-      // Identité et rôle viennent de Keycloak : seul le lieu d'un partenaire se règle ici
+      // Identité (Keycloak) et droits (Admin Panel) se gèrent ailleurs : seul le lieu rattaché se règle ici
       const corps = { lieuId: f.lieuId ? Number(f.lieuId) : null };
       return u
         ? api(`/utilisateurs/${u.id}`, { method: "PATCH", json: corps })
@@ -174,25 +191,24 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
         <div className="rounded-md bg-surface-2 p-3 text-sm">
           <div className="font-medium">{[u.prenom, u.nom].filter(Boolean).join(" ")}</div>
           <div className="text-ink-2">{u.email}</div>
-          <div className="text-ink-2">{libelleRole(u.role)}</div>
-          <p className="mt-1 text-xs text-ink-muted">Identité et rôle viennent de Keycloak : ils se modifient là-bas, pas ici.</p>
+          <p className="mt-1 text-xs text-ink-muted">L&apos;identité vient de Keycloak, les droits de l&apos;Admin Panel : ils se modifient là-bas, pas ici.</p>
         </div>
       ) : (
         <label className="block">
           <span className="etiquette">E-mail (celui du compte Keycloak) *</span>
           <input className="champ" type="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
           <span className="mt-1 block text-xs text-ink-muted">
-            Nom, prénom, téléphone et rôle sont repris de Keycloak à sa première connexion. Sans rôle de la Régie dans Keycloak, elle entre comme commercial.
+            Nom, prénom et téléphone sont repris à sa première connexion ; ses droits viennent de son profil dans l&apos;Admin Panel.
           </span>
         </label>
       )}
       <label className="block">
-        <span className="etiquette">{u ? "Lieu du partenaire *" : "Lieu, si c'est un partenaire"}</span>
-        <select className="champ" required={!!u} value={f.lieuId} onChange={(e) => setF({ ...f, lieuId: e.target.value })}>
+        <span className="etiquette">Lieu rattaché (partenaire)</span>
+        <select className="champ" value={f.lieuId} onChange={(e) => setF({ ...f, lieuId: e.target.value })}>
           <option value="">—</option>
           {lieux?.map((l) => <option key={l.id} value={l.id}>{l.enseigne}</option>)}
         </select>
-        <span className="mt-1 block text-xs text-ink-muted">Un partenaire ne voit que ce lieu, en lecture seule.</span>
+        <span className="mt-1 block text-xs text-ink-muted">Sans le droit « Voir tous les lieux », la personne ne voit que ce lieu.</span>
       </label>
       {enregistrer.error && <p role="alert" className="text-sm text-bad">{enregistrer.error.message}</p>}
       <button className="bouton" disabled={enregistrer.isPending}>{u ? "Enregistrer" : "Ajouter"}</button>

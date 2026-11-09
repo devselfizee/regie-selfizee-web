@@ -8,7 +8,7 @@ import { api, qs, type LieuListe } from "@/lib/api";
 import { depuis, euros, nombre } from "@/lib/format";
 import { DEPARTEMENTS, libelleDepartement } from "@/lib/departements";
 import { useReferentiel } from "@/components/Filtres";
-import { peut, useMoi } from "@/lib/session";
+import { Gate, PageGuard, usePerm } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { CarteLieux } from "@/components/CarteLieux";
 
@@ -20,8 +20,16 @@ const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "
   PROSPECT: { libelle: "Prospect", ton: "neutre" },
 };
 
-export default function ListeLieux() {
-  const moi = useMoi();
+export default function PageLieux() {
+  return (
+    <PageGuard perm="pages.lieux.view">
+      <ListeLieux />
+    </PageGuard>
+  );
+}
+
+function ListeLieux() {
+  const voitVentes = usePerm("ventes.view");
   const [recherche, setRecherche] = useState("");
   const [typeLieuId, setTypeLieuId] = useState("");
   const [statut, setStatut] = useState("");
@@ -72,7 +80,9 @@ export default function ListeLieux() {
                 </button>
               ))}
             </div>
-            {peut.gererLieux(moi.role) && <Link href="/lieux/nouveau" className="bouton">Nouveau lieu</Link>}
+            <Gate perm="lieux.create">
+              <Link href="/lieux/nouveau" className="bouton">Nouveau lieu</Link>
+            </Gate>
           </>
         }
       />
@@ -148,7 +158,7 @@ export default function ListeLieux() {
                 <th className="px-4 py-3 font-medium">Parc</th>
                 <th className="px-4 py-3 font-medium">Type</th>
                 <th className="px-4 py-3 font-medium">Bornes</th>
-                {peut.voirVentes(moi.role) && (
+                {voitVentes && (
                   <>
                     <th className="px-4 py-3 text-right font-medium">CA 30 j</th>
                     <th className="px-4 py-3 text-right font-medium">Ventes 30 j</th>
@@ -185,7 +195,7 @@ export default function ListeLieux() {
                       <span className="text-xs text-ink-muted">aucune</span>
                     )}
                   </td>
-                  {peut.voirVentes(moi.role) && (
+                  {voitVentes && (
                     <>
                       <td className="px-4 py-3 text-right">{euros(l.ca30jCents ?? 0)}</td>
                       <td className="px-4 py-3 text-right">{nombre(l.ventes30j ?? 0)}</td>

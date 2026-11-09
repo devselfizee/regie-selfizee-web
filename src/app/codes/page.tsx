@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type LieuListe } from "@/lib/api";
 import { date, dateHeure, jour, nombre } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { Gate, PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { ChoixLieu } from "@/components/ChoixLieu";
@@ -58,12 +58,12 @@ const remise = (c: Pick<CodeRemise, "type" | "pourcentage" | "quantite">) =>
 
 export default function PageCodesRemise() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.codes_remise.view">
       {/* useSearchParams (lien depuis la fiche d'un lieu : ?lieuId=&lotId=) demande une frontière Suspense */}
       <Suspense fallback={<Chargement />}>
         <Codes />
       </Suspense>
-    </Reserve>
+    </PageGuard>
   );
 }
 
@@ -122,9 +122,11 @@ function Codes() {
         actions={
           <>
             <BoutonExport chemin={`/codes-remise/export.xlsx${qs(filtres)}`}>Exporter (Excel)</BoutonExport>
-            <button type="button" className="bouton" onClick={() => setCreation(true)}>
-              Générer des codes
-            </button>
+            <Gate perm="codes_remise.edit">
+              <button type="button" className="bouton" onClick={() => setCreation(true)}>
+                Générer des codes
+              </button>
+            </Gate>
           </>
         }
       />

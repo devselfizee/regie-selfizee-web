@@ -5,14 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { api, ErreurApi } from "./api";
 import { keycloak } from "./auth";
 
-export type Role = "ADMIN" | "COMMERCIAL" | "TECHNICIEN" | "PARTENAIRE";
-
 export interface Moi {
   id: number;
   email: string;
   nom: string;
   prenom: string;
-  role: Role;
+  /** Lieu rattaché (partenaire) : son périmètre quand il n'a pas le droit de voir tous les lieux */
   lieuId: number | null;
 }
 
@@ -25,12 +23,7 @@ export function useMoi(): Moi {
   return moi;
 }
 
-export const peut = {
-  voirVentes: (r: Role) => r !== "TECHNICIEN",
-  gererLieux: (r: Role) => r === "ADMIN" || r === "COMMERCIAL",
-  gererBornes: (r: Role) => r === "ADMIN" || r === "TECHNICIEN",
-  administrer: (r: Role) => r === "ADMIN",
-};
+// Les droits (pages, actions) viennent de l'Admin Panel Konitys : voir src/lib/perms.tsx (usePerm, Gate, PageGuard)
 
 /** Charge l'utilisateur de l'application ; bloque l'accès aux comptes non autorisés. */
 export function Session({ children }: { children: ReactNode }) {
@@ -67,13 +60,4 @@ export function Session({ children }: { children: ReactNode }) {
   }
   if (!data) return <p className="w-full py-20 text-center text-sm text-ink-muted">Chargement…</p>;
   return <SessionContext.Provider value={data}>{children}</SessionContext.Provider>;
-}
-
-/** Contenu réservé à certains rôles (accès direct par l'URL compris). */
-export function Reserve({ roles, children }: { roles: Role[]; children: ReactNode }) {
-  const moi = useMoi();
-  if (!roles.includes(moi.role)) {
-    return <p className="py-20 text-center text-sm text-ink-2">Cette page n&apos;est pas accessible avec votre rôle.</p>;
-  }
-  return <>{children}</>;
 }

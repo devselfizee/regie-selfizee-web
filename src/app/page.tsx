@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMoi } from "@/lib/session";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type Granularite, type LieuListe, type StatsGlobales } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
@@ -20,11 +19,15 @@ import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Gr
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
 import { dernierWeekEnd } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
+import { useMoi } from "@/lib/session";
+import { useDroits } from "@/lib/perms";
 
 export default function Accueil() {
   const moi = useMoi();
   const router = useRouter();
-  const redirection = moi.role === "TECHNICIEN" ? "/bornes" : moi.role === "PARTENAIRE" ? `/lieux/${moi.lieuId}` : null;
+  // Sans tableau de bord (droits Konitys) : vers la première page permise (bornes, son lieu), sinon le refus
+  const a = useDroits();
+  const redirection = a("pages.tableau_de_bord.view") ? null : a("pages.bornes.view") ? "/bornes" : moi.lieuId ? `/lieux/${moi.lieuId}` : "/403";
   useEffect(() => {
     if (redirection) router.replace(redirection);
   }, [redirection, router]);

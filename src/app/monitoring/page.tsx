@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { dateHeure, depuis, euros, nombre } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { libelleErreurBorne } from "@/lib/erreursBorne";
@@ -23,9 +23,9 @@ const ISSUES: Record<string, string> = { validee: "photo enregistrée", retour: 
 
 export default function PageMonitoring() {
   return (
-    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+    <PageGuard perm="pages.monitoring.view">
       <Monitoring />
-    </Reserve>
+    </PageGuard>
   );
 }
 

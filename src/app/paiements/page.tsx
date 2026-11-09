@@ -2,16 +2,16 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { ListePaiements } from "@/components/ListePaiements";
 
 export default function PagePaiements() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.paiements.view">
       <Suspense>
         <Paiements />
       </Suspense>
-    </Reserve>
+    </PageGuard>
   );
 }
 

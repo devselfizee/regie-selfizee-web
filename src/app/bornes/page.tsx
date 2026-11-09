@@ -10,7 +10,7 @@ import { useReferentiel } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { CleUnique, Modale } from "@/components/Modale";
 import { MenuActions } from "@/components/MenuActions";
-import { Reserve } from "@/lib/session";
+import { Gate, PageGuard } from "@/lib/perms";
 
 type Action =
   | { type: "creer" }
@@ -25,12 +25,12 @@ const STATUTS: Record<string, string> = {
 
 export default function PageBornes() {
   return (
-    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+    <PageGuard perm="pages.bornes.view">
       {/* useSearchParams (lien depuis une alerte) demande une frontière Suspense */}
       <Suspense fallback={<Chargement />}>
         <Bornes />
       </Suspense>
-    </Reserve>
+    </PageGuard>
   );
 }
 
@@ -68,6 +68,7 @@ function Bornes() {
         actions={
           <div className="flex gap-2">
             {/* Pages techniques, hors du menu de gauche (retour de Sébastien, 05/11/2026) */}
+            <Gate perm="pages.journal.view">
             <MenuActions
               libelle="Suivi technique"
               className="bouton-second"
@@ -78,7 +79,10 @@ function Bornes() {
                 { libelle: "Signes de vie", aide: "Papier, imprimante, paiement", href: "/journal?onglet=signes" },
               ]}
             />
-            <button className="bouton" onClick={() => setAction({ type: "creer" })}>Nouvelle borne</button>
+            </Gate>
+            <Gate perm="bornes.edit">
+              <button className="bouton" onClick={() => setAction({ type: "creer" })}>Nouvelle borne</button>
+            </Gate>
           </div>
         }
       />
@@ -167,6 +171,7 @@ function Bornes() {
                   <td className="px-4 py-3">
                     {/* Les actions d'une borne dans un menu « ⋯ » (retour de Sébastien : trop de boutons alourdissaient la liste) */}
                     <div className="flex justify-end">
+                      <Gate perm="bornes.edit">
                       <MenuActions
                         libelle={`Actions : ${b.identifiant}`}
                         actions={[
@@ -175,6 +180,7 @@ function Bornes() {
                           { libelle: "Nouvelle clé", aide: "L'ancienne clé cesse de fonctionner", onClick: () => setAction({ type: "cle", borne: b }) },
                         ]}
                       />
+                      </Gate>
                     </div>
                   </td>
                 </tr>

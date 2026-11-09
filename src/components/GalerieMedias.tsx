@@ -5,7 +5,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, fichierProtege, libelleTypeMedia, qs, telecharger, type MediaDetail, type MediaResume, type PageMedias, type ResumeMedias } from "@/lib/api";
 import { Badge, Chargement, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
-import { useMoi } from "@/lib/session";
+import { usePerm } from "@/lib/perms";
 import { dateHeure, euros, libelleMoyen, nombre } from "@/lib/format";
 
 // Galerie des médias reçus de PikCloud pour un lieu (onglet Galerie de la fiche lieu) : les photos et vidéos
@@ -34,7 +34,7 @@ const evenementDemande = () => (typeof window === "undefined" ? "" : new URL(win
  * le filtre est alors fixe et le sélecteur caché.
  */
 export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; evenementId?: number }) {
-  const moi = useMoi();
+  const relance = usePerm("medias.manage");
   const client = useQueryClient();
   const [evenement, setEvenement] = useState(() => (evenementId ? String(evenementId) : evenementDemande()));
   const [type, setType] = useState("");
@@ -86,7 +86,7 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
             {r.enAttente > 0 && r.enErreur > 0 && " · "}
             {r.enErreur > 0 && <span className="text-crit-ink">{nombre(r.enErreur)} en erreur</span>}
           </span>
-          {moi.role === "ADMIN" && (
+          {relance && (
             <button type="button" className="bouton-second" disabled={relancer.isPending} onClick={() => relancer.mutate()}>
               {relancer.isPending ? "Relance…" : "Relancer les téléchargements"}
             </button>
@@ -197,7 +197,7 @@ function Vignette({ m }: { m: MediaResume }) {
 }
 
 function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void }) {
-  const moi = useMoi();
+  const relance = usePerm("medias.manage");
   const client = useQueryClient();
   const detail = useQuery({ queryKey: ["media", uuid], queryFn: () => api<MediaDetail>(`/medias/${uuid}`) });
   const m = detail.data;
@@ -296,7 +296,7 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
           </div>
         )}
         <div className="mt-4 flex justify-end gap-2">
-          {m && m.statut !== "TELECHARGE" && moi.role === "ADMIN" && (
+          {m && m.statut !== "TELECHARGE" && relance && (
             <button type="button" className="bouton-second" disabled={relancer.isPending} onClick={() => relancer.mutate()} title="Remet le fichier en attente : le téléchargement repart tout de suite">
               {relancer.isPending ? "Relance…" : "Relancer le téléchargement"}
             </button>

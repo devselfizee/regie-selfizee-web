@@ -6,15 +6,15 @@ import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RapportReleve } from "@/lib/api";
 import { dateHeure, euros, jour, nombre, pct } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { BoutonExport } from "@/components/BoutonExport";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 
 export function Rapport({ id }: { id: number }) {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="rapprochement.view">
       <Contenu id={id} />
-    </Reserve>
+    </PageGuard>
   );
 }
 

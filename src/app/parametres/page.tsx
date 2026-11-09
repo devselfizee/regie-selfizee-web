@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type RefValeur } from "@/lib/api";
 import { parametreUrl } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur } from "@/components/Etat";
 import { TarifsBase } from "@/components/GrilleTarifs";
 import { SeriesIllustrations } from "@/components/SeriesIllustrations";
@@ -63,11 +63,11 @@ const versCode = (libelle: string) =>
 
 export default function PageParametres() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.parametres.view">
       <Suspense>
         <Parametres />
       </Suspense>
-    </Reserve>
+    </PageGuard>
   );
 }
 

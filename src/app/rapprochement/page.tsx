@@ -6,15 +6,15 @@ import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, type ApercuReleve, type ColonnesReleve, type RapportReleve, type ReleveResume } from "@/lib/api";
 import { dateHeure, euros, jour, nombre } from "@/lib/format";
-import { Reserve } from "@/lib/session";
+import { Gate, PageGuard } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 
 export default function PageRapprochement() {
   return (
-    <Reserve roles={["ADMIN"]}>
+    <PageGuard perm="pages.rapprochement.view">
       <Releves />
-    </Reserve>
+    </PageGuard>
   );
 }
 
@@ -27,7 +27,11 @@ function Releves() {
       <EnTete
         titre="Rapprochement monétique"
         sousTitre="Comparez le relevé du prestataire monétique (Ingenico…) avec les ventes remontées par les bornes : paiements encaissés mais jamais remontés, ventes remontées mais jamais encaissées, écarts de montant."
-        actions={<button className="bouton" onClick={() => setImporter(true)}>Importer un relevé</button>}
+        actions={
+          <Gate perm="rapprochement.edit">
+            <button className="bouton" onClick={() => setImporter(true)}>Importer un relevé</button>
+          </Gate>
+        }
       />
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}

@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type Alerte, type NiveauAlerte, type StatutAlerte } from "@/lib/api";
 import { dateHeure } from "@/lib/format";
-import { peut, useMoi } from "@/lib/session";
+import { Gate, usePerm } from "@/lib/perms";
 import { Badge } from "./Etat";
 
 export const NIVEAUX: Record<NiveauAlerte, { libelle: string; ton: "crit" | "warn" | "neutre" }> = {
@@ -16,7 +16,7 @@ export const NIVEAUX: Record<NiveauAlerte, { libelle: string; ton: "crit" | "war
 
 /** Le message de l'alerte, avec le lieu et la borne cliquables là où ils sont cités (retour de Sébastien, 05/11/2026) */
 function MessageAlerte({ a }: { a: Alerte }) {
-  const voitBornes = peut.gererBornes(useMoi().role);
+  const voitBornes = usePerm("bornes.view");
   const liens: { texte: string; href: string }[] = [];
   if (a.lieu) liens.push({ texte: a.lieu.enseigne, href: `/lieux/${a.lieu.id}` });
   if (a.borne && voitBornes) liens.push({ texte: a.borne.identifiant, href: `/bornes/${a.borne.id}` });
@@ -109,6 +109,7 @@ function LigneAlerte({ a, compacte }: { a: Alerte; compacte: boolean }) {
             </form>
           )}
         </div>
+        <Gate perm="alertes.traiter">
         <div className="flex flex-wrap justify-end gap-1">
           {a.statut === "NOUVELLE" && (
             <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => maj.mutate({ statut: "PRISE_EN_CHARGE" })}>Je m&apos;en occupe</button>
@@ -124,6 +125,7 @@ function LigneAlerte({ a, compacte }: { a: Alerte; compacte: boolean }) {
           )}
           <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(!edition)}>Commenter</button>
         </div>
+        </Gate>
       </div>
       {maj.error && <p className="mt-1 text-xs text-bad">{maj.error.message}</p>}
     </li>

@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type RecapVente } from "@/lib/api";
 import { dateHeure, euros, GRATUITES, libelleMoyen } from "@/lib/format";
 import { Badge, Chargement, Erreur } from "./Etat";
+import { Gate } from "@/lib/perms";
 
 // Récapitulatif d'une commande (demande de Sébastien, comme boothpay) : la photo, le paiement,
 // les autres paiements de la séance, les remboursements et le parcours de l'invité.
@@ -153,9 +154,11 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
         )}
 
         {remboursable && onRembourser && (
-          <div className="border-t border-line pt-4">
-            <button type="button" className="bouton-second" onClick={() => onRembourser(v)}>Rembourser</button>
-          </div>
+          <Gate perm="paiements.rembourser">
+            <div className="border-t border-line pt-4">
+              <button type="button" className="bouton-second" onClick={() => onRembourser(v)}>Rembourser</button>
+            </div>
+          </Gate>
         )}
       </div>
     </div>

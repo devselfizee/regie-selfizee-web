@@ -6,7 +6,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { api, qs } from "@/lib/api";
 import { dateHeure, parametreUrl } from "@/lib/format";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
-import { Reserve } from "@/lib/session";
+import { Gate, PageGuard } from "@/lib/perms";
 import { ErreursImport } from "@/components/ErreursImport";
 import { libelleErreurBorne } from "@/lib/erreursBorne";
 
@@ -61,12 +61,12 @@ const SOURCES: Record<string, string> = { API: "borne (API)", DEPOT_FICHIER: "d√
 
 export default function PageJournal() {
   return (
-    <Reserve roles={["ADMIN", "TECHNICIEN"]}>
+    <PageGuard perm="pages.journal.view">
       {/* useSearchParams (onglet dans l'adresse) demande une fronti√®re Suspense */}
       <Suspense fallback={<Chargement />}>
         <Journal />
       </Suspense>
-    </Reserve>
+    </PageGuard>
   );
 }
 
@@ -188,7 +188,11 @@ function Envois({ borne, type, statut, page, setPage }: { borne: string; type: s
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
-                {(l.type === "TRANSACTIONS" || l.type === "PARCOURS") && l.borne && l.statut !== "OK" && <Rejouer id={l.id} />}
+                {(l.type === "TRANSACTIONS" || l.type === "PARCOURS") && l.borne && l.statut !== "OK" && (
+                  <Gate perm="imports.manage">
+                    <Rejouer id={l.id} />
+                  </Gate>
+                )}
                 <button type="button" className="bouton-second !px-2 !py-1 text-xs" onClick={() => setOuvert(ouvert === l.id ? null : l.id)}>
                   {ouvert === l.id ? "Masquer" : "Voir le contenu"}
                 </button>

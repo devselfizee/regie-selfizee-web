@@ -5,49 +5,46 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { keycloak } from "@/lib/auth";
-import { useMoi, type Role } from "@/lib/session";
+import { useMoi } from "@/lib/session";
+import { useDroits } from "@/lib/perms";
 
-const LIENS: { href: string; libelle: string; roles: Role[] }[] = [
-  { href: "/", libelle: "Tableau de bord", roles: ["ADMIN", "COMMERCIAL"] },
-  { href: "/lieux", libelle: "Lieux", roles: ["ADMIN", "COMMERCIAL", "TECHNICIEN"] },
-  { href: "/lieux/carte", libelle: "Analyse géographique", roles: ["ADMIN", "COMMERCIAL"] },
-  { href: "/analyse", libelle: "Analyse", roles: ["ADMIN", "COMMERCIAL"] },
-  { href: "/comportements", libelle: "Comportements", roles: ["ADMIN", "COMMERCIAL"] },
-  { href: "/monitoring", libelle: "Monitoring live", roles: ["ADMIN", "TECHNICIEN"] },
-  { href: "/papier", libelle: "Papier", roles: ["ADMIN", "TECHNICIEN"] },
-  { href: "/alertes", libelle: "Alertes", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
-  { href: "/mentions", libelle: "Mes mentions", roles: ["ADMIN", "TECHNICIEN", "COMMERCIAL"] },
-  { href: "/bornes", libelle: "Bornes", roles: ["ADMIN", "TECHNICIEN"] },
-  { href: "/reversements", libelle: "Commissions", roles: ["ADMIN"] },
-  { href: "/paiements", libelle: "Paiements", roles: ["ADMIN"] },
-  { href: "/codes", libelle: "Codes de remise", roles: ["ADMIN"] },
-  { href: "/rapprochement", libelle: "Rapprochement", roles: ["ADMIN"] },
-  { href: "/rentabilite", libelle: "Rentabilité", roles: ["ADMIN"] },
-  { href: "/prospects", libelle: "Prospects", roles: ["ADMIN", "COMMERCIAL"] },
-  { href: "/utilisateurs", libelle: "Utilisateurs", roles: ["ADMIN"] },
-  { href: "/parametres", libelle: "Paramètres", roles: ["ADMIN"] },
+// Liens filtrés selon les droits Konitys (une clé pages.<x>.view par entrée)
+const LIENS: { href: string; libelle: string; perm: string }[] = [
+  { href: "/", libelle: "Tableau de bord", perm: "pages.tableau_de_bord.view" },
+  { href: "/lieux", libelle: "Lieux", perm: "pages.lieux.view" },
+  { href: "/lieux/carte", libelle: "Analyse géographique", perm: "pages.analyse_geo.view" },
+  { href: "/analyse", libelle: "Analyse", perm: "pages.analyse.view" },
+  { href: "/comportements", libelle: "Comportements", perm: "pages.comportements.view" },
+  { href: "/monitoring", libelle: "Monitoring live", perm: "pages.monitoring.view" },
+  { href: "/papier", libelle: "Papier", perm: "pages.papier.view" },
+  { href: "/alertes", libelle: "Alertes", perm: "pages.alertes.view" },
+  { href: "/mentions", libelle: "Mes mentions", perm: "pages.mentions.view" },
+  { href: "/bornes", libelle: "Bornes", perm: "pages.bornes.view" },
+  { href: "/reversements", libelle: "Commissions", perm: "pages.commissions.view" },
+  { href: "/paiements", libelle: "Paiements", perm: "pages.paiements.view" },
+  { href: "/codes", libelle: "Codes de remise", perm: "pages.codes_remise.view" },
+  { href: "/rapprochement", libelle: "Rapprochement", perm: "pages.rapprochement.view" },
+  { href: "/rentabilite", libelle: "Rentabilité", perm: "pages.rentabilite.view" },
+  { href: "/prospects", libelle: "Prospects", perm: "pages.prospects.view" },
+  { href: "/utilisateurs", libelle: "Utilisateurs", perm: "pages.utilisateurs.view" },
+  { href: "/parametres", libelle: "Paramètres", perm: "pages.parametres.view" },
 ];
-
-const ROLES: Record<Role, string> = {
-  ADMIN: "Administrateur",
-  COMMERCIAL: "Commercial",
-  TECHNICIEN: "Technicien",
-  PARTENAIRE: "Partenaire",
-};
 
 /** `sousEntete` : sous l'en-tête de la plateforme (téléphone), la barre se colle juste en dessous. */
 export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
   const chemin = usePathname();
   const moi = useMoi();
   const kc = keycloak();
+  const a = useDroits();
+  // Sans la liste des lieux mais rattaché à un lieu (partenaire) : un menu réduit à « Mon lieu »
   const liens =
-    moi.role === "PARTENAIRE" && moi.lieuId
+    !a("pages.lieux.view") && moi.lieuId
       ? [{ href: `/lieux/${moi.lieuId}`, libelle: "Mon lieu" }]
-      : LIENS.filter((l) => l.roles.includes(moi.role));
+      : LIENS.filter((l) => a(l.perm));
   const { data: compteur } = useQuery({
     queryKey: ["alertes", "compteur"],
     queryFn: () => api<{ nouvelles: number; critiques: number }>("/alertes/compteur"),
-    enabled: moi.role !== "PARTENAIRE",
+    enabled: a("pages.alertes.view"),
     refetchInterval: 60_000,
   });
   const actif = (href: string) => (href === "/" ? chemin === "/" : chemin.startsWith(href));
@@ -79,7 +76,6 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
       <div className="ml-auto flex shrink-0 items-center gap-2 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:border-t md:border-line md:px-3 md:pt-4">
         <span className="hidden text-xs sm:inline">
           <span className="text-ink">{[moi.prenom, moi.nom].filter(Boolean).join(" ")}</span>
-          <span className="block text-ink-muted">{ROLES[moi.role]}</span>
         </span>
         {kc && (
           <button type="button" className="text-left text-xs text-accent hover:underline" onClick={() => kc.logout()}>

@@ -8,7 +8,7 @@ import { CommunicationLieu } from "@/components/CommunicationLieu";
 import { TarifsDuLieu } from "@/components/GrilleTarifs";
 import { Chargement, EnTete, Erreur } from "@/components/Etat";
 import { parametreUrl } from "@/lib/format";
-import { peut, Reserve, useMoi } from "@/lib/session";
+import { PageGuard, useDroits } from "@/lib/perms";
 
 // Édition d'un lieu, toutes ses infos au même endroit : onglet « Fiche » (identité, segment, activité,
 // contacts…), « Tarif du lieu » (grille reprise par les événements de la borne) et, pour les admins,
@@ -20,22 +20,22 @@ const ONGLETS: Onglet[] = ["fiche", "tarifs", "communication"];
 
 export function ModifierLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
   return (
-    <Reserve roles={["ADMIN", "COMMERCIAL"]}>
+    <PageGuard perm="lieux.edit">
       <Modifier id={id} ongletInitial={ongletInitial} />
-    </Reserve>
+    </PageGuard>
   );
 }
 
 function Modifier({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
-  const moi = useMoi();
+  const a = useDroits();
   const [onglet, setOnglet] = useState<Onglet>(ONGLETS.includes(ongletInitial as Onglet) ? (ongletInitial as Onglet) : "fiche");
   const { data, error } = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
   if (error) return <Erreur erreur={error} />;
   if (!data) return <Chargement />;
   const onglets: { cle: Onglet; libelle: string }[] = [
     { cle: "fiche", libelle: "Fiche" },
-    { cle: "tarifs", libelle: "Tarif du lieu" },
-    ...(peut.administrer(moi.role) ? [{ cle: "communication" as const, libelle: "Communication" }] : []),
+    ...(a("lieux.tarifs_edit") ? [{ cle: "tarifs" as const, libelle: "Tarif du lieu" }] : []),
+    ...(a("lieux.communication_edit") ? [{ cle: "communication" as const, libelle: "Communication" }] : []),
   ];
   const actif = onglets.some((o) => o.cle === onglet) ? onglet : "fiche";
   return (
