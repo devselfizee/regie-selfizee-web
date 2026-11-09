@@ -159,9 +159,10 @@ function Tableau({ bornes, onDetail, finJournee }: { bornes: BorneSupervisee[]; 
         </thead>
         <tbody className="tabular">
           {bornes.map((b) => (
-            <tr key={b.borneId} className="border-t border-line align-top">
+            // Survol de la ligne (retour de Sébastien) ; un clic n'importe où ouvre le détail
+            <tr key={b.borneId} className="cursor-pointer border-t border-line align-top transition-colors hover:bg-surface-2" onClick={() => onDetail(b)}>
               <td className="py-2 pr-3">
-                {b.lieu ? <Link href={`/lieux/${b.lieu.id}`} className="font-medium hover:underline">{b.lieu.enseigne}</Link> : <span className="text-ink-muted">sans lieu</span>}
+                {b.lieu ? <Link href={`/lieux/${b.lieu.id}`} className="font-medium hover:underline" onClick={(e) => e.stopPropagation()}>{b.lieu.enseigne}</Link> : <span className="text-ink-muted">sans lieu</span>}
                 <span className="block text-xs text-ink-2">{b.identifiant} · {b.gamme}</span>
               </td>
               <td className="py-2 pr-3">
@@ -188,7 +189,7 @@ function Tableau({ bornes, onDetail, finJournee }: { bornes: BorneSupervisee[]; 
               <td className="py-2 pr-3 text-right">{euros(b.journee.caTtcCents)}</td>
               <td className="py-2 pr-3 text-right">{nombre(b.journee.ventes)}</td>
               <td className="py-2 text-right">
-                <button type="button" className="text-xs text-accent hover:underline" onClick={() => onDetail(b)}>Détail</button>
+                <button type="button" className="text-xs text-accent hover:underline" onClick={(e) => { e.stopPropagation(); onDetail(b); }}>Détail</button>
               </td>
             </tr>
           ))}

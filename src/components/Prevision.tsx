@@ -5,6 +5,18 @@ import type { JourPrevision, PrevisionResume } from "@/lib/api";
 import { eurosRond, jour, pct, variation } from "@/lib/format";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "./Graphique";
 
+/**
+ * Passe une prévision (calculée en TTC) en HT : tous les montants « …Cents », y compris dans les jours,
+ * multipliés par la part HT des ventes réelles du lieu ou du périmètre.
+ */
+export function previsionEnHt<T>(v: T, ratio: number): T {
+  if (Array.isArray(v)) return v.map((x) => previsionEnHt(x, ratio)) as T;
+  if (!v || typeof v !== "object") return v;
+  return Object.fromEntries(
+    Object.entries(v).map(([k, x]) => [k, k.endsWith("Cents") && typeof x === "number" ? Math.round(x * ratio) : previsionEnHt(x, ratio)])
+  ) as T;
+}
+
 const MOIS = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
 export const libelleMois = (du: string) => MOIS.format(new Date(`${du}T00:00:00Z`));
 

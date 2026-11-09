@@ -7,7 +7,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type Granularite, type LieuListe, type StatsGlobales } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
 import { ChoixLieu } from "@/components/ChoixLieu";
-import { depuis, euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/format";
+import { euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/format";
 
 // « 25/10 22:48 » : l'année se devine
 const jourHeureCourtFmt = new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
@@ -18,7 +18,7 @@ import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
 import { dernierWeekEnd } from "@/components/Filtres";
-import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
+import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
 
@@ -333,49 +333,8 @@ function Contenu({
         </Section>
       </div>
 
-      {/* Compléments : commissions, prévisions, état du parc */}
-      <PrevisionGlobaleSection />
-
-      <Section
-        titre="Parc"
-        actions={
-          <span className="text-sm text-ink-2">
-            {data.parc.actives} / {data.parc.bornesAffectees} bornes avec ventes
-          </span>
-        }
-      >
-        <div className="mb-3 flex flex-wrap gap-2">
-          <Badge ton="ok">{data.parc.actives} actives</Badge>
-          <Badge ton={data.parc.inactives.length ? "warn" : "neutre"}>{data.parc.inactives.length} sans vente</Badge>
-          {data.parc.bornesNonAffectees > 0 && <Badge ton="neutre">{data.parc.bornesNonAffectees} non affectées</Badge>}
-        </div>
-        {data.parc.inactives.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-xs text-ink-2">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">Borne</th>
-                  <th className="py-2 pr-3 font-medium">Lieu</th>
-                  <th className="py-2 pr-3 font-medium">Dernière vente</th>
-                  <th className="py-2 font-medium">Dernier signal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.parc.inactives.map((b) => (
-                  <tr key={b.borneId} className="border-t border-line">
-                    <td className="py-2 pr-3 font-medium">{b.identifiant}</td>
-                    <td className="py-2 pr-3">
-                      <Link className="hover:underline" href={`/lieux/${b.lieuId}`}>{b.lieu}</Link>
-                    </td>
-                    <td className="py-2 pr-3 text-ink-2">{depuis(b.derniereVente)}</td>
-                    <td className="py-2 text-ink-2">{depuis(b.dernierHeartbeat)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Section>
+      {/* Prévision du mois ; l'état des bornes est sur la page Monitoring live (retour de Sébastien) */}
+      <PrevisionGlobaleSection ht={ht} />
     </div>
   );
 }

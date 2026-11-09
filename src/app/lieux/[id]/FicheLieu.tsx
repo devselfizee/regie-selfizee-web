@@ -25,6 +25,7 @@ import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
 import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
 import { PageSouvenirLieu } from "@/components/PageSouvenirLieu";
+import { AccesLieu } from "@/components/AccesLieu";
 import type { Alerte } from "@/lib/api";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
@@ -69,7 +70,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         sousTitre={[l.typeLieu.libelle, l.sousType?.libelle, l.ville, l.saisonnalite === "SAISONNIER" ? "saisonnier" : null].filter(Boolean).join(" · ")}
         actions={
           <>
-            {ongletActif === "stats" && voitVentes && <BasculeHt ht={ht} onChange={setHt} />}
+            {["stats", "comportement", "ventes"].includes(ongletActif) && voitVentes && <BasculeHt ht={ht} onChange={setHt} />}
             {voitVentes && a("ventes.export") && (
               <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ ...filtres, parc: undefined, lieuId: id }) }]} />
             )}
@@ -124,7 +125,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {/* Comportement des invités et projection, à part des statistiques (retour de Sébastien) */}
       {ongletActif === "comportement" && voitVentes && (
         <div className="space-y-6">
-          {l.statut === "ACTIF" && <PrevisionLieuSection lieuId={id} />}
+          {l.statut === "ACTIF" && <PrevisionLieuSection lieuId={id} ht={ht} />}
           <div>
             <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
             {stats.data && (
@@ -143,7 +144,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </div>
       )}
 
-      {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} />}
+      {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} ht={ht} />}
 
       {ongletActif === "suivi" && <SuiviLieu lieuId={id} />}
 
@@ -262,6 +263,10 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </Section>
       </div>
 
+      <div className="mt-6">
+        <AccesLieu lieuId={l.id} localisationCles={l.localisationCles ?? null} disponibiliteContacts={l.disponibiliteContacts ?? null} />
+      </div>
+
       <Gate perm="codes_remise.view">
         <div className="mt-6">
           <CodesRemiseLieu lieuId={l.id} />
@@ -339,8 +344,11 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
   const reperesCalendrier = longue ? sup.reperes.filter((x) => x.court !== "Férié") : sup.reperes;
   if (!c.nbVentes && !c.nbRefusees) {
     return (
-      <div className="carte p-4">
-        <Vide>Aucune vente sur la période pour ce lieu.</Vide>
+      <div className="space-y-6">
+        <div className="carte p-4">
+          <Vide>Aucune vente sur la période pour ce lieu.</Vide>
+        </div>
+        <BornesPeriode bornes={s.bornes} voitBornes={voitBornes} />
       </div>
     );
   }
@@ -423,10 +431,22 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
         </Section>
       </div>
 
-      <Section titre="Bornes sur la période">
+      <BornesPeriode bornes={s.bornes} voitBornes={voitBornes} />
+    </div>
+  );
+}
+
+/** Bornes du lieu sur la période : affectation, disponibilité, coupures, papier, derniers signes de vie */
+function BornesPeriode({ bornes, voitBornes }: { bornes: StatsLieu["bornes"]; voitBornes: boolean }) {
+  return (
+      <Section titre="Borne(s) sur la période">
+        <p className="mb-2 text-xs text-ink-muted">
+          Disponibilité : part des heures d&apos;ouverture du lieu où la borne a donné signe de vie (signal toutes les 5 min). Plus de 15 min
+          sans signal pendant l&apos;ouverture compte comme une coupure, y compris une borne allumée après l&apos;ouverture ou éteinte avant la fermeture.
+        </p>
         <Tableau
           entetes={["Borne", "Sur le lieu", "Disponibilité", "Coupures", "Pannes déclarées", "Papier restant", "Dernière vente", "Dernier signal"]}
-          lignes={s.bornes.map((b) => {
+          lignes={bornes.map((b) => {
             const d = b.disponibilite;
             return [
               <span key="b">
@@ -448,7 +468,6 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
           })}
         />
       </Section>
-    </div>
   );
 }
 

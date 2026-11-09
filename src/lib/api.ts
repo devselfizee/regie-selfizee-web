@@ -219,6 +219,9 @@ export interface LieuListe {
 
 export interface LieuFiche {
   id: number;
+  /** Accès (HTML simple nettoyé par l'API) : où sont les clés, quand joindre les contacts */
+  localisationCles?: string | null;
+  disponibiliteContacts?: string | null;
   /** Zone de vacances scolaires d'après le code postal */
   zoneScolaire?: "A" | "B" | "C" | "CORSE" | null;
   statut: string;
@@ -605,6 +608,8 @@ export interface PrevisionLieu {
   /** null : moins d'une semaine d'activité, pas encore de projection */
   mois: (PrevisionResume & { jours: (JourPrevision & { ouvert: boolean })[] }) | null;
   premiereVente?: string | null;
+  /** Part HT des ventes réelles, pour afficher la prévision en HT */
+  ratioHt?: number;
   commission: {
     periode: { debut: string; fin: string; libelle: string };
     base: "TTC" | "HT";
@@ -619,6 +624,7 @@ export interface PrevisionLieu {
 }
 
 export interface PrevisionGlobale {
+  ratioHt?: number;
   du: string;
   au: string;
   realiseCents: number;
@@ -791,6 +797,9 @@ export interface Vente {
   transactionIdModule: string;
   horodatage: string;
   montantTtcCents: number;
+  montantHtCents?: number;
+  /** Remboursé, en HT (bascule HT / TTC de la liste) */
+  rembourseHtCents?: number;
   statut: string;
   moyenPaiement: string;
   referenceMonetique: string | null;

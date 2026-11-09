@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { api, type MesMentions } from "@/lib/api";
+import { api } from "@/lib/api";
 import { jeton, keycloak } from "@/lib/auth";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
@@ -22,7 +22,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", perm: "pages.analyse.view" },
       { href: "/comportements", libelle: "Comportements", icone: "Footprints", perm: "pages.comportements.view" },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", perm: "pages.alertes.view" },
-      { href: "/mentions", libelle: "Mes mentions", icone: "AtSign", perm: "pages.mentions.view" },
+      // Mentions : dans la cloche de la plateforme (notifications), plus de page dédiée
     ],
   },
   {
@@ -143,7 +143,6 @@ export function Coquille({ children }: { children: ReactNode }) {
   const permis = new Set(SECTIONS.flatMap((s) => s.liens.map((l) => l.perm)).filter((p) => a(p)));
   const cleDroits = [...permis].join("|");
   const voitAlertes = a("pages.alertes.view");
-  const voitMentions = a("pages.mentions.view");
   const monLieuSeul = !a("pages.lieux.view") && !!moi.lieuId;
 
   const { data: compteur } = useQuery({
@@ -153,15 +152,7 @@ export function Coquille({ children }: { children: ReactNode }) {
     refetchInterval: 60_000,
   });
 
-  const { data: mentions } = useQuery({
-    queryKey: ["mentions"],
-    queryFn: () => api<MesMentions>("/commentaires/mentions"),
-    enabled: voitMentions,
-    refetchInterval: 60_000,
-  });
-
   const nbAlertes = compteur?.nouvelles ?? 0;
-  const nbMentions = mentions?.nonLues ?? 0;
   const sections = useMemo(() => {
     if (!plateforme) return [];
     // Sans la liste des lieux mais rattaché à un lieu (partenaire) : un menu réduit à « Mon lieu »
@@ -175,12 +166,11 @@ export function Coquille({ children }: { children: ReactNode }) {
           label: l.libelle,
           path: l.href,
           ...(l.href === "/alertes" && nbAlertes ? { badge: nbAlertes } : {}),
-          ...(l.href === "/mentions" && nbMentions ? { badge: nbMentions } : {}),
         })),
     })).filter((s) => s.items.length);
     // permis : recalculé à chaque rendu, comparé par sa clé texte
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plateforme, cleDroits, monLieuSeul, moi.lieuId, nbAlertes, nbMentions]);
+  }, [plateforme, cleDroits, monLieuSeul, moi.lieuId, nbAlertes]);
 
   // La barre latérale ne surligne que le chemin exact : on lui donne l'entrée de menu qui contient la page
   const cheminActif = useMemo(() => {

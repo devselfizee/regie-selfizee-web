@@ -6,13 +6,15 @@ import { api, qs, type ContexteLieu, type OccurrenceMarketing } from "@/lib/api"
 import { euros, nombre } from "@/lib/format";
 import { Chargement, Erreur } from "./Etat";
 
-// Vue calendrier des ventes (retour de Sébastien) : un mois, la synthèse de chaque jour ; un clic ouvre la liste du jour.
+// Vue calendrier des ventes (retour de Sébastien) : un mois, la synthèse de chaque jour ; un clic ouvre ses paiements en popup.
 
 interface JourVentes {
   jour: string;
   nbVentes: number;
   encaisseTtcCents: number;
   rembourseTtcCents: number;
+  encaisseHtCents?: number;
+  rembourseHtCents?: number;
   nbNonAbouties: number;
   nbSansAction: number;
 }
@@ -23,7 +25,7 @@ const JOURS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 const aujourdhui = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date());
 
 /** filtres : query string des filtres de la liste (lieu, borne, moyen, parc, cartes), sans période */
-export function CalendrierVentes({ filtres, lieuId, onJour }: { filtres: Record<string, string | undefined>; lieuId?: number; onJour: (jour: string) => void }) {
+export function CalendrierVentes({ filtres, lieuId, onJour, ht = false }: { filtres: Record<string, string | undefined>; lieuId?: number; onJour: (jour: string) => void; ht?: boolean }) {
   const [mois, setMois] = useState(() => aujourdhui().slice(0, 7));
   const premier = new Date(`${mois}-01T00:00:00Z`);
   const dernier = new Date(Date.UTC(premier.getUTCFullYear(), premier.getUTCMonth() + 1, 0));
@@ -46,13 +48,16 @@ export function CalendrierVentes({ filtres, lieuId, onJour }: { filtres: Record<
     enabled: !!lieuId,
   });
 
+  // Montants HT ou TTC selon la bascule de la page (retour de Sébastien)
+  const encaisse = (j: JourVentes) => (ht ? (j.encaisseHtCents ?? 0) : j.encaisseTtcCents);
+  const net = (j: JourVentes) => encaisse(j) - (ht ? (j.rembourseHtCents ?? 0) : j.rembourseTtcCents);
   const parJour = new Map((ventes.data ?? []).map((j) => [j.jour, j]));
   const contexteJour = new Map((contexte.data?.jours ?? []).map((j) => [j.jour, j]));
   const jours: string[] = [];
   for (let t = debutGrille.getTime(); t <= finGrille.getTime(); t += 86_400_000) jours.push(ymd(new Date(t)));
   const duMois = (ventes.data ?? []).filter((j) => j.jour.startsWith(mois));
-  const total = duMois.reduce((s, j) => ({ ca: s.ca + j.encaisseTtcCents - j.rembourseTtcCents, nb: s.nb + j.nbVentes }), { ca: 0, nb: 0 });
-  const max = Math.max(1, ...duMois.map((j) => j.encaisseTtcCents));
+  const total = duMois.reduce((s, j) => ({ ca: s.ca + net(j), nb: s.nb + j.nbVentes }), { ca: 0, nb: 0 });
+  const max = Math.max(1, ...duMois.map(encaisse));
   const changerMois = (n: number) => setMois(ymd(new Date(Date.UTC(premier.getUTCFullYear(), premier.getUTCMonth() + n, 1))).slice(0, 7));
   const auj = aujourdhui();
 
@@ -61,7 +66,7 @@ export function CalendrierVentes({ filtres, lieuId, onJour }: { filtres: Record<
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold first-letter:uppercase">{premier.toLocaleDateString("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" })}</h3>
         <span className="text-sm text-ink-2 tabular">
-          {euros(total.ca)} encaissés · {nombre(total.nb)} vente{total.nb > 1 ? "s" : ""}
+          {euros(total.ca)} {ht ? "HT" : "TTC"} encaissés · {nombre(total.nb)} vente{total.nb > 1 ? "s" : ""}
         </span>
         <div className="flex items-center gap-1">
           <button type="button" className="bouton-second !px-2 !py-1" onClick={() => changerMois(-1)} aria-label="Mois précédent">‹</button>
@@ -71,8 +76,8 @@ export function CalendrierVentes({ filtres, lieuId, onJour }: { filtres: Record<
       </div>
       {ventes.error && <Erreur erreur={ventes.error} />}
       {ventes.isPending && <Chargement />}
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[44rem] grid-cols-7 border-l border-t border-line text-sm">
+      <div>
+        <div className="grid grid-cols-7 border-l border-t border-line text-sm">
           {JOURS.map((j, i) => (
             <div key={j} className={`border-b border-r border-line px-2 py-1 text-right text-xs text-ink-2 ${i >= 5 ? "bg-surface-2" : ""}`}>{j}</div>
           ))}
@@ -91,7 +96,7 @@ export function CalendrierVentes({ filtres, lieuId, onJour }: { filtres: Record<
                 onClick={() => onJour(jour)}
                 disabled={!actif}
                 title={c?.vacances ?? undefined}
-                className={`flex min-h-24 flex-col gap-0.5 border-b border-r border-line p-1.5 text-left align-top ${weekEnd ? "bg-surface-2" : ""} ${horsMois ? "opacity-45" : ""} ${actif ? "hover:bg-accent/5" : "cursor-default"}`}
+                className={`flex min-h-24 min-w-0 flex-col gap-0.5 overflow-hidden border-b border-r border-line p-1 text-left align-top sm:p-1.5 ${weekEnd ? "bg-surface-2" : ""} ${horsMois ? "opacity-45" : ""} ${actif ? "hover:bg-accent/5" : "cursor-default"}`}
               >
                 <span className="flex items-center justify-between gap-1 text-xs">
                   {c?.vacances ? <span className="truncate text-ink-muted">vacances</span> : <span />}
@@ -102,15 +107,15 @@ export function CalendrierVentes({ filtres, lieuId, onJour }: { filtres: Record<
                 ))}
                 {v && v.nbVentes > 0 && (
                   <>
-                    <span className="mt-auto font-semibold tabular">{euros(v.encaisseTtcCents - v.rembourseTtcCents)}</span>
+                    <span className="mt-auto truncate text-xs font-semibold tabular sm:text-sm">{euros(net(v))}</span>
                     <span className="h-1 rounded bg-surface-2" aria-hidden>
-                      <span className="block h-1 rounded bg-accent/70" style={{ width: `${(v.encaisseTtcCents / max) * 100}%` }} />
+                      <span className="block h-1 rounded bg-accent/70" style={{ width: `${(encaisse(v) / max) * 100}%` }} />
                     </span>
-                    <span className="text-xs text-ink-2 tabular">{nombre(v.nbVentes)} vente{v.nbVentes > 1 ? "s" : ""}</span>
+                    <span className="truncate text-xs text-ink-2 tabular">{nombre(v.nbVentes)} vente{v.nbVentes > 1 ? "s" : ""}</span>
                   </>
                 )}
                 {v && (v.nbNonAbouties > 0 || v.nbSansAction > 0) && (
-                  <span className="text-[11px] text-ink-muted tabular">
+                  <span className="hidden text-[11px] text-ink-muted tabular sm:block">
                     {[v.nbNonAbouties > 0 && `${v.nbNonAbouties} non abouti${v.nbNonAbouties > 1 ? "s" : ""}`, v.nbSansAction > 0 && `${v.nbSansAction} sans action`].filter(Boolean).join(" · ")}
                   </span>
                 )}

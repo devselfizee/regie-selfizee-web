@@ -8,12 +8,15 @@ export function Modale({
   ouverte,
   onFermer,
   large = false,
+  tresLarge = false,
   children,
 }: {
   titre: string;
   ouverte: boolean;
   onFermer: () => void;
   large?: boolean;
+  /** Pour un tableau (paiements d'un jour) */
+  tresLarge?: boolean;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -32,7 +35,7 @@ export function Modale({
     <dialog
       ref={ref}
       onClose={() => ouverteRef.current && onFermer()}
-      className={`m-auto ${large ? "w-[min(46rem,calc(100vw-2rem))]" : "w-[min(32rem,calc(100vw-2rem))]"} max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/40`}
+      className={`m-auto ${tresLarge ? "w-[min(72rem,calc(100vw-2rem))]" : large ? "w-[min(46rem,calc(100vw-2rem))]" : "w-[min(32rem,calc(100vw-2rem))]"} max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/40`}
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 className="text-sm font-semibold">{titre}</h2>

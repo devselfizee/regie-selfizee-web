@@ -18,7 +18,6 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/monitoring", libelle: "Monitoring live", perm: "pages.monitoring.view" },
   { href: "/papier", libelle: "Papier", perm: "pages.papier.view" },
   { href: "/alertes", libelle: "Alertes", perm: "pages.alertes.view" },
-  { href: "/mentions", libelle: "Mes mentions", perm: "pages.mentions.view" },
   { href: "/bornes", libelle: "Bornes", perm: "pages.bornes.view" },
   { href: "/reversements", libelle: "Commissions", perm: "pages.commissions.view" },
   { href: "/paiements", libelle: "Paiements", perm: "pages.paiements.view" },

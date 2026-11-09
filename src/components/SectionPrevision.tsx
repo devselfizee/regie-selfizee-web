@@ -5,13 +5,15 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type Atteinte, type PrevisionGlobale, type PrevisionLieu } from "@/lib/api";
 import { euros, eurosRond, jour } from "@/lib/format";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
-import { AvertissementsPrevision, GraphiquePrevision, libelleMois, METHODE, ResumePrevision } from "./Prevision";
+import { AvertissementsPrevision, GraphiquePrevision, libelleMois, METHODE, previsionEnHt, ResumePrevision } from "./Prevision";
 
 /** Vue globale : prévision du mois en cours, tous lieux actifs (indépendante des filtres). */
-export function PrevisionGlobaleSection() {
-  const { data: p, error } = useQuery({ queryKey: ["previsions", "global"], queryFn: () => api<PrevisionGlobale>("/previsions/global"), staleTime: 5 * 60_000 });
+export function PrevisionGlobaleSection({ ht = false }: { ht?: boolean }) {
+  const { data, error } = useQuery({ queryKey: ["previsions", "global"], queryFn: () => api<PrevisionGlobale>("/previsions/global"), staleTime: 5 * 60_000 });
+  // Calculée en TTC : en HT, montants passés à la part HT des ventes réelles (bascule HT / TTC de la page)
+  const p = data && ht ? previsionEnHt(data, data.ratioHt ?? 1 / 1.2) : data;
   return (
-    <Section titre={p ? `Prévision ${libelleMois(p.du)}` : "Prévision du mois"}>
+    <Section titre={p ? `Prévision ${libelleMois(p.du)} ${ht ? "HT" : "TTC"}` : "Prévision du mois"}>
       {error && <Erreur erreur={error} />}
       {!p && !error && <Chargement />}
       {p && (
@@ -46,10 +48,12 @@ const Etat = ({ a }: { a: Atteinte }) =>
   : <Badge ton="warn">Pas d&apos;ici la fin · manque {eurosRond(a.manqueCents)}</Badge>;
 
 /** Fiche lieu : prévision du mois et, pour l'admin et le partenaire, de la commission. */
-export function PrevisionLieuSection({ lieuId }: { lieuId: number }) {
-  const { data: p, error } = useQuery({ queryKey: ["previsions", "lieu", lieuId], queryFn: () => api<PrevisionLieu>(`/previsions/lieux/${lieuId}`), staleTime: 5 * 60_000 });
+export function PrevisionLieuSection({ lieuId, ht = false }: { lieuId: number; ht?: boolean }) {
+  const { data, error } = useQuery({ queryKey: ["previsions", "lieu", lieuId], queryFn: () => api<PrevisionLieu>(`/previsions/lieux/${lieuId}`), staleTime: 5 * 60_000 });
+  // CA prévu en HT selon la bascule ; la commission reste telle que calculée (montant à reverser)
+  const p = data && ht && data.mois ? { ...data, mois: previsionEnHt(data.mois, data.ratioHt ?? 1 / 1.2) } : data;
   return (
-    <Section titre={p?.mois ? `Prévision ${libelleMois(p.mois.du)}` : "Prévision du mois"}>
+    <Section titre={p?.mois ? `Prévision ${libelleMois(p.mois.du)} ${ht ? "HT" : "TTC"}` : "Prévision du mois"}>
       {error && <Erreur erreur={error} />}
       {!p && !error && <Chargement />}
       {p && !p.mois && (
