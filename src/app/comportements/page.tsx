@@ -24,8 +24,8 @@ function Comportements() {
   return (
     <>
       <EnTete
-        titre="Comportements"
-        sousTitre={`Ce que font les invités devant la borne, de la première page à l'impression · du ${jour(filtres.du)} au ${jour(filtres.au)}`}
+        titre="Comportements des invités"
+        sousTitre={`De la première page à l'impression : combien vont au bout, où ils décrochent, et quelles bornes sortent du lot · du ${jour(filtres.du)} au ${jour(filtres.au)}`}
       />
       <Filtres valeurs={filtres} onChange={setFiltres} />
       <Comportement requete={requete} />
