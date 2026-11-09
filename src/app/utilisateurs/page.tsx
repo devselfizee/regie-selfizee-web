@@ -98,11 +98,10 @@ function Utilisateurs() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-ink-2">
-                    {u.role === "ADMIN" || u.role === "TECHNICIEN"
-                      ? "Tous les lieux"
-                      : u.role === "PARTENAIRE"
-                        ? u.lieu?.enseigne ?? "—"
-                        : `${u.nbLieux} lieu${u.nbLieux > 1 ? "x" : ""}`}
+                    {u.role === "PARTENAIRE" ? (u.lieu?.enseigne ?? "—") : "Tous les lieux"}
+                    {u.role === "COMMERCIAL" && u.nbLieux > 0 && (
+                      <span className="block text-xs text-ink-muted">responsable de {u.nbLieux} lieu{u.nbLieux > 1 ? "x" : ""}</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <label className="flex items-center gap-2">
