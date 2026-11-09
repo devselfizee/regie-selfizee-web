@@ -23,6 +23,11 @@ interface Utilisateur {
   lieu: { id: number; enseigne: string } | null;
   dejaConnecte: boolean;
   nbLieux: number;
+  /** Profils Konitys (Admin Panel), relevés à sa dernière connexion */
+  profils: string[];
+  /** Admin de la plateforme : passe partout */
+  adminPlateforme: boolean;
+  profilsRelevesLe: string | null;
 }
 
 // Adresse de l'Admin Panel (profils et droits), d'après celle de la plateforme
@@ -90,7 +95,10 @@ function Utilisateurs() {
             <thead className="text-left text-xs text-ink-2">
               <tr>
                 <th className="px-4 py-3 font-medium">Nom</th>
-                <th className="px-4 py-3 font-medium">Lieu</th>
+                <th className="px-4 py-3 font-medium" title="Profils de l'Admin Panel, relevés à sa dernière connexion : ils donnent ses droits">Profils</th>
+                <th className="px-4 py-3 font-medium" title="Seulement pour un partenaire : le lieu qu'il voit. Les autres voient les lieux selon leurs droits.">
+                  Lieu (partenaire)
+                </th>
                 <th className="px-4 py-3 font-medium" title="Alertes Warning et Critique, et récapitulatif quotidien">E-mails des alertes</th>
                 <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…)">SMS des alertes</th>
                 <th className="px-4 py-3 font-medium">État</th>
@@ -104,9 +112,24 @@ function Utilisateurs() {
                     <div className="font-medium">{[u.prenom, u.nom].filter(Boolean).join(" ")}</div>
                     <div className="text-xs text-ink-muted">{u.email}</div>
                   </td>
+                  <td className="px-4 py-3">
+                    {/* Profils de l'Admin Panel (relevés à la connexion) : ce sont eux qui donnent les droits */}
+                    {u.adminPlateforme || u.profils.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {u.adminPlateforme && <Badge ton="ok">Admin plateforme</Badge>}
+                        {u.profils.map((p) => (
+                          <span key={p} className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-ink-2">{p}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-ink-muted">
+                        {!u.dejaConnecte ? "jamais connecté" : u.profilsRelevesLe ? "aucun profil" : "connu à sa prochaine connexion"}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-ink-2">
-                    {/* Lieu rattaché : celui d'un partenaire (son périmètre « ses lieux ») */}
-                    {u.lieu?.enseigne ?? "—"}
+                    {/* Lieu rattaché : seulement pour un partenaire ; les autres voient les lieux selon leurs droits */}
+                    {u.lieu?.enseigne ?? <span className="text-xs text-ink-muted">aucun</span>}
                     {u.nbLieux > 0 && (
                       <span className="block text-xs text-ink-muted">responsable de {u.nbLieux} lieu{u.nbLieux > 1 ? "x" : ""}</span>
                     )}
