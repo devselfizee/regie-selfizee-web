@@ -833,6 +833,8 @@ export interface CarteTest {
 /** Récapitulatif d'une commande (GET /ventes/:id) */
 export interface RecapVente extends Vente {
   montantHtCents: number;
+  /** Média de la séance (table medias, par photo_uuid) : null sans média ou sans le droit de voir les médias */
+  media?: { uuid: string; vignette: string | null; video: boolean } | null;
   tauxTvaBp: number;
   referenceSequence: string | null;
   motif: string | null;

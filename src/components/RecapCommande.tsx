@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, type RecapVente } from "@/lib/api";
+import { api, fichierProtege, type RecapVente } from "@/lib/api";
 import { dateHeure, euros, GRATUITES, libelleMoyen } from "@/lib/format";
 import { Badge, Chargement, Erreur } from "./Etat";
 import { Gate } from "@/lib/perms";
@@ -34,6 +34,43 @@ function Info({ libelle, children }: { libelle: string; children: ReactNode }) {
   );
 }
 
+/** Photo ou vidéo de la séance : la vignette tout de suite, le fichier en grand lu avec le jeton */
+function PhotoSeance({ v }: { v: RecapVente }) {
+  const [grande, setGrande] = useState<string | null>(null);
+  const uuid = v.media?.uuid;
+  useEffect(() => {
+    if (!uuid) return;
+    let url: string | null = null;
+    let fini = false;
+    fichierProtege(`/medias/${uuid}/fichier`)
+      .then((u) => {
+        url = u;
+        if (!fini) setGrande(u);
+        else URL.revokeObjectURL(u);
+      })
+      .catch(() => undefined); // la vignette reste affichée
+    return () => {
+      fini = true;
+      if (url) URL.revokeObjectURL(url);
+      setGrande(null);
+    };
+  }, [uuid]);
+  const alt = `Photo de la séance ${v.seance.code}`;
+  if (v.media?.video && grande) return <video src={grande} controls playsInline className="max-h-80 w-auto rounded shadow-lg" aria-label={alt} />;
+  const src = grande ?? v.photoUrl;
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element -- vignette (data URL) ou fichier de l'API (blob)
+    return <img src={src} alt={alt} className="max-h-80 w-auto rounded shadow-lg" />;
+  }
+  return (
+    <p className="max-w-xs text-center text-sm text-white/70">
+      {v.photoUuid
+        ? "Photo pas encore reçue de PikCloud (ou purgée) pour cette séance."
+        : "Pas de photo liée à ce paiement : la borne n'a pas envoyé son identifiant PikCloud."}
+    </p>
+  );
+}
+
 export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?: (v: RecapVente) => void }) {
   const { data: v, error } = useQuery({ queryKey: ["ventes", "recap", id], queryFn: () => api<RecapVente>(`/ventes/${id}`) });
   if (error) return <Erreur erreur={error} />;
@@ -47,18 +84,9 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
 
   return (
     <div className="-m-4">
-      {/* Photo de la séance */}
+      {/* Photo de la séance : média reçu de PikCloud (table medias, lien par photo_uuid), vignette puis taille réelle */}
       <div className="flex min-h-40 items-center justify-center bg-[#1c1630] p-4">
-        {v.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- image externe (PikCloud), taille inconnue
-          <img src={v.photoUrl} alt={`Photo de la séance ${v.seance.code}`} className="max-h-80 w-auto rounded shadow-lg" />
-        ) : (
-          <p className="max-w-xs text-center text-sm text-white/70">
-            {v.photoUuid
-              ? "Photo enregistrée, mais l'adresse des photos n'est pas encore réglée sur la plateforme."
-              : "Pas de photo liée à ce paiement : la borne n'a pas envoyé son identifiant PikCloud."}
-          </p>
-        )}
+        <PhotoSeance v={v} />
       </div>
 
       <div className="space-y-5 p-5">
