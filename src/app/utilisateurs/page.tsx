@@ -16,6 +16,8 @@ interface Utilisateur {
   telephone: string | null;
   /** Reçoit les SMS des alertes critiques (désigné ici ; personne par défaut) */
   alertesSms: boolean;
+  /** Reçoit les e-mails des alertes et le récapitulatif quotidien (désigné ici) */
+  alertesEmail: boolean;
   isActive: boolean;
   lieuId: number | null;
   lieu: { id: number; enseigne: string } | null;
@@ -48,6 +50,10 @@ function Utilisateurs() {
     mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { alertesSms: !u.alertesSms } }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["utilisateurs"] }),
   });
+  const emails = useMutation({
+    mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { alertesEmail: !u.alertesEmail } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["utilisateurs"] }),
+  });
 
   return (
     <>
@@ -64,6 +70,7 @@ function Utilisateurs() {
       {isPending && !error && <Chargement />}
       {basculer.error && <Erreur erreur={basculer.error} />}
       {sms.error && <Erreur erreur={sms.error} />}
+      {emails.error && <Erreur erreur={emails.error} />}
       <p className="mb-2 text-sm text-ink-2">
         Ce que chacun peut voir et faire se règle dans l&apos;Admin Panel → <strong>Profils &amp; Droits</strong> (application « Régie »), selon le profil de son compte.
         {ADMIN_PANEL && (
@@ -74,7 +81,8 @@ function Utilisateurs() {
         )}
       </p>
       <p className="mb-3 text-xs text-ink-2">
-        SMS des alertes critiques (borne muette…) : seulement aux personnes cochées, à leur numéro du Hub. Les autres alertes partent par e-mail.
+        Alertes : par e-mail (Warning et Critique, plus le récapitulatif quotidien) et par SMS (critiques : borne muette…) aux seules personnes cochées. Le commercial
+        responsable d&apos;un lieu reçoit en plus par e-mail les alertes de vente de ce lieu.
       </p>
       {data && (
         <div className="carte overflow-x-auto">
@@ -83,7 +91,8 @@ function Utilisateurs() {
               <tr>
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium">Lieu</th>
-                <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…) ; les autres arrivent par e-mail">SMS des alertes</th>
+                <th className="px-4 py-3 font-medium" title="Alertes Warning et Critique, et récapitulatif quotidien">E-mails des alertes</th>
+                <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…)">SMS des alertes</th>
                 <th className="px-4 py-3 font-medium">État</th>
                 <th className="px-4 py-3"><span className="sr-only">Actions</span></th>
               </tr>
@@ -101,6 +110,15 @@ function Utilisateurs() {
                     {u.nbLieux > 0 && (
                       <span className="block text-xs text-ink-muted">responsable de {u.nbLieux} lieu{u.nbLieux > 1 ? "x" : ""}</span>
                     )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={u.alertesEmail}
+                      disabled={!gere || emails.isPending}
+                      onChange={() => emails.mutate(u)}
+                      aria-label={`E-mails des alertes pour ${u.email}`}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <label className="flex items-center gap-2">

@@ -109,7 +109,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
   const router = useRouter();
   const client = useQueryClient();
   // Choisir le commercial responsable : réservé à qui gère les utilisateurs (avant : tous sauf les commerciaux)
-  const choisitCommercial = usePerm("utilisateurs.manage");
+  const choisitCommercial = usePerm("lieux.commercial_edit");
   const [e, setE] = useState<Etat>(() => depuisFiche(lieu, statut));
   // Fiche prospect allégée (retour de Sébastien) : sans fréquentation, environnement, emplacement ni bloc commercial
   const prospect = e.statut === "PROSPECT";
