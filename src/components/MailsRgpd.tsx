@@ -7,7 +7,7 @@ import { usePerm } from "@/lib/perms";
 import { Badge, Chargement, Erreur } from "./Etat";
 import { Modale } from "./Modale";
 
-// Mails de la plateforme RGPD (rgpd.selfizee.fr) envoyés par la Régie : lien d'accès aux données, notification interne
+// Mails de la plateforme RGPD (rgpd.orkessi.com) envoyés par la Régie : lien d'accès aux données, notification interne
 // des suppressions et modifications. Sujet, corps en texte riche (nettoyé par l'API) et variables {{…}}.
 
 interface ModeleMail {
