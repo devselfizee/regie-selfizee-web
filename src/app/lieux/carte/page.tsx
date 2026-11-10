@@ -22,6 +22,8 @@ interface LieuCarte {
   caTtcCents: number;
   nbVentes: number;
   joursOuverts: number;
+  /** Une borne y était installée pendant la période */
+  equipe?: boolean;
   caParJourOuvertCents: number | null;
   caPrecedentCents: number;
   evolution: number | null;
@@ -128,7 +130,9 @@ function Carte() {
   }, [data, mesure]);
 
   const sansPosition = data?.lieux.filter((l) => l.latitude === null || l.longitude === null) ?? [];
-  const tries = [...(data?.lieux ?? [])].sort((a, b) => (valeur(b) ?? -Infinity) - (valeur(a) ?? -Infinity));
+  // Tableaux : sans vente, un lieu n'est listé que s'il était ouvert et équipé d'une borne (retour de Sébastien du 10/11)
+  const listes = (data?.lieux ?? []).filter((l) => l.caTtcCents > 0 || l.nbVentes > 0 || (l.joursOuverts > 0 && l.equipe !== false));
+  const tries = [...listes].sort((a, b) => (valeur(b) ?? -Infinity) - (valeur(a) ?? -Infinity));
 
   return (
     <>
@@ -188,7 +192,7 @@ function Carte() {
             </div>
           )}
 
-          <ParDepartement lieux={data.lieux} />
+          <ParDepartement lieux={listes} />
 
           <Section titre="Par lieu">
             {tries.length ? (

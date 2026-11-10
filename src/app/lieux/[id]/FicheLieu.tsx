@@ -138,15 +138,10 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </div>
       )}
 
-      {ongletActif === "stats" && (
-        <div className="mt-6">
-          <JournalEvenements lieuId={id} peutEcrire={a("contexte.edit")} />
-        </div>
-      )}
-
       {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} ht={ht} />}
 
-      {ongletActif === "suivi" && <SuiviLieu lieuId={id} />}
+      {/* Journal d'événements : dans le suivi plutôt que sous les statistiques (retour de Sébastien du 10/11) */}
+      {ongletActif === "suivi" && <SuiviLieu lieuId={id} journal={<JournalEvenements lieuId={id} peutEcrire={a("contexte.edit")} />} />}
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 

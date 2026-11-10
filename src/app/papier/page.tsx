@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { dateHeure, depuis, nombre } from "@/lib/format";
+import { dateHeure, depuis, nombre, prochainement } from "@/lib/format";
 import { PageGuard } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
@@ -115,7 +115,7 @@ function Papier() {
                     </td>
                     <td className="px-4 py-2.5">{depuis(b.dernierPing)}</td>
                     <td className="px-4 py-2.5">
-                      {b.lieuOuvert ? <span className="font-medium text-good">en ce moment</span> : b.prochaineOuverture ? dateHeure(b.prochaineOuverture) : <span className="text-ink-muted">pas d&apos;ouverture prévue</span>}
+                      {b.lieuOuvert ? <span className="font-medium text-good">en ce moment</span> : b.prochaineOuverture ? prochainement(b.prochaineOuverture) : <span className="text-ink-muted">pas d&apos;ouverture prévue</span>}
                     </td>
                   </tr>
                 );

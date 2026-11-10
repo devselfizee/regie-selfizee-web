@@ -20,6 +20,46 @@ const dateHeureFmt = new Intl.DateTimeFormat("fr-FR", {
 /** Instant ISO → date/heure de Paris */
 export const dateHeure = (iso: string | null | undefined) => (iso ? dateHeureFmt.format(new Date(iso)) : "—");
 export const date = (iso: string | null | undefined) => (iso ? dateFmt.format(new Date(iso)) : "—");
+const partiesParis = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "Europe/Paris", weekday: "long", day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+/** Jour, date et heure de Paris d'un instant */
+function enParis(d: Date) {
+  const p = Object.fromEntries(partiesParis.formatToParts(d).map((x) => [x.type, x.value]));
+  return {
+    jourSemaine: p.weekday,
+    date: `${p.day}/${p.month}/${p.year}`,
+    // Jour de calendrier de Paris, en jours depuis 1970 (sans heure : ignore les changements d'heure)
+    numeroJour: Date.UTC(2000 + Number(p.year), Number(p.month) - 1, Number(p.day)) / 86_400_000,
+    heure: Number(p.hour),
+    minute: Number(p.minute),
+  };
+}
+/** « 22h », « 23h30 » */
+const heureCourte = (h: number, m: number) => `${h}h${m ? String(m).padStart(2, "0") : ""}`;
+
+/**
+ * Instant à venir, lu d'un coup d'œil (retour de Sébastien du 10/11) : « dans 5 h (22h) » dans les 12 heures,
+ * « demain 23h30 », « mercredi 23h30 » dans la semaine, sinon la date seule « 19/11/26 ».
+ */
+export function prochainement(iso: string | null | undefined, maintenant = new Date()): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  const ecart = d.getTime() - maintenant.getTime();
+  const p = enParis(d);
+  const heure = heureCourte(p.heure, p.minute);
+  if (ecart <= 0) return `à ${heure}`;
+  if (ecart < 12 * 3600_000) {
+    const minutes = Math.round(ecart / 60_000);
+    return `dans ${minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} h`} (${heure})`;
+  }
+  const jours = p.numeroJour - enParis(maintenant).numeroJour;
+  if (jours <= 0) return `à ${heure}`;
+  if (jours === 1) return `demain ${heure}`;
+  if (jours < 7) return `${p.jourSemaine} ${heure}`;
+  return p.date;
+}
+
 /** "2026-10-05" → "05/10/2026" (date métier, sans fuseau) */
 export const jour = (ymd: string) => ymd.split("-").reverse().join("/");
 

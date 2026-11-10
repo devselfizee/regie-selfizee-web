@@ -715,6 +715,8 @@ export interface EvenementLieu {
   libelle: string;
   debut: string;
   fin: string | null;
+  /** Qui l'a saisi (null avant le 10/11/2026) */
+  auteur?: { prenom: string; nom: string; photoUrl: string | null } | null;
   impact: ImpactEvenement | null;
 }
 

@@ -7,6 +7,7 @@ import { euros, eurosRond, jour, pct } from "@/lib/format";
 import { Chargement, Erreur, Section, Vide } from "./Etat";
 import { Modale } from "./Modale";
 import { useReferentiel } from "./Filtres";
+import { Avatar } from "./SuiviLieu";
 
 export const useContexteLieu = (lieuId: number, du?: string, au?: string) =>
   useQuery({
@@ -164,7 +165,10 @@ export function JournalEvenements({ lieuId, peutEcrire }: { lieuId: number; peut
   const [edition, setEdition] = useState<EvenementLieu | "nouveau" | null>(null);
   const supprimer = useMutation({
     mutationFn: (id: number) => api(`/evenements/${id}`, { method: "DELETE" }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["evenements", lieuId] }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["evenements", lieuId] });
+      client.invalidateQueries({ queryKey: ["suivi", lieuId] });
+    },
   });
 
   return (
@@ -184,7 +188,12 @@ export function JournalEvenements({ lieuId, peutEcrire }: { lieuId: number; peut
                 <div>
                   <span className="font-medium">{e.libelle}</span> <span className="text-ink-muted">· {e.type.libelle}</span>
                 </div>
-                <div className="text-xs text-ink-2">
+                <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-ink-2">
+                  {e.auteur && (
+                    <span className="inline-flex items-center gap-1">
+                      <Avatar nom={`${e.auteur.prenom} ${e.auteur.nom}`.trim()} photo={e.auteur.photoUrl} /> {`${e.auteur.prenom} ${e.auteur.nom}`.trim()} ·
+                    </span>
+                  )}
                   {e.fin && e.fin !== e.debut ? `du ${jour(e.debut)} au ${jour(e.fin)}` : e.fin ? `le ${jour(e.debut)}` : `depuis le ${jour(e.debut)}`}
                 </div>
                 {e.impact && <div className="mt-1 text-xs"><Impact i={e.impact} /></div>}
@@ -231,6 +240,7 @@ function FormEvenement({ lieuId, evenement, onFini }: { lieuId: number; evenemen
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["evenements", lieuId] });
+      client.invalidateQueries({ queryKey: ["suivi", lieuId] });
       onFini();
     },
   });

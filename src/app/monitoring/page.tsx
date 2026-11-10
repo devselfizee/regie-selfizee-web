@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { dateHeure, depuis, euros, nombre } from "@/lib/format";
+import { dateHeure, depuis, euros, nombre, prochainement } from "@/lib/format";
 import { PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
@@ -177,7 +177,7 @@ function Tableau({ bornes, onDetail, finJournee }: { bornes: BorneSupervisee[]; 
                     {!b.enLigne && <span className="text-ink-muted"> (au dernier signal)</span>}
                   </span>
                 )}
-                {!b.lieuOuvert && b.lieu && b.prochaineOuverture && <span className="block text-xs text-ink-muted">ouvre {dateHeure(b.prochaineOuverture)}</span>}
+                {!b.lieuOuvert && b.lieu && b.prochaineOuverture && <span className="block text-xs text-ink-muted">ouvre {prochainement(b.prochaineOuverture)}</span>}
               </td>
               <td className="py-2 pr-3">{depuis(b.derniereVente)}</td>
               <td className={`py-2 pr-3 text-right ${tonPapier(b.papier?.restant)}`}>{b.papier ? nombre(b.papier.restant) : "—"}</td>
@@ -214,7 +214,7 @@ function DetailBorne({ b }: { b: BorneSupervisee }) {
     <div className="space-y-3">
       <p className="text-sm text-ink-2">
         {ETATS[b.etat].libelle} · dernier signal {depuis(b.dernierPing)} · état relevé {b.etatLe ? dateHeure(b.etatLe) : "—"}
-        {b.lieu && (b.lieuOuvert ? " · lieu ouvert" : b.prochaineOuverture ? ` · lieu fermé, ouvre ${dateHeure(b.prochaineOuverture)}` : " · lieu fermé")}
+        {b.lieu && (b.lieuOuvert ? " · lieu ouvert" : b.prochaineOuverture ? ` · lieu fermé, ouvre ${prochainement(b.prochaineOuverture)}` : " · lieu fermé")}
       </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {carte("Imprimante", b.imprimanteOk, b.imprimanteOk === null ? "—" : b.imprimanteOk ? "Prête" : "En erreur", [

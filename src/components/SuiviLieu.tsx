@@ -32,7 +32,7 @@ type Filtre = "tout" | "commentaires" | "historique";
 const AUTOMATIQUE = "Régie (automatique)";
 
 /** Avatar d'un compte : sa photo Konitys, sinon ses initiales ; la Régie elle-même pour ce qu'elle fait seule */
-function Avatar({ nom, photo }: { nom: string; photo?: string | null }) {
+export function Avatar({ nom, photo }: { nom: string; photo?: string | null }) {
   const [echec, setEchec] = useState(false);
   const classe = "inline-flex size-5 shrink-0 items-center justify-center self-center overflow-hidden rounded-full text-[0.6rem] font-semibold";
   if (nom === AUTOMATIQUE)
@@ -46,7 +46,7 @@ function Avatar({ nom, photo }: { nom: string; photo?: string | null }) {
   if (photo && !echec)
     // eslint-disable-next-line @next/next/no-img-element -- photo servie par la plateforme Konitys
     return <img src={photo} alt="" className={`${classe} object-cover`} onError={() => setEchec(true)} />;
-  const initiales = nom.split(/s+/).filter(Boolean).slice(0, 2).map((m) => m[0]!.toUpperCase()).join("");
+  const initiales = nom.split(/\s+/).filter(Boolean).slice(0, 2).map((m) => m[0]!.toUpperCase()).join("");
   return (
     <span className={`${classe} bg-accent/15 text-accent`} aria-hidden>
       {initiales || "?"}
@@ -54,7 +54,8 @@ function Avatar({ nom, photo }: { nom: string; photo?: string | null }) {
   );
 }
 
-export function SuiviLieu({ lieuId }: { lieuId: number }) {
+/** `journal` : le journal d'événements du lieu, entre la saisie d'un commentaire et la timeline (retour de Sébastien du 10/11) */
+export function SuiviLieu({ lieuId, journal }: { lieuId: number; journal?: ReactNode }) {
   const [filtre, setFiltre] = useState<Filtre>("tout");
   const timeline = useQuery({ queryKey: ["suivi", lieuId], queryFn: () => api<ElementTimeline[]>(`/lieux/${lieuId}/timeline`) });
   const personnes = useQuery({ queryKey: ["mentionnables", lieuId], queryFn: () => api<Mentionnable[]>(`/lieux/${lieuId}/mentionnables`), staleTime: 5 * 60_000 });
@@ -86,6 +87,8 @@ export function SuiviLieu({ lieuId }: { lieuId: number }) {
         />
       </section>
       </Gate>
+
+      {journal}
 
       <section className="carte p-4">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
