@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useDeferredValue, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useDeferredValue, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuListe } from "@/lib/api";
-import { depuis, euros, nombre } from "@/lib/format";
+import { depuis, euros, nombre, parametreUrl } from "@/lib/format";
 import { DEPARTEMENTS, libelleDepartement } from "@/lib/departements";
 import { useReferentiel } from "@/components/Filtres";
 import { Gate, PageGuard, usePerm } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { CarteLieux } from "@/components/CarteLieux";
+import { AnalyseLieux } from "@/components/AnalyseLieux";
 
 const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "neutre" }> = {
   // « Actif » faisait penser à une borne connectée (retour de Sébastien) : c'est la relation commerciale
@@ -23,7 +24,10 @@ const STATUTS: Record<string, { libelle: string; ton: "ok" | "warn" | "crit" | "
 export default function PageLieux() {
   return (
     <PageGuard perm="pages.lieux.view">
-      <ListeLieux />
+      {/* useSearchParams (onglet dans l'adresse) demande une frontière Suspense */}
+      <Suspense fallback={<Chargement />}>
+        <ListeLieux />
+      </Suspense>
     </PageGuard>
   );
 }
@@ -38,8 +42,14 @@ function ListeLieux() {
   const [antenneId, setAntenneId] = useState("");
   const [gammeId, setGammeId] = useState("");
   const [parc, setParc] = useState("");
-  // Liste ou carte (retour de Sébastien)
-  const [vue, setVue] = useState<"liste" | "carte">("liste");
+  // Liste ou carte (retour de Sébastien) ; analyse du parc (maquette lieux.html), avec le droit de voir les ventes
+  const demande = useSearchParams().get("onglet");
+  const [vue, choisirVue] = useState<"liste" | "carte" | "analyse">(demande === "carte" || demande === "analyse" ? demande : "liste");
+  const setVue = (v: typeof vue) => {
+    choisirVue(v);
+    parametreUrl("onglet", v === "liste" ? null : v);
+  };
+  const analyse = vue === "analyse" && voitVentes;
   const router = useRouter();
   const q = useDeferredValue(recherche);
   const { data: ref } = useReferentiel();
@@ -47,6 +57,7 @@ function ListeLieux() {
   const { data, error, isPending } = useQuery({
     queryKey: ["lieux", query],
     queryFn: () => api<LieuListe[]>(`/lieux${query}`),
+    enabled: !analyse,
   });
 
   const departements = [...new Set((data ?? []).map((l) => l.departement).filter((d): d is string => !!d))].sort();
@@ -64,11 +75,11 @@ function ListeLieux() {
     <>
       <EnTete
         titre="Lieux"
-        sousTitre={data ? `${lieux.length} lieu${lieux.length > 1 ? "x" : ""}${filtresActifs ? ` sur ${data.length}` : ""}` : undefined}
+        sousTitre={!analyse && data ? `${lieux.length} lieu${lieux.length > 1 ? "x" : ""}${filtresActifs ? ` sur ${data.length}` : ""}` : undefined}
         actions={
           <>
             <div className="flex rounded-md border border-line-strong bg-surface p-0.5" role="group" aria-label="Affichage">
-              {(["liste", "carte"] as const).map((v) => (
+              {(voitVentes ? (["liste", "carte", "analyse"] as const) : (["liste", "carte"] as const)).map((v) => (
                 <button
                   key={v}
                   type="button"
@@ -76,7 +87,7 @@ function ListeLieux() {
                   onClick={() => setVue(v)}
                   className={`rounded px-3 py-1.5 text-sm font-medium ${vue === v ? "bg-accent text-accent-ink" : "text-ink-2 hover:text-ink"}`}
                 >
-                  {v === "liste" ? "Liste" : "Carte"}
+                  {v === "liste" ? "Liste" : v === "carte" ? "Carte" : "Analyse"}
                 </button>
               ))}
             </div>
@@ -87,6 +98,10 @@ function ListeLieux() {
         }
       />
 
+      {analyse && <AnalyseLieux />}
+
+      {!analyse && (
+      <>
       <div className="mb-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
         <label className="sm:col-span-3 lg:col-span-2">
           <span className="etiquette">Recherche</span>
@@ -209,6 +224,8 @@ function ListeLieux() {
             </tbody>
           </table>
         </div>
+      )}
+      </>
       )}
     </>
   );

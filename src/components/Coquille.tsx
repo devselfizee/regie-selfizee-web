@@ -21,6 +21,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/lieux/carte", libelle: "Analyse géographique", icone: "Map", perm: "pages.analyse_geo.view" },
       { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", perm: "pages.analyse.view" },
       { href: "/comportements", libelle: "Comportements", icone: "Footprints", perm: "pages.comportements.view" },
+      { href: "/par-heure", libelle: "Par heure", icone: "Clock", perm: "pages.comportements.view" },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", perm: "pages.alertes.view" },
       // Mentions : dans la cloche de la plateforme (notifications), plus de page dédiée
     ],

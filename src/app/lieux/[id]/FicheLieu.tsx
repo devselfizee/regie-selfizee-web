@@ -6,17 +6,14 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
 import { Gate, useDroits } from "@/lib/perms";
-import { date, dateHeure, depuis, euros, eurosRond, JOURS_SEMAINE, nombre, pct, parametreUrl } from "@/lib/format";
+import { date, dateHeure, JOURS_SEMAINE, nombre, parametreUrl } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
-import { KpiCouleur } from "@/components/KpiCouleur";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
-import { HeatmapHoraire, JoursSemaine, MoyensPaiement } from "@/components/GraphiquesLieu";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { SectionCommissions } from "@/components/SectionCommissions";
 import { PrevisionLieuSection } from "@/components/SectionPrevision";
 import { SectionPotentiel } from "@/components/Prospect";
 import { JournalEvenements, superpositions, useContexteLieu, useEvenements } from "@/components/Contexte";
-import { ListeAlertes } from "@/components/ListeAlertes";
 import { Comportement } from "@/components/Entonnoir";
 import { BasculeHt, htDepuisTtc, usePreferenceHt } from "@/components/BasculeHt";
 import { ListePaiements } from "@/components/ListePaiements";
@@ -27,6 +24,7 @@ import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
 import { PageSouvenirLieu } from "@/components/PageSouvenirLieu";
 import { AccesLieu } from "@/components/AccesLieu";
 import type { Alerte } from "@/lib/api";
+import { AlertesLieu, Bloc, CarteSoirees, FaceAuxAutres, FormulesVendues, heuresAvecVentes, JoursSemaineBarres, LegendeCourbe, MeilleuresDates, TuilesLieu, useStatsFicheLieu } from "@/components/StatistiquesLieu";
 
 export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: string }) {
   // Droits Konitys (Admin Panel) : onglets et boutons
@@ -81,13 +79,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         }
       />
 
-      {alertes.data && alertes.data.length > 0 && (
-        <div className="mb-6">
-          <Section titre={`Alertes ouvertes (${alertes.data.length})`}>
-            <ListeAlertes alertes={alertes.data} compacte />
-          </Section>
-        </div>
-      )}
+      {/* Alertes ouvertes : une ligne chacune, avec ses actions (maquette du 10/11) */}
+      {alertes.data && <AlertesLieu alertes={alertes.data} />}
 
       <nav className="mb-6 flex gap-1 border-b border-line" aria-label="Parties de la fiche">
         {ongletsVisibles.map((o) => (
@@ -117,24 +110,21 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
           <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
           {stats.error && <Erreur erreur={stats.error} />}
           {stats.isPending && !stats.error && <Chargement />}
-          {stats.data && <Statistiques s={stats.data} lieuId={id} horaires={l.horaires} ht={ht} />}
+          {stats.data && <Statistiques s={stats.data} lieuId={id} l={l} ht={ht} requete={query} />}
         </>
       )}
 
       {/* Calendrier et météo : seulement dans Analyse (retour de Sébastien) ; la courbe garde vacances, fériés et météo en infobulle */}
-      {/* Comportement des invités et projection, à part des statistiques (retour de Sébastien) */}
+      {/* Comportement des invités, à part des statistiques (retour de Sébastien) ; la prévision du mois est dans Statistiques (maquette du 10/11) */}
       {ongletActif === "comportement" && voitVentes && (
-        <div className="space-y-6">
-          {l.statut === "ACTIF" && <PrevisionLieuSection lieuId={id} ht={ht} />}
-          <div>
-            <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
-            {stats.data && (
-              <div className="mb-6">
-                <ActiviteSansVente k={stats.data.kpis.courant} />
-              </div>
-            )}
-            <Comportement lieuId={id} requete={qs({ du: filtres.du, au: filtres.au })} />
-          </div>
+        <div>
+          <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
+          {stats.data && (
+            <div className="mb-6">
+              <ActiviteSansVente k={stats.data.kpis.courant} />
+            </div>
+          )}
+          <Comportement lieuId={id} requete={qs({ du: filtres.du, au: filtres.au })} />
         </div>
       )}
 
@@ -325,48 +315,43 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
   );
 }
 
-function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId: number; horaires: LieuFiche["horaires"]; ht: boolean }) {
+const GRANULARITES: Record<StatsLieu["granularite"], string> = { jour: "jour", semaine: "semaine", mois: "mois", annee: "année" };
+
+function Statistiques({ s: brut, lieuId, l, ht, requete }: { s: StatsLieu; lieuId: number; l: LieuFiche; ht: boolean; requete: string }) {
   // En HT : montants convertis à 20 % de TVA quand l'API ne donne que le TTC (le CA des KPI et de la courbe, lui, est exact)
   const s = ht ? enHt(brut) : brut;
-  const voitBornes = useDroits()("bornes.view");
   const suffixe = ht ? "HT" : "TTC";
   const { courant: c, precedente: p } = s.kpis;
+  // Soirées (6 h → 6 h), comparaison aux lieux du même type, période précédente comparable ou non
+  const fiche = useStatsFicheLieu(lieuId, requete);
+  const f = fiche.data;
   const contexte = useContexteLieu(lieuId, s.periode.du, s.periode.au);
   const evenements = useEvenements(lieuId);
   const sup = superpositions(contexte.data, evenements.data);
   // Jours fériés : seulement sur une semaine ou un mois (retour de Sébastien), illisibles sur plusieurs mois ; les vacances restent
   const longue = (new Date(s.periode.au).getTime() - new Date(s.periode.du).getTime()) / 86_400_000 + 1 > 31;
   const reperesCalendrier = longue ? sup.reperes.filter((x) => x.court !== "Férié") : sup.reperes;
+  const prevision = l.statut === "ACTIF" && <PrevisionLieuSection lieuId={lieuId} ht={ht} />;
   if (!c.nbVentes && !c.nbRefusees) {
     return (
       <div className="space-y-6">
         <div className="carte p-4">
           <Vide>Aucune vente sur la période pour ce lieu.</Vide>
         </div>
-        <BornesPeriode bornes={s.bornes} voitBornes={voitBornes} />
+        {prevision}
       </div>
     );
   }
+  // Beaucoup d'heures avec des ventes (lieu de jour et de nuit) : la carte prend toute la largeur, sans défilement
+  const large = f ? heuresAvecVentes(f).length > 12 : false;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCouleur
-          teinte="vert"
-          icone="billet"
-          libelle={`CA ${suffixe}`}
-          valeur={eurosRond(ht ? c.caHtCents : c.caTtcCents)}
-          detail={ht ? `TTC : ${eurosRond(c.caTtcCents)}` : `HT : ${eurosRond(c.caHtCents)}`}
-          courant={ht ? c.caHtCents : c.caTtcCents}
-          precedente={ht ? p.caHtCents : p.caTtcCents}
-        />
-        <KpiCouleur teinte="bleu" icone="image" libelle="Ventes" valeur={nombre(c.nbVentes)} detail={`${nombre(c.photosAchetees)} photos achetées`} courant={c.nbVentes} precedente={p.nbVentes} />
-        <KpiCouleur teinte="rose" icone="sac" libelle="Panier moyen" valeur={euros(c.panierMoyenCents)} detail={`${suffixe} par vente`} courant={c.panierMoyenCents} precedente={p.panierMoyenCents} />
-        <KpiCouleur teinte="orange" icone="pourcent" libelle="Refus / annulations" valeur={pct(c.tauxRefus)} detail={`${nombre(c.nbRefusees)} refus · ${nombre(c.nbAnnulees)} annulation${c.nbAnnulees > 1 ? "s" : ""}`} />
-      </div>
+      <TuilesLieu k={c} p={p} f={f} ht={ht} />
 
-      <ActiviteNonFacturee k={c} />
-
-      <Section titre={`Chiffre d'affaires ${suffixe}`}>
+      <Bloc
+        titre={`Chiffre d'affaires ${suffixe} par ${GRANULARITES[s.granularite]}`}
+        actions={<LegendeCourbe zone={contexte.data?.zoneScolaire} feries={!longue} interventions={s.interventions.length} />}
+      >
         <GraphiqueCA
           ht={ht}
           du={s.periode.du}
@@ -377,181 +362,44 @@ function Statistiques({ s: brut, lieuId, horaires, ht }: { s: StatsLieu; lieuId:
           bandes={sup.bandes}
           infosJour={sup.infosJour}
         />
-        <p className="mt-2 text-xs text-ink-muted">
-          Zones grisées : vacances scolaires{contexte.data?.zoneScolaire ? ` (zone ${contexte.data.zoneScolaire})` : ""}. En orange : calendrier marketing. Traits : {longue ? "" : "jours fériés, "}événements du journal
-          {s.interventions.length > 0 && `, interventions SAV (${s.interventions.length})`}. La météo du jour est dans l&apos;infobulle (Météo-France, MET Norway).
-        </p>
-      </Section>
+      </Bloc>
 
-      <Section titre="Quand ça vend : CA par jour et par heure">
-        <HeatmapHoraire cellules={s.heatmap} horaires={horaires} />
-      </Section>
+      {prevision}
+
+      {fiche.error && <Erreur erreur={fiche.error} />}
+      {!f && !fiche.error && <Chargement />}
+      {f && (
+        <div className={`grid items-start gap-6 ${large ? "" : "lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"}`}>
+          <Bloc titre="Quand ça vend : CA moyen par soirée et par heure" sousTitre={`Moyenne par soirée ouverte, ${suffixe} (soirée de ${f.heureBascule} h à ${f.heureBascule} h le lendemain).`}>
+            <CarteSoirees f={f} ht={ht} />
+          </Bloc>
+          <Bloc
+            titre={`Face aux autres lieux « ${f.comparaison.typeLieu} » du parc`}
+            sousTitre={
+              f.comparaison.medianes
+                ? `${f.comparaison.nbLieux} lieux · barre = ${l.enseigne}, trait = médiane${f.comparaison.lieuDemo ? " (lieu de démonstration, hors médiane)" : ""}`
+                : undefined
+            }
+          >
+            <FaceAuxAutres f={f} ht={ht} enseigne={l.enseigne} />
+          </Bloc>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section titre="CA moyen par jour de la semaine">
-          <JoursSemaine jours={s.joursSemaine} />
-        </Section>
-        <Section titre="Moyens de paiement">
-          {s.moyensPaiement.length ? <MoyensPaiement moyens={s.moyensPaiement} /> : <Vide>—</Vide>}
-          {s.modulesPaiement.length > 1 && (
-            <p className="mt-2 text-xs text-ink-2">
-              Modules : {s.modulesPaiement.map((m) => `${m.libelle} ${euros(m.caTtcCents)}`).join(" · ")}
-            </p>
-          )}
-        </Section>
+        <Bloc titre="CA moyen par jour de la semaine">
+          <JoursSemaineBarres jours={s.joursSemaine} horaires={l.horaires} />
+        </Bloc>
+        <Bloc titre="Meilleures dates">
+          <MeilleuresDates dates={s.meilleuresDates} />
+        </Bloc>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-        {/* Formules et montants payés réunis (retour de Sébastien), des plus vendues aux moins vendues */}
-        <Section titre="Formules vendues">
-          <Tableau
-            entetes={["Formule", "Montant", "Ventes", "% ventes", "CA", "% CA"]}
-            lignes={(() => {
-              // Part de chaque formule dans les ventes et dans le CA (retour de Sébastien)
-              const nbTotal = s.formules.reduce((x, f) => x + f.nbVentes, 0);
-              const caTotal = s.formules.reduce((x, f) => x + f.caTtcCents, 0);
-              return s.formules.map((f) => [
-                f.libelle ?? f.code,
-                f.montantCents !== undefined ? euros(f.montantCents) : "—",
-                nombre(f.nbVentes),
-                <span key="pv" className="text-ink-2">{pct(nbTotal ? f.nbVentes / nbTotal : 0)}</span>,
-                euros(f.caTtcCents),
-                <span key="pc" className="text-ink-2">{pct(caTotal ? f.caTtcCents / caTotal : 0)}</span>,
-              ]);
-            })()}
-          />
-        </Section>
-        <Section titre="Meilleures dates">
-          <Tableau entetes={["Date", "Ventes", "CA"]} lignes={s.meilleuresDates.map((d) => [dateAvecJour(d.jour), nombre(d.nbVentes), euros(d.caTtcCents)])} />
-        </Section>
-      </div>
-
-      <BornesPeriode bornes={s.bornes} voitBornes={voitBornes} />
+      <Bloc titre="Formules vendues">
+        <FormulesVendues s={s} />
+      </Bloc>
     </div>
   );
-}
-
-/** Bornes du lieu sur la période : affectation, disponibilité, coupures, papier, derniers signes de vie */
-function BornesPeriode({ bornes, voitBornes }: { bornes: StatsLieu["bornes"]; voitBornes: boolean }) {
-  return (
-      <Section titre="Borne(s) sur la période">
-        <p className="mb-2 text-xs text-ink-muted">
-          Disponibilité : part des heures d&apos;ouverture du lieu où la borne a donné signe de vie (signal toutes les 5 min). Plus de 15 min
-          sans signal pendant l&apos;ouverture compte comme une coupure, y compris une borne allumée après l&apos;ouverture ou éteinte avant la fermeture.
-        </p>
-        <Tableau
-          entetes={["Borne", "Sur le lieu", "Disponibilité", "Coupures", "Pannes déclarées", "Papier restant", "Dernière vente", "Dernier signal"]}
-          lignes={bornes.map((b) => {
-            const d = b.disponibilite;
-            return [
-              <span key="b">
-                {voitBornes ? <Link className="font-medium text-accent hover:underline" href={`/bornes/${b.borneId}`}>{b.identifiant}</Link> : b.identifiant}{" "}
-                <span className="text-xs text-ink-muted">{b.gamme}</span>
-              </span>,
-              // Affectation de la borne au lieu : depuis quand (et jusqu'à quand si elle en est partie)
-              <span key="a">
-                {b.fin ? `du ${date(b.debut)} au ${date(b.fin)}` : `depuis le ${date(b.debut)}`}
-                {!b.fin && <span className="block text-xs text-ink-muted">{anciennete(b.debut)}</span>}
-              </span>,
-              !b.dernierHeartbeat ? <span key="d" className="text-ink-muted" title="La borne n’a encore rien envoyé à Régie">pas encore synchronisée</span> : d.taux === null ? "—" : <Disponibilite key="d" taux={d.taux} />,
-              d.coupures ? `${d.coupures} (max ${duree(d.plusLongueCoupureMin)})` : "—",
-              d.pannes ? `${d.pannes} · ${duree(d.minutesPanne)}` : "—",
-              <Papier key="p" restant={b.papierRestant} le={b.papierLe} />,
-              depuis(b.derniereVente),
-              depuis(b.dernierHeartbeat),
-            ];
-          })}
-        />
-      </Section>
-  );
-}
-
-/** Depuis combien de temps la borne est sur le lieu : « 12 jours », « 5 mois », « 2 ans et 3 mois » */
-function anciennete(debut: string) {
-  const jours = Math.floor((Date.now() - new Date(debut).getTime()) / 86_400_000);
-  if (jours < 1) return "depuis aujourd'hui";
-  if (jours < 60) return `${jours} jour${jours > 1 ? "s" : ""}`;
-  const mois = Math.floor(jours / 30.44);
-  if (mois < 24) return `${mois} mois`;
-  const reste = mois % 12;
-  return `${Math.floor(mois / 12)} ans${reste ? ` et ${reste} mois` : ""}`;
-}
-
-/** « 2 h 05 » ou « 45 min » */
-const duree = (min: number) => (min >= 60 ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, "0")}` : `${min} min`);
-
-/** Taux de disponibilité, coloré : ≥ 95 % bon, 80–95 % moyen, < 80 % mauvais (avec icône) */
-function Disponibilite({ taux }: { taux: number }) {
-  const ton = taux >= 0.95 ? "text-good" : taux >= 0.8 ? "text-warn-ink" : "text-bad";
-  const icone = taux >= 0.95 ? "●" : taux >= 0.8 ? "▲" : "■";
-  return (
-    <span className={ton}>
-      <span aria-hidden className="text-[0.6rem]">{icone}</span> {pct(taux)}
-    </span>
-  );
-}
-
-function Tableau({ entetes, lignes }: { entetes: string[]; lignes: ReactNode[][] }) {
-  if (!lignes.length) return <Vide>—</Vide>;
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs text-ink-2">
-          <tr>
-            {entetes.map((e, i) => (
-              <th key={e} className={`py-2 pr-3 font-medium ${i > 0 ? "text-right" : ""}`}>{e}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="tabular">
-          {lignes.map((l, i) => (
-            <tr key={i} className="border-t border-line">
-              {l.map((c, j) => (
-                <td key={j} className={`py-2 pr-3 ${j > 0 ? "text-right" : ""}`}>{c}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/**
- * Hors chiffre d'affaires : seulement les ventes des cartes de test et le CA à confirmer (retour de Sébastien) ;
- * le reste de l'activité sans vente est dans l'onglet Comportement (ActiviteSansVente).
- */
-function ActiviteNonFacturee({ k }: { k: StatsLieu["kpis"]["courant"] }) {
-  const tests = k.tests?.nbVentes ? `${nombre(k.tests.nbVentes)} vente(s) avec les cartes de test (${euros(k.tests.caTtcCents)})` : null;
-  // Le CA incertain est compté dans le CA : à confirmer au rapprochement, pas hors CA
-  const incertain = k.nbIncertaines ? `${euros(k.caIncertainTtcCents ?? 0)} d'enregistrement incertain (${nombre(k.nbIncertaines)} vente(s)), compté(s) mais à vérifier au rapprochement` : null;
-  if (!tests && !incertain) return null;
-  return (
-    <p className="text-sm text-ink-2">
-      {tests && <><span className="font-medium text-ink">Hors chiffre d&apos;affaires :</span> {tests}.{" "}</>}
-      {incertain && <><span className="font-medium text-ink">CA à confirmer :</span> {incertain}.</>}
-    </p>
-  );
-}
-
-/** Papier restant dans l'imprimante et ancienneté de l'information (dernier signe de vie qui l'a donnée) */
-export function Papier({ restant, le }: { restant: number | null | undefined; le: string | null | undefined }) {
-  if (restant === null || restant === undefined) return <span className="text-ink-muted">—</span>;
-  const ton = restant < 50 ? "text-bad" : restant < 100 ? "text-warn-ink" : "";
-  return (
-    <span className={ton}>
-      {nombre(restant)} tirage{restant > 1 ? "s" : ""}
-      <span className="block text-xs text-ink-muted">{depuis(le ?? null)}</span>
-    </span>
-  );
-}
-
-/** « Ven. 09/10/26 » : jour de la semaine et année sur deux chiffres */
-const jourCourtFmt = new Intl.DateTimeFormat("fr-FR", { weekday: "short", timeZone: "UTC" });
-function dateAvecJour(ymd: string): string {
-  const [a, m, j] = ymd.slice(0, 10).split("-");
-  const nom = jourCourtFmt.format(new Date(`${ymd.slice(0, 10)}T00:00:00Z`));
-  return `${nom.charAt(0).toUpperCase()}${nom.slice(1)} ${j}/${m}/${a.slice(2)}`;
 }
 
 /** Le lieu sur la carte (coordonnées de la fiche), avec un lien vers l'itinéraire */

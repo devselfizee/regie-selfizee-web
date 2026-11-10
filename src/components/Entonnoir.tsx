@@ -1,30 +1,32 @@
 "use client";
 
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { euros, nombre, pct } from "@/lib/format";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
+import { KpiCouleur } from "./KpiCouleur";
 
-// Comportement des invités (parcours envoyés par les bornes, avenant du 26/10/2026), refonte du 09/11/2026
-// d'après la maquette : vue « Parcours » (cinq clés, ruban du parcours, pertes, formats, terminal, borne par borne)
-// et vue « Par heure » (séances payées ou non par heure de soirée, pertes selon l'heure, borne × heure).
+// Comportement des invités (parcours envoyés par les bornes, avenant du 26/10/2026), d'après la maquette du 10/11/2026 :
+// phrase de synthèse, cinq tuiles, ruban du parcours, arbre « Ce que devient chaque invité », formats, borne par borne.
+// La vue par heure est partie sur sa propre page (/par-heure). Unité de la page : la séance.
 
 type Etape = "cadre" | "prise" | "photo" | "revelation" | "offre" | "paiement" | "paiement_demande" | "impression";
-interface HeureParcours {
-  heure: number;
-  commencees: number;
-  cadre: number;
-  photo: number;
-  offre: number;
-  paiementDemande: number;
-  payees: number;
-  recommencent: number;
-  sansRien: number;
-  upsell: number;
-  dureeMedianeS: number | null;
-  photoAOffreS: number | null;
+/** Dernière marche du ruban atteinte */
+type Marche = "avant_photo" | "photo" | "offre" | "paiement";
+/** Ce que devient la séance */
+type Sortie = "payee" | "gardee" | "non_validee";
+
+interface LigneArbre {
+  marche: Marche;
+  sortie: Sortie;
+  issue: string;
+  statut: string | null;
+  recommence: boolean;
+  retourOffre: boolean;
+  sansCadre: boolean;
+  nb: number;
 }
 interface BorneParcours {
   borneId: number;
@@ -34,58 +36,62 @@ interface BorneParcours {
   paiementDemande: number;
   payees: number;
   recommencent: number;
-  sansRien: number;
+  nonValidees: number;
   photoAOffreS: number | null;
   terminalMuet: number;
   tendance: number[];
-  parHeure: { heure: number; commencees: number; payees: number }[];
 }
 interface Cles {
   commencees: number;
   paiementDemande: number;
   payees: number;
   recommencent: number;
-  sansRien: number;
+  nonValidees: number;
 }
 
-export interface StatsParcours {
+interface StatsParcours {
   periode: { du: string; au: string };
   commencees: number;
   etapes: Record<Etape, number>;
   payees: number;
-  validees: number;
-  issues: { issue: string; nb: number }[];
   appels: { lancees: number; engagees: number; payees: number };
-  sansRien?: { total: number; retoursAccueil: number; delais: number };
-  soirees?: number;
-  hesitations: { avecRecommencer: number; avecRelancesCouleurs: number; avecRetoursOffre: number; recommencerPuisSansRien?: number };
+  soirees: number;
   upsell: { proposes: number; acceptes: number; montantCents: number };
-  dureesMedianesS: { seance: number | null; cadreAPhoto: number | null; photoAOffre: number | null; offreAPaiement: number | null; paiementAImpression: number | null };
+  dureesMedianesS: {
+    seance: number | null;
+    cadreAPhoto: number | null;
+    photoAOffre: number | null;
+    offreAPaiement: number | null;
+    paiementAImpression: number | null;
+    avantPhoto: number | null;
+    devantOffre: number | null;
+  };
+  arbre: LigneArbre[];
   parCadre: { cadre: string | null; commencees: number; offres: number; payees: number }[];
-  parHeure: (Partial<HeureParcours> & { heure: number; commencees: number; payees: number })[];
-  parBorne?: BorneParcours[];
-  precedente?: Cles;
-  /** Séances qui ont vu la fenêtre de paiement sans payer, par raison */
-  nonAboutis?: { raison: string; nb: number }[];
-  /** Tentatives de paiement refusées, annulées ou sans réponse, par motif */
-  tentativesEchouees?: { statut: string; motif: string | null; nb: number }[];
+  parBorne: BorneParcours[];
+  precedente: Cles;
   /** Fiche lieu : vignette du cadre dessiné au studio, par nom de gabarit */
   apercus?: Record<string, string>;
 }
 
-const ISSUES: Record<string, string> = {
-  validee: "Photo enregistrée",
-  retour: "Retour à l'accueil",
-  delai: "Délai d'inactivité",
-  appel: "Photo d'appel sans geste",
-  autre: "Autre",
-};
-const COULEURS_ISSUES: Record<string, string> = { validee: "bg-good", retour: "bg-warn-ink", delai: "bg-bad", appel: "bg-ink-muted", autre: "bg-line-strong" };
+// Une seule teinte violette dans les graphiques (l'intensité porte la valeur), vert = payé, rouge = pertes
+export const VIOLET = "#5B4CF5";
+export const VIOLET_FONCE = "#3F33C7";
+export const VIOLET_MOYEN = "#8A80F0";
+export const VIOLET_CLAIR = "#C9CBF8";
+export const VIOLET_PALE = "#ECECFC";
+export const VERT = "#067647";
+export const ROUGE = "#B42318";
+/** Cinq nuances, de la plus faible à la plus forte valeur (cases des tableaux teintés) */
+export const NUANCES = ["#F6F7FA", VIOLET_PALE, "#D9DAFA", "#B9B7F5", VIOLET_MOYEN];
+const COULEURS_SORTIE: Record<Sortie, string> = { payee: VERT, gardee: VIOLET_MOYEN, non_validee: ROUGE };
 
-const duree = (s: number | null | undefined) => (s === null || s === undefined ? "—" : s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}`);
-const part = (a: number, b: number) => (b ? a / b : 0);
-const JOURS_SOIR = [
-  { v: "", l: "Tous les soirs" },
+export const duree = (s: number | null | undefined) => (s === null || s === undefined ? "—" : s < 60 ? `${s} s` : `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, "0")}`);
+export const part = (a: number, b: number) => (b ? a / b : 0);
+
+/** Jours d'exploitation (de 6 h à 6 h le lendemain), d'après le jour où commence la soirée */
+const JOURS = [
+  { v: "", l: "Tous les jours" },
   { v: "1", l: "Lundi" },
   { v: "2", l: "Mardi" },
   { v: "3", l: "Mercredi" },
@@ -96,15 +102,52 @@ const JOURS_SOIR = [
   { v: "4,5,6", l: "Jeudi à samedi" },
 ];
 
+export function ChoixJours({ valeur, onChange }: { valeur: string; onChange: (v: string) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-sm text-ink-2">
+      <span className="sr-only">Jours</span>
+      <select className="champ !w-auto" value={valeur} onChange={(e) => onChange(e.target.value)} aria-label="Jours de la semaine">
+        {JOURS.map((j) => <option key={j.v} value={j.v}>{j.l}</option>)}
+      </select>
+    </label>
+  );
+}
+
+/** Ajoute le filtre des jours (soirs=…) à la query string des filtres */
+export const avecJours = (requete: string, soirs: string) => (soirs ? `${requete || "?"}${requete && requete !== "?" ? "&" : ""}soirs=${soirs}` : requete);
+
+/** Infobulle au survol (bulle sombre) : le chiffre exact d'un graphique, jamais affichée en permanence */
+export function Infobulle({ texte, children, className = "", cote = "centre" }: { texte: ReactNode; children: ReactNode; className?: string; cote?: "centre" | "gauche" | "droite" }) {
+  const position = cote === "gauche" ? "left-0" : cote === "droite" ? "right-0" : "left-1/2 -translate-x-1/2";
+  return (
+    <div className={`group/bulle relative ${className}`}>
+      {children}
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute bottom-[calc(100%+6px)] z-40 hidden w-max max-w-80 rounded-lg bg-[#15171C] px-2.5 py-1.5 text-left text-xs leading-snug font-semibold tracking-normal text-white normal-case shadow-lg group-hover/bulle:block ${position}`}
+      >
+        {texte}
+      </span>
+    </div>
+  );
+}
+
+/** Écart d'un taux à la période précédente, en points */
+export function ecartPoints(courant: number, precedent: number | null) {
+  if (precedent === null) return null;
+  const e = Math.round((courant - precedent) * 100);
+  if (!e) return "= stable vs période préc.";
+  return `${e > 0 ? "▲ +" : "▼ −"}${Math.abs(e)} pt${Math.abs(e) > 1 ? "s" : ""} vs période préc.`;
+}
+
 /**
  * Comportement des invités, global (chemin /stats/parcours avec les filtres) ou d'un lieu.
  * requete : query string des filtres (« ?du=…&au=… »).
  */
 export function Comportement({ requete, lieuId }: { requete: string; lieuId?: number }) {
-  const [vue, setVue] = useState<"parcours" | "heure">("parcours");
   const [soirs, setSoirs] = useState("");
   const chemin = lieuId ? `/stats/lieux/${lieuId}/parcours` : "/stats/parcours";
-  const complete = soirs ? `${requete || "?"}${requete && requete !== "?" ? "&" : ""}soirs=${soirs}` : requete;
+  const complete = avecJours(requete, soirs);
   const { data, error, isPending, isFetching } = useQuery({
     queryKey: ["parcours", chemin, complete],
     queryFn: () => api<StatsParcours>(`${chemin}${complete}`),
@@ -112,32 +155,9 @@ export function Comportement({ requete, lieuId }: { requete: string; lieuId?: nu
   });
 
   const barre = (
-    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-      <nav className="flex gap-1 border-b border-line" aria-label="Vues du comportement">
-        {(
-          [
-            ["parcours", "Parcours"],
-            ["heure", "Par heure"],
-          ] as const
-        ).map(([v, l]) => (
-          <button
-            key={v}
-            type="button"
-            aria-current={vue === v ? "page" : undefined}
-            onClick={() => setVue(v)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${vue === v ? "border-accent text-accent" : "border-transparent text-ink-2 hover:text-ink"}`}
-          >
-            {l}
-          </button>
-        ))}
-      </nav>
-      <label className="flex items-center gap-2 text-sm text-ink-2">
-        Soirées
-        <select className="champ !w-auto" value={soirs} onChange={(e) => setSoirs(e.target.value)} aria-label="Soirées de la semaine">
-          {JOURS_SOIR.map((j) => <option key={j.v} value={j.v}>{j.l}</option>)}
-        </select>
-        {isFetching && <span className="text-xs text-ink-muted">mise à jour…</span>}
-      </label>
+    <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+      {isFetching && <span className="text-xs text-ink-muted">mise à jour…</span>}
+      <ChoixJours valeur={soirs} onChange={setSoirs} />
     </div>
   );
 
@@ -150,7 +170,7 @@ export function Comportement({ requete, lieuId }: { requete: string; lieuId?: nu
         {barre}
         <Section titre="Parcours des invités">
           <p className="text-sm text-ink-2">
-            Aucun parcours reçu sur la période{soirs ? " pour ces soirées" : ""}. Les bornes envoient le parcours de chaque séance (de la première page à
+            Aucun parcours reçu sur la période{soirs ? " pour ces jours" : ""}. Les bornes envoient le parcours de chaque séance (de la première page à
             l&apos;impression) depuis la version du logiciel livrée avec l&apos;avenant du 26/10/2026.
           </p>
         </Section>
@@ -160,222 +180,559 @@ export function Comportement({ requete, lieuId }: { requete: string; lieuId?: nu
   return (
     <>
       {barre}
-      {vue === "parcours" ? <VueParcours data={data} lieuId={lieuId} /> : <VueParHeure data={data} />}
+      <VueParcours data={data} lieuId={lieuId} />
     </>
   );
 }
 
-// ─── Petites briques ───
+// ─── Sommes sur l'arbre ───
 
-/** Évolution d'une clé vs la période précédente : en % pour un volume, en points pour un taux */
-function Evolution({ courant, precedent, taux = false, hausseMauvaise = false }: { courant: number; precedent: number | null; taux?: boolean; hausseMauvaise?: boolean }) {
-  if (precedent === null || (!taux && !precedent)) return <span className="text-xs text-ink-muted">pas de comparaison</span>;
-  const ecart = taux ? (courant - precedent) * 100 : ((courant - precedent) / precedent) * 100;
-  const arrondi = Math.round(ecart);
-  if (!arrondi) return <span className="w-max rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold text-ink-2">= stable</span>;
-  const bon = hausseMauvaise ? arrondi < 0 : arrondi > 0;
-  return (
-    <span className={`w-max rounded-full px-2 py-0.5 text-xs font-semibold ${bon ? "bg-ok-bg text-ok-ink" : "bg-crit-bg text-crit-ink"}`}>
-      {arrondi > 0 ? "▲ +" : "▼ −"}
-      {Math.abs(arrondi)} {taux ? "pt" : "%"}
-      {Math.abs(arrondi) > 1 && taux ? "s" : ""} <span className="font-normal text-ink-2">vs période précédente</span>
-    </span>
-  );
+const somme = (l: LigneArbre[], p: (x: LigneArbre) => boolean = () => true) => l.reduce((s, x) => (p(x) ? s + x.nb : s), 0);
+const PHOTO_PRISE = (x: LigneArbre) => x.marche !== "avant_photo";
+const OFFRE_VUE = (x: LigneArbre) => x.marche === "offre" || x.marche === "paiement";
+const DEMANDE = (x: LigneArbre) => x.marche === "paiement";
+
+const LIBELLES_ISSUES: Record<string, string> = { retour: "retours à l'accueil", delai: "inactivités", appel: "photos d'appel sans geste", autre: "autres fins", validee: "photos validées" };
+const LIBELLES_STATUTS: Record<string, string> = { annule: "Annulé par l'invité", refuse: "Refus de la banque", expire: "Terminal sans réponse", offert: "Tirage offert", inconnu: "Issue inconnue" };
+
+/** « 35 retours à l'accueil, 24 inactivités » */
+function parIssue(l: LigneArbre[]) {
+  const n = new Map<string, number>();
+  for (const x of l) n.set(x.issue, (n.get(x.issue) ?? 0) + x.nb);
+  return [...n].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${nombre(v)} ${LIBELLES_ISSUES[k] ?? k}`).join(", ");
 }
 
-function Cle({ libelle, valeur, ton, evolution, detail }: { libelle: string; valeur: string; ton?: string; evolution: ReactNode; detail: ReactNode }) {
-  return (
-    <div className="carte flex min-w-0 flex-col gap-2 p-4">
-      <span className="text-xs font-semibold tracking-wide text-ink-2 uppercase">{libelle}</span>
-      <span className={`text-3xl font-extrabold tracking-tight tabular ${ton ?? ""}`}>{valeur}</span>
-      {evolution}
-      <span className="text-xs text-ink-2">{detail}</span>
-    </div>
-  );
-}
+// Les cinq marches du ruban et ce qu'on perd entre deux
+const MARCHES = ["Séance commencée", "Photo prise", "Offre vue", "Paiement demandé", "Payée et imprimée"];
+const PERTES = ["", "partent avant la photo", "ne vont pas jusqu'à l'offre", "ferment l'offre sans payer", "paiements non aboutis"];
+const PHRASES = ["", "partent avant de prendre la photo", "prennent la photo sans aller jusqu'à l'offre", "voient l'offre et la ferment sans payer", "lancent un paiement qui n'aboutit pas"];
+/** Les mêmes pertes, en nom (« loin devant les paiements non aboutis ») */
+const NOMS_PERTES = ["", "départs avant la photo", "arrêts avant l'offre", "offres fermées sans payer", "paiements non aboutis"];
 
 // ─── Vue Parcours ───
 
-// Les cinq marches du ruban ; les étapes sans perte notable (cadre choisi, photo vue, paiement affiché) sont fondues
-const MARCHES = [
-  { libelle: "Séance commencée", perte: "" },
-  { libelle: "Photo prise", perte: "ne prennent pas de photo" },
-  { libelle: "Offre vue", perte: "ne vont pas jusqu'à l'offre" },
-  { libelle: "Paiement demandé", perte: "voient l'offre et la ferment sans payer" },
-  { libelle: "Payée", perte: "paiements non aboutis" },
-];
-
 function VueParcours({ data, lieuId }: { data: StatsParcours; lieuId?: number }) {
-  const e = data.etapes;
+  const l = data.arbre;
   const c = data.commencees;
-  const valeurs = [c, e.photo, e.offre, e.paiement_demande, data.payees];
+  const valeurs = [c, somme(l, PHOTO_PRISE), somme(l, OFFRE_VUE), somme(l, DEMANDE), somme(l, (x) => x.sortie === "payee")];
   const pertes = valeurs.map((v, i) => (i ? Math.max(0, valeurs[i - 1] - v) : 0));
-  // Le plus gros décrochage, et le suivant pour situer
-  const classees = pertes.map((p, i) => ({ p, i })).filter((x) => x.i > 0).sort((a, b) => b.p - a.p);
-  const pire = classees[0];
-  const second = classees[1];
-  const d = data.dureesMedianesS;
-  const p = data.precedente ?? null;
-  const sansRien = data.sansRien ?? { total: 0, retoursAccueil: 0, delais: 0 };
+  // Ce qu'on sait de chaque perte (au survol)
+  const gardeesSansOffre = somme(l, (x) => x.marche === "photo" && x.sortie === "gardee");
+  const statuts = new Map<string, number>();
+  for (const x of l) if (DEMANDE(x) && x.sortie !== "payee") statuts.set(x.statut ?? "inconnu", (statuts.get(x.statut ?? "inconnu") ?? 0) + x.nb);
+  const detailPertes = [
+    "",
+    parIssue(l.filter((x) => x.marche === "avant_photo")),
+    [parIssue(l.filter((x) => x.marche === "photo" && x.sortie === "non_validee")), gardeesSansOffre ? `${nombre(gardeesSansOffre)} gardent leur photo sans voir l'offre` : ""].filter(Boolean).join(" · "),
+    `${nombre(somme(l, (x) => x.marche === "offre" && x.sortie === "gardee"))} gardent leur photo, ${nombre(somme(l, (x) => x.marche === "offre" && x.sortie === "non_validee"))} repartent sans`,
+    [...statuts].map(([k, v]) => `${nombre(v)} ${(LIBELLES_STATUTS[k] ?? LIBELLES_STATUTS.inconnu).toLowerCase()}`).join(", "),
+  ];
 
   return (
     <div className="space-y-5">
-      {pire && pire.p > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-accent/10 px-4 py-3">
-          <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-accent text-accent-ink" aria-hidden>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M14 7h7v7" /></svg>
-          </span>
-          <p className="min-w-0 flex-[1_1_420px] text-sm">
-            <strong>Le point à travailler :</strong> {nombre(pire.p)} invités {MARCHES[pire.i].perte}, soit {pct(part(pire.p, valeurs[pire.i - 1]))} de ceux qui arrivent jusque-là.
-            {second && second.p > 0 && <> C&apos;est le plus gros décrochage du parcours, devant « {MARCHES[second.i].perte} » ({nombre(second.p)}).</>}
-          </p>
-        </div>
-      )}
+      <Synthese valeurs={valeurs} pertes={pertes} />
+      <Tuiles data={data} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Cle
-          libelle="Séances"
-          valeur={nombre(c)}
-          evolution={<Evolution courant={c} precedent={p?.commencees ?? null} />}
-          detail={`${data.soirees ? `${nombre(Math.round(c / data.soirees))} par borne et par soir · ` : ""}${duree(d.seance)} en médiane`}
-        />
-        <Cle
-          libelle="Jusqu'au paiement"
-          valeur={pct(part(e.paiement_demande, c))}
-          ton="text-accent"
-          evolution={<Evolution taux courant={part(e.paiement_demande, c)} precedent={p ? part(p.paiementDemande, p.commencees) : null} />}
-          detail={`${nombre(e.paiement_demande)} séances lancent le paiement`}
-        />
-        <Cle
-          libelle="Payées"
-          valeur={pct(part(data.payees, c))}
-          ton="text-good"
-          evolution={<Evolution taux courant={part(data.payees, c)} precedent={p ? part(p.payees, p.commencees) : null} />}
-          detail={`${nombre(data.payees)} séances · ${pct(part(data.payees, e.paiement_demande))} des demandes aboutissent`}
-        />
-        <Cle
-          libelle="Recommencent"
-          valeur={pct(part(data.hesitations.avecRecommencer, c))}
-          ton="text-warn-ink"
-          evolution={<Evolution taux hausseMauvaise courant={part(data.hesitations.avecRecommencer, c)} precedent={p ? part(p.recommencent, p.commencees) : null} />}
-          detail={`${nombre(data.hesitations.avecRecommencer)} séances${data.hesitations.recommencerPuisSansRien !== undefined ? ` · dont ${pct(part(data.hesitations.recommencerPuisSansRien, c))} repartent ensuite sans rien` : ""}`}
-        />
-        <Cle
-          libelle="Repartent sans rien"
-          valeur={pct(part(sansRien.total, c))}
-          ton="text-bad"
-          evolution={<Evolution taux hausseMauvaise courant={part(sansRien.total, c)} precedent={p ? part(p.sansRien, p.commencees) : null} />}
-          detail={`${nombre(sansRien.total)} séances · ${nombre(sansRien.retoursAccueil)} retours accueil, ${nombre(sansRien.delais)} inactivités`}
-        />
-      </div>
-
-      <section className="carte space-y-5 p-5" id="parcours">
-        <div>
-          <h2 className="text-base font-bold">Le parcours d&apos;un invité</h2>
-          <p className="mt-0.5 text-sm text-ink-2">
-            Le ruban se rétrécit à chaque étape ; en dessous, qui on perd et combien. Les étapes sans perte (cadre choisi, photo vue, paiement affiché) sont fondues
-            dans leurs voisines.
-          </p>
-        </div>
-        <Ruban valeurs={valeurs} />
+      <section className="carte scroll-mt-4 space-y-5 p-5" id="parcours">
+        <h2 className="text-base font-bold">Le parcours d&apos;un invité</h2>
+        <Ruban valeurs={valeurs} pertes={pertes} details={detailPertes} />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {MARCHES.map((m, i) => (
-            <div key={m.libelle} className="flex min-w-0 flex-col gap-0.5">
-              <span className={`text-2xl font-extrabold tabular ${i === 4 ? "text-good" : ""}`}>
-                {nombre(valeurs[i])} <small className="text-xs font-semibold text-ink-2">{pct(part(valeurs[i], c))}</small>
-              </span>
-              <span className="text-sm font-semibold">{m.libelle}</span>
-              <span className="text-xs text-ink-2">
-                {i === 0 ? "un invité touche l'accueil" : i === 1 ? `${duree(d.cadreAPhoto)} après le choix du cadre` : i === 2 ? `${duree(d.photoAOffre)} après la photo` : i === 3 ? `${duree(d.offreAPaiement)} après l'offre` : `tirage ${duree(d.paiementAImpression)} après le paiement`}
+            <div key={m} className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-3xl font-extrabold tracking-tight tabular" style={{ color: i === 4 ? VERT : VIOLET }}>{nombre(valeurs[i])}</span>
+              <span className="text-sm font-semibold">
+                {m}
+                {i > 0 && (
+                  <span className="font-medium text-ink-2">
+                    {" "}· {pct(part(valeurs[i], valeurs[i - 1]))} {["", "des arrivants", "des photos", "des offres", ""][i]}
+                    {i === 4 && ` · ${pct(part(valeurs[i], c))} du total`}
+                  </span>
+                )}
               </span>
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {MARCHES.map((m, i) =>
-            i === 0 ? (
-              <div key={i} className="hidden rounded-lg bg-surface-2 px-3 py-2.5 text-xs text-ink-2 sm:block">départ</div>
-            ) : (
-              <div key={i} className={`flex min-w-0 flex-col gap-0.5 rounded-lg border px-3 py-2.5 ${i === pire?.i ? "border-bad bg-bad text-white" : "border-bad/25 bg-crit-bg"}`}>
-                <b className={`text-lg font-extrabold tabular ${i === pire?.i ? "" : "text-bad"}`}>− {nombre(pertes[i])}</b>
-                <span className={`text-xs ${i === pire?.i ? "" : "text-crit-ink"}`}>
-                  {m.perte} · {pct(part(pertes[i], valeurs[i - 1]))}
-                  {i === pire?.i ? " · le plus gros décrochage" : ""}
-                </span>
-              </div>
-            )
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2 border-t border-line pt-4 text-sm">
-          <Etiquette>Recommencent la photo <b>{pct(part(data.hesitations.avecRecommencer, c))}</b></Etiquette>
-          <Etiquette>Reviennent de l&apos;offre à la photo <b>{pct(part(data.hesitations.avecRetoursOffre, c))}</b></Etiquette>
-          <Etiquette>Relancent les couleurs <b>{pct(part(data.hesitations.avecRelancesCouleurs, c))}</b></Etiquette>
-          {data.upsell.proposes > 0 && (
-            <Etiquette>
-              « +1 pour un pote » <b>{nombre(data.upsell.acceptes)} / {nombre(data.upsell.proposes)} · {pct(part(data.upsell.acceptes, data.upsell.proposes))} · {euros(data.upsell.montantCents)}</b>
-            </Etiquette>
-          )}
-          {data.appels.lancees > 0 && (
-            <Etiquette>
-              Photos d&apos;appel <b>{nombre(data.appels.lancees)} · {nombre(data.appels.engagees)} ont attiré · {nombre(data.appels.payees)} vendues</b>
-            </Etiquette>
-          )}
-        </div>
       </section>
 
-      <div className="grid gap-4 xl:grid-cols-[6fr_5fr]">
-        <Podium data={data} />
-        <AuTerminal data={data} />
-      </div>
+      <Arbre data={data} />
 
-      {(data.parBorne?.length ?? 0) > 1 && <BorneParBorne data={data} />}
+      <Podium data={data} />
 
-      <FormatsCadre data={data} lieuId={lieuId} />
+      {data.parBorne.length > 1 && <BorneParBorne data={data} />}
+
+      {/* Sur une fiche lieu : les gabarits du lieu, avec les vignettes du studio */}
+      {lieuId !== undefined && <FormatsCadre data={data} lieuId={lieuId} />}
     </div>
   );
 }
 
-const Etiquette = ({ children }: { children: ReactNode }) => <span className="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1.5">{children}</span>;
+/** Bandeau : la phrase de synthèse, écrite par règles d'après les pertes du ruban */
+function Synthese({ valeurs, pertes }: { valeurs: number[]; pertes: number[] }) {
+  const classees = pertes.map((p, i) => ({ p, i })).filter((x) => x.i > 0 && x.p > 0).sort((a, b) => b.p - a.p);
+  const [pire, second] = classees;
+  if (!pire) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl px-4 py-3" style={{ background: "#EEEDFE" }}>
+      <span className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-white" style={{ background: VIOLET }} aria-hidden>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 8-8" /><path d="M14 7h7v7" /></svg>
+      </span>
+      <p className="min-w-0 flex-[1_1_420px] text-[15px] leading-snug" style={{ color: "#2B2A66" }}>
+        <strong>Le point à travailler :</strong> {nombre(pire.p)} invités {PHRASES[pire.i]}, soit {pct(part(pire.p, valeurs[pire.i - 1]))} de ceux qui arrivent jusque-là.{" "}
+        {second
+          ? `C'est le plus gros décrochage du parcours, ${pire.p >= second.p * 2 ? "loin devant" : "devant"} les ${NOMS_PERTES[second.i]} (${nombre(second.p)}).`
+          : "C'est le seul décrochage du parcours."}
+      </p>
+      <a href="#parcours" className="text-sm font-semibold text-accent hover:underline">Voir le parcours</a>
+    </div>
+  );
+}
 
-/** Ruban du parcours : chaque bande a la hauteur de la part des séances, la perte en rose au-dessus et en dessous */
-function Ruban({ valeurs }: { valeurs: number[] }) {
-  const H = 160;
+/** Les cinq tuiles du haut (couleur selon la position, comme le tableau de bord) */
+function Tuiles({ data }: { data: StatsParcours }) {
+  const l = data.arbre;
+  const c = data.commencees;
+  const p = data.precedente;
+  const tauxPrec = (x: number) => (p.commencees ? part(x, p.commencees) : null);
+  const demandes = somme(l, DEMANDE);
+  const payees = somme(l, (x) => x.sortie === "payee");
+  const recommencent = somme(l, (x) => x.recommence);
+  const recommencentPerdus = somme(l, (x) => x.recommence && x.sortie === "non_validee");
+  const nonValidees = l.filter((x) => x.sortie === "non_validee");
+  const nbNonValidees = somme(nonValidees);
+  const autres = somme(nonValidees, (x) => x.issue !== "retour" && x.issue !== "delai");
+  const detail = (texte: string, ecart: string | null) => (
+    <>
+      {texte}
+      {ecart && <span className="mt-0.5 block font-medium text-white/90">{ecart}</span>}
+    </>
+  );
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <KpiCouleur
+        teinte="vert"
+        icone="image"
+        libelle="Séances"
+        valeur={nombre(c)}
+        detail={`${data.soirees ? `${nombre(Math.round(c / data.soirees))} par borne et par soir · ` : ""}${duree(data.dureesMedianesS.seance)} en médiane`}
+        courant={c}
+        precedente={p.commencees}
+      />
+      <KpiCouleur
+        teinte="bleu"
+        icone="billet"
+        libelle="Jusqu'au paiement"
+        valeur={pct(part(demandes, c))}
+        detail={detail(`${nombre(demandes)} séances demandent à payer`, ecartPoints(part(demandes, c), tauxPrec(p.paiementDemande)))}
+      />
+      <KpiCouleur
+        teinte="rose"
+        icone="imprimante"
+        libelle="Payées et imprimées"
+        valeur={pct(part(payees, c))}
+        detail={detail(`${nombre(payees)} séances · ${pct(part(payees, demandes))} des demandes aboutissent`, ecartPoints(part(payees, c), tauxPrec(p.payees)))}
+      />
+      <KpiCouleur
+        teinte="orange"
+        icone="appareil"
+        libelle="Recommencent"
+        valeur={pct(part(recommencent, c))}
+        detail={detail(
+          `${nombre(recommencent)} séances${recommencent ? ` · dont ${pct(part(recommencentPerdus, recommencent))} ne valident finalement pas` : ""}`,
+          ecartPoints(part(recommencent, c), tauxPrec(p.recommencent))
+        )}
+      />
+      <KpiCouleur
+        teinte="violet"
+        icone="pourcent"
+        libelle="Ne valident pas leur photo"
+        valeur={pct(part(nbNonValidees, c))}
+        detail={detail(
+          `${nombre(nbNonValidees)} séances · ${nombre(somme(nonValidees, (x) => x.issue === "retour"))} quittent avant de valider, ${nombre(somme(nonValidees, (x) => x.issue === "delai"))} par inactivité${autres ? `, ${nombre(autres)} autres` : ""} · rien n'est gardé`,
+          ecartPoints(part(nbNonValidees, c), tauxPrec(p.nonValidees))
+        )}
+      />
+    </div>
+  );
+}
+
+/** Ruban du parcours : chaque bande a la hauteur de la part des séances ; entre deux marches, la perte et son % de la marche précédente */
+function Ruban({ valeurs, pertes, details }: { valeurs: number[]; pertes: number[]; details: string[] }) {
+  const H = 180;
   const L = 1200 / valeurs.length;
   const h = valeurs.map((v) => (valeurs[0] ? (v / valeurs[0]) * H : 0));
   const y = (x: number) => (H - x) / 2;
-  const couleur = (i: number) => (i === valeurs.length - 1 ? "var(--color-good)" : `color-mix(in srgb, var(--color-accent) ${100 - i * 12}%, white)`);
+  const pire = Math.max(...pertes);
   return (
-    <figure className="m-0" role="img" aria-label={`Ruban du parcours : ${valeurs.map((v, i) => `${MARCHES[i].libelle} ${v}`).join(", ")}`}>
+    <figure className="relative m-0" role="img" aria-label={`Ruban du parcours : ${valeurs.map((v, i) => `${MARCHES[i]} ${v}`).join(", ")} ; pertes entre les marches : ${pertes.slice(1).join(", ")}`}>
       <svg viewBox={`0 0 1200 ${H}`} width="100%" height={H} preserveAspectRatio="none" aria-hidden>
         {valeurs.map((_, i) => {
           const x0 = i * L;
           const x1 = x0 + L;
           const g = i ? h[i - 1] : h[0];
-          const dr = h[i];
+          const d = h[i];
           return (
             <Fragment key={i}>
-              <path d={`M${x0} 0 L${x1} 0 L${x1} ${y(dr)} L${x0} ${y(g)} Z`} fill="var(--color-crit-bg)" />
-              <path d={`M${x0} ${H} L${x1} ${H} L${x1} ${H - y(dr)} L${x0} ${H - y(g)} Z`} fill="var(--color-crit-bg)" />
-              <path d={`M${x0} ${y(g)} L${x1} ${y(dr)} L${x1} ${H - y(dr)} L${x0} ${H - y(g)} Z`} fill={couleur(i)} />
-              {i > 0 && <line x1={x0} y1="0" x2={x0} y2={H} stroke="var(--color-surface)" strokeWidth="3" />}
+              <path d={`M${x0} 0 L${x1} 0 L${x1} ${y(d)} L${x0} ${y(g)} Z`} fill="var(--color-surface-2)" />
+              <path d={`M${x0} ${H} L${x1} ${H} L${x1} ${H - y(d)} L${x0} ${H - y(g)} Z`} fill="var(--color-surface-2)" />
+              <path d={`M${x0} ${y(g)} L${x1} ${y(d)} L${x1} ${H - y(d)} L${x0} ${H - y(g)} Z`} fill={i === valeurs.length - 1 ? VERT : VIOLET} />
+              {i > 0 && <line x1={x0} y1="0" x2={x0} y2={H} stroke="var(--color-surface)" strokeWidth="8" />}
             </Fragment>
           );
         })}
       </svg>
+      {pertes.map((p, i) =>
+        i === 0 ? null : (
+          <div key={i} className="absolute top-1/2 w-[19%] max-w-40 -translate-x-1/2 -translate-y-1/2" style={{ left: `${(i / valeurs.length) * 100}%` }}>
+            <Infobulle texte={`${nombre(p)} séances · ${pct(part(p, valeurs[i - 1]))} des ${nombre(valeurs[i - 1])}${details[i] ? ` · ${details[i]}` : ""}`}>
+              <div className="rounded-lg border border-line bg-surface px-2 py-1.5 text-center">
+                <div className={`font-extrabold leading-none tabular ${p === pire && p > 0 ? "text-xl" : "text-base"}`} style={{ color: ROUGE }}>
+                  − {nombre(p)} <span className="text-xs font-bold">· {pct(part(p, valeurs[i - 1]))}</span>
+                </div>
+                <div className="mt-0.5 truncate text-[11px] text-ink-2">{PERTES[i]}</div>
+              </div>
+            </Infobulle>
+          </div>
+        )
+      )}
     </figure>
   );
 }
 
-// ─── Formats : podium au taux de séances payées ───
+// ─── Arbre « Ce que devient chaque invité » ───
+
+interface Noeud {
+  cle: string;
+  libelle: string;
+  nb: number;
+  sortie?: Sortie;
+  lignes: [string, string][];
+  note?: string;
+  /** Simple découpage d'un nœud (par issue, par sortie) : fondu dans son parent s'il est seul */
+  fusion?: boolean;
+  enfants: Noeud[];
+}
+const noeud = (cle: string, libelle: string, nb: number, o: Partial<Noeud> = {}): Noeud => ({ cle, libelle, nb, lignes: [], enfants: [], ...o });
+/** Lignes de détail non nulles */
+const detailNonNul = (l: [string, number][]): [string, string][] => l.filter(([, v]) => v > 0).map(([k, v]) => [k, nombre(v)]);
+
+/** Enfants nuls retirés ; un découpage qui ne découpe rien est fondu dans son parent */
+function simplifier(n: Noeud): Noeud {
+  const enfants = n.enfants.map(simplifier).filter((e) => e.nb > 0);
+  if (enfants.length === 1 && enfants[0].fusion && enfants[0].nb === n.nb) {
+    const e = enfants[0];
+    return { ...n, sortie: e.sortie ?? n.sortie, lignes: [...n.lignes, ...e.lignes], note: n.note ?? e.note, enfants: e.enfants };
+  }
+  return { ...n, enfants };
+}
+
+/** Sortie commune à toutes les feuilles d'un nœud (sa couleur), sinon aucune */
+function sortieCommune(n: Noeud): Sortie | undefined {
+  if (!n.enfants.length) return n.sortie;
+  const s = n.enfants.map(sortieCommune);
+  return s.every((x) => x && x === s[0]) ? s[0] : undefined;
+}
+
+function construireArbre(data: StatsParcours): Noeud {
+  const l = data.arbre;
+  const s = (p: (x: LigneArbre) => boolean) => somme(l, p);
+  const d = data.dureesMedianesS;
+  const c = data.commencees;
+  const avecPart = (x: number, de: number) => `${nombre(x)} · ${pct(part(x, de))}`;
+  const recommence = (p: (x: LigneArbre) => boolean) => s((x) => p(x) && x.recommence);
+  /** Séances non validées d'une marche, par issue */
+  const parIssues = (prefixe: string, p: (x: LigneArbre) => boolean): Noeud[] => [
+    noeud(`${prefixe}-retour`, "Retourne à l'accueil", s((x) => p(x) && x.issue === "retour"), {
+      sortie: "non_validee",
+      fusion: true,
+      lignes: detailNonNul([["Dont après avoir recommencé", recommence((x) => p(x) && x.issue === "retour")]]),
+    }),
+    noeud(`${prefixe}-delai`, "Ne fait plus rien", s((x) => p(x) && x.issue === "delai"), {
+      sortie: "non_validee",
+      fusion: true,
+      lignes: detailNonNul([["Dont après avoir recommencé", recommence((x) => p(x) && x.issue === "delai")]]),
+    }),
+    noeud(`${prefixe}-autre`, "Autre fin", s((x) => p(x) && x.issue !== "retour" && x.issue !== "delai"), {
+      sortie: "non_validee",
+      fusion: true,
+      lignes: detailNonNul(["appel", "autre", "validee"].map((i) => [LIBELLES_ISSUES[i].replace(/^./, (m) => m.toUpperCase()), s((x) => p(x) && x.issue === i)])),
+    }),
+  ];
+
+  const avant = (x: LigneArbre) => x.marche === "avant_photo";
+  const photoSeule = (x: LigneArbre) => x.marche === "photo";
+  const offreSeule = (x: LigneArbre) => x.marche === "offre";
+  const nbPhoto = s(PHOTO_PRISE);
+  const nbOffre = s(OFFRE_VUE);
+  const nbDemande = s(DEMANDE);
+  const nbPayees = s((x) => x.sortie === "payee");
+  const recPhoto = recommence(PHOTO_PRISE);
+  const gardeesSansOffre = s((x) => photoSeule(x) && x.sortie === "gardee");
+
+  const racine = noeud("racine", "Séance commencée", c, {
+    lignes: [
+      ["Séances sur la période", nombre(c)],
+      ...(data.soirees ? [["Par borne et par soir", nombre(Math.round(c / data.soirees))] as [string, string]] : []),
+      ["Durée médiane d'une séance", duree(d.seance)],
+      ...(data.appels.lancees ? [["Photos d'appel lancées par la borne", `${nombre(data.appels.lancees)} · ${nombre(data.appels.engagees)} ont attiré`] as [string, string]] : []),
+    ],
+    enfants: [
+      noeud("avant", "Part avant la photo", s(avant), {
+        lignes: [...detailNonNul([["Sans choisir de cadre", s((x) => avant(x) && x.sansCadre)]]), ["Temps passé", `${duree(d.avantPhoto)} en médiane`]],
+        enfants: parIssues("avant", avant),
+      }),
+      noeud("photo", "Photo prise", nbPhoto, {
+        lignes: [
+          ["Photos prises", avecPart(nbPhoto, c)],
+          ["Cadre → photo", `${duree(d.cadreAPhoto)} en médiane`],
+          ["Recommencent au moins une fois", avecPart(recPhoto, nbPhoto)],
+          ["… et gardent ensuite leur photo", `${nombre(s((x) => PHOTO_PRISE(x) && x.recommence && x.sortie !== "non_validee"))} sur ${nombre(recPhoto)}`],
+        ],
+        enfants: [
+          noeud("photo-seule", gardeesSansOffre ? "Ne va pas jusqu'à l'offre" : "Ne valide pas sa photo", s(photoSeule), {
+            lignes: detailNonNul([["Dont après avoir recommencé", recommence(photoSeule)]]),
+            enfants: [
+              ...parIssues("photo", (x) => photoSeule(x) && x.sortie === "non_validee"),
+              noeud("photo-gardee", "Garde sa photo sans voir l'offre", gardeesSansOffre, { sortie: "gardee", fusion: true }),
+            ],
+          }),
+          noeud("offre", "Valide et voit l'offre", nbOffre, {
+            lignes: [
+              ["Offres vues", avecPart(nbOffre, nbPhoto)],
+              ["Photo → offre", `${duree(d.photoAOffre)} en médiane`],
+            ],
+            enfants: [
+              noeud("offre-fermee", "Ferme l'offre sans payer", s(offreSeule), {
+                lignes: [
+                  ["Offres fermées", avecPart(s(offreSeule), nbOffre)],
+                  ["Temps passé devant l'offre", `${duree(d.devantOffre)} en médiane`],
+                  ...detailNonNul([["Reviennent d'abord à la photo", s((x) => offreSeule(x) && x.retourOffre)]]),
+                ],
+                enfants: [
+                  noeud("offre-gardee", "Garde sa photo sans payer", s((x) => offreSeule(x) && x.sortie === "gardee"), {
+                    sortie: "gardee",
+                    fusion: true,
+                    lignes: detailNonNul([
+                      ["Ferme l'offre, photo validée", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "validee")],
+                      ["Inactivité devant l'offre", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "delai")],
+                      ["Retour à l'accueil", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "retour")],
+                    ]),
+                  }),
+                  noeud("offre-perdue", "Repart sans garder sa photo", s((x) => offreSeule(x) && x.sortie === "non_validee"), {
+                    sortie: "non_validee",
+                    fusion: true,
+                    lignes: detailNonNul([
+                      ["Revient d'abord à la photo", s((x) => offreSeule(x) && x.sortie === "non_validee" && x.retourOffre)],
+                      ["Retour à l'accueil", s((x) => offreSeule(x) && x.sortie === "non_validee" && x.issue === "retour")],
+                      ["Inactivité", s((x) => offreSeule(x) && x.sortie === "non_validee" && x.issue === "delai")],
+                    ]),
+                  }),
+                ],
+              }),
+              noeud("demande", "Demande à payer", nbDemande, {
+                lignes: [
+                  ["Demandes de paiement", avecPart(nbDemande, nbOffre)],
+                  ["Offre → demande", `${duree(d.offreAPaiement)} en médiane`],
+                ],
+                note: "La suite, étape par étape : page Paiements.",
+                enfants: [
+                  noeud("payee", "Payée et imprimée", nbPayees, {
+                    sortie: "payee",
+                    lignes: [
+                      ["Payées", avecPart(nbPayees, nbDemande)],
+                      ["Paiement → tirage", `${duree(d.paiementAImpression)} en médiane`],
+                      ...(data.upsell.proposes
+                        ? [["« +1 pour un pote » acceptés", `${nombre(data.upsell.acceptes)} sur ${nombre(data.upsell.proposes)} · ${euros(data.upsell.montantCents)}`] as [string, string]]
+                        : []),
+                    ],
+                  }),
+                  noeud("non-abouti", "Paiement non abouti", s((x) => DEMANDE(x) && x.sortie !== "payee"), {
+                    lignes: detailNonNul(
+                      Object.keys(LIBELLES_STATUTS).map((k) => [LIBELLES_STATUTS[k], s((x) => DEMANDE(x) && x.sortie !== "payee" && (x.statut ?? "inconnu") === k)])
+                    ),
+                    note: "Le détail est sur la page Paiements.",
+                    enfants: [
+                      noeud("non-abouti-gardee", "Garde sa photo", s((x) => DEMANDE(x) && x.sortie === "gardee"), { sortie: "gardee", fusion: true }),
+                      noeud("non-abouti-perdue", "Repart sans sa photo", s((x) => DEMANDE(x) && x.sortie === "non_validee"), { sortie: "non_validee", fusion: true }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  });
+  return simplifier(racine);
+}
+
+const PASTILLES: Record<Sortie, { texte: string; classe: string }> = {
+  payee: { texte: "payée", classe: "bg-ok-bg text-ok-ink" },
+  gardee: { texte: "gardée", classe: "bg-[#EEEDFE] text-[#3F33C7]" },
+  non_validee: { texte: "non validée", classe: "bg-crit-bg text-crit-ink" },
+};
+
+function Arbre({ data }: { data: StatsParcours }) {
+  const [ouvert, setOuvert] = useState<string | null>(null);
+  // Une seule bulle ouverte ; un clic ailleurs (ou Échap) ferme tout
+  useEffect(() => {
+    if (!ouvert) return;
+    const fermer = (e: MouseEvent) => {
+      if (!(e.target instanceof Element && e.target.closest("[data-noeud]"))) setOuvert(null);
+    };
+    const echap = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOuvert(null);
+    };
+    document.addEventListener("mousedown", fermer);
+    document.addEventListener("keydown", echap);
+    return () => {
+      document.removeEventListener("mousedown", fermer);
+      document.removeEventListener("keydown", echap);
+    };
+  }, [ouvert]);
+
+  const racine = construireArbre(data);
+  const l = data.arbre;
+  const c = data.commencees;
+  const payees = somme(l, (x) => x.sortie === "payee");
+  const gardees = somme(l, (x) => x.sortie === "gardee");
+  const perdues = somme(l, (x) => x.sortie === "non_validee");
+  const gardeesNonAbouties = somme(l, (x) => x.sortie === "gardee" && x.marche === "paiement");
+  const liste = (morceaux: [number, string][]) => morceaux.filter(([v]) => v > 0).map(([v, t]) => `${nombre(v)} ${t}`).join(", ");
+
+  return (
+    <section className="carte space-y-5 p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-base font-bold">Ce que devient chaque invité</h2>
+        <div className="flex flex-wrap gap-3 text-xs text-ink-2">
+          {(Object.keys(COULEURS_SORTIE) as Sortie[]).map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5">
+              <i className="inline-block h-3 w-3 rounded-sm" style={{ background: COULEURS_SORTIE[k] }} />
+              {k === "payee" ? "payée" : k === "gardee" ? "photo gardée, sans tirage" : "photo non validée"}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-center pb-1 max-xl:justify-start max-xl:overflow-x-auto">
+        <ul className="m-0 flex list-none p-0">
+          <Branche n={racine} profondeur={0} ouvert={ouvert} basculer={(cle) => setOuvert((o) => (o === cle ? null : cle))} />
+        </ul>
+      </div>
+      <div className="grid gap-3 border-t border-line pt-5 md:grid-cols-3">
+        <CarteSortie titre="Payée et imprimée" nb={payees} total={c} fond="bg-ok-bg" ton="text-ok-ink" couleur={VERT}>
+          L&apos;invité repart avec son tirage.
+        </CarteSortie>
+        <CarteSortie titre="Photo gardée, sans tirage" nb={gardees} total={c} fond="bg-[#EEEDFE]" ton="text-[#4A43B8]" couleur={VIOLET_FONCE}>
+          Photo validée mais pas payée
+          {gardees
+            ? ` : ${liste([
+                [somme(l, (x) => x.sortie === "gardee" && x.marche === "offre"), "ferment l'offre"],
+                [gardeesNonAbouties, gardeesNonAbouties > 1 ? "paiements non aboutis" : "paiement non abouti"],
+                [somme(l, (x) => x.sortie === "gardee" && x.marche === "photo"), "sans voir l'offre"],
+              ])}.`
+            : "."}
+        </CarteSortie>
+        <CarteSortie titre="Photo non validée" nb={perdues} total={c} fond="bg-crit-bg" ton="text-crit-ink" couleur={ROUGE}>
+          {perdues
+            ? `${liste([
+                [somme(l, (x) => x.sortie === "non_validee" && x.marche === "avant_photo"), "avant la photo"],
+                [somme(l, (x) => x.sortie === "non_validee" && x.marche === "photo"), "après la photo"],
+                [somme(l, (x) => x.sortie === "non_validee" && x.marche === "offre"), "repartis de l'offre"],
+                [somme(l, (x) => x.sortie === "non_validee" && x.marche === "paiement"), "après un paiement non abouti"],
+              ])}. `
+            : ""}
+          Rien n&apos;est gardé.
+        </CarteSortie>
+      </div>
+    </section>
+  );
+}
+
+// Traits de l'arbre : un trait horizontal vers chaque enfant, un trait vertical du premier au dernier
+const LI_ENFANT =
+  "relative flex items-center before:absolute before:top-1/2 before:-left-[22px] before:h-0.5 before:w-[22px] before:bg-line-strong " +
+  "first:after:absolute first:after:top-0 first:after:-left-[22px] first:after:h-1/2 first:after:w-1 first:after:bg-surface " +
+  "last:after:absolute last:after:top-[calc(50%+2px)] last:after:bottom-0 last:after:-left-[22px] last:after:w-1 last:after:bg-surface only:after:hidden";
+
+function Branche({ n, parent, profondeur, ouvert, basculer }: { n: Noeud; parent?: Noeud; profondeur: number; ouvert: string | null; basculer: (cle: string) => void }) {
+  const sortie = sortieCommune(n);
+  const couleur = sortie ? COULEURS_SORTIE[sortie] : VIOLET;
+  const estOuvert = ouvert === n.cle;
+  const feuille = !n.enfants.length;
+  return (
+    <li className={profondeur ? LI_ENFANT : "relative flex items-center"}>
+      <div className="relative w-44 flex-none" data-noeud>
+        <button
+          type="button"
+          onClick={() => basculer(n.cle)}
+          aria-expanded={estOuvert}
+          className={`w-full rounded-lg border bg-surface px-2.5 py-1.5 text-left transition-shadow hover:shadow-md ${estOuvert ? "border-[#C9CBF8] shadow-md" : "border-line hover:border-[#C9CBF8]"}`}
+          style={{ borderLeft: `3px solid ${couleur}` }}
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-lg font-extrabold tracking-tight tabular" style={{ color: couleur }}>{nombre(n.nb)}</span>
+            {parent && <span className="text-xs font-semibold text-ink-2 tabular">{pct(part(n.nb, parent.nb))}</span>}
+            {feuille && n.sortie && <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${PASTILLES[n.sortie].classe}`}>{PASTILLES[n.sortie].texte}</span>}
+          </span>
+          <span className="mt-px block text-[13px] leading-tight font-semibold">{n.libelle}</span>
+        </button>
+        {estOuvert && (
+          <div
+            className={`absolute -top-1.5 z-50 w-80 cursor-default rounded-xl bg-[#15171C] px-4 py-3.5 text-white shadow-2xl ${profondeur >= 3 ? "right-[calc(100%+14px)]" : "left-[calc(100%+14px)]"}`}
+            role="dialog"
+            aria-label={n.libelle}
+          >
+            <span aria-hidden className={`absolute top-5 h-3 w-3 rotate-45 bg-[#15171C] ${profondeur >= 3 ? "-right-1.5" : "-left-1.5"}`} />
+            <div className="mb-1.5 text-sm font-bold">
+              {n.libelle} <span style={{ color: sortie ? couleur : VIOLET_CLAIR }}>· {nombre(n.nb)}</span>
+            </div>
+            {parent && (
+              <div className="flex justify-between gap-3 border-t border-white/10 py-1 text-[13px]">
+                <span className="text-[#C9CCD6]">Part de « {parent.libelle} »</span>
+                <b className="text-right">{pct(part(n.nb, parent.nb))}</b>
+              </div>
+            )}
+            {n.lignes.map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-3 border-t border-white/10 py-1 text-[13px]">
+                <span className="text-[#C9CCD6]">{k}</span>
+                <b className="text-right tabular">{v}</b>
+              </div>
+            ))}
+            {n.note && <p className="mt-2 text-[13px] leading-snug text-[#E4E6EC]">{n.note}</p>}
+          </div>
+        )}
+      </div>
+      {!feuille && (
+        <ul className={`relative m-0 flex list-none flex-col justify-center py-0 pr-0 pl-[22px] before:absolute before:top-0 before:bottom-0 before:left-0 before:w-0.5 before:bg-line-strong ${n.enfants.some((e) => e.enfants.length) ? "gap-5" : "gap-1.5"}`}>
+          {n.enfants.map((e) => <Branche key={e.cle} n={e} parent={n} profondeur={profondeur + 1} ouvert={ouvert} basculer={basculer} />)}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function CarteSortie({ titre, nb, total, fond, ton, couleur, children }: { titre: string; nb: number; total: number; fond: string; ton: string; couleur: string; children: ReactNode }) {
+  return (
+    <div className={`flex flex-col gap-1.5 rounded-xl px-5 py-4 ${fond}`}>
+      <span className={`text-xs font-bold tracking-wide uppercase ${ton}`}>{titre}</span>
+      <span className="text-3xl leading-none font-extrabold tracking-tight tabular" style={{ color: couleur }}>
+        {nombre(nb)} <span className="text-sm font-semibold">· {pct(part(nb, total))}</span>
+      </span>
+      <span className="text-sm leading-snug">{children}</span>
+    </div>
+  );
+}
+
+// ─── Formats : podium (gris) au taux de séances payées ───
 
 type TypeCadre = "polaroid" | "multishoot" | "strip" | "carte" | "autre" | "aucun";
-const TYPES_CADRE: Record<TypeCadre, { libelle: string; couleur: string }> = {
-  polaroid: { libelle: "Polaroïd", couleur: "var(--viz-1)" },
-  multishoot: { libelle: "Planche multishoot", couleur: "var(--viz-2)" },
-  strip: { libelle: "Bandelette", couleur: "#1f9e74" },
-  carte: { libelle: "Carte", couleur: "#8250df" },
-  autre: { libelle: "Autre", couleur: "#6b7280" },
-  aucun: { libelle: "Non choisi", couleur: "var(--viz-label)" },
+const TYPES_CADRE: Record<TypeCadre, string> = {
+  polaroid: "Polaroïd",
+  multishoot: "Planche multishoot",
+  strip: "Bandelette",
+  carte: "Carte",
+  autre: "Autre",
+  aucun: "Non choisi",
 };
 const typeDe = (cadre: string | null): TypeCadre =>
   !cadre ? "aucun" : /polaroid|pola/i.test(cadre) ? "polaroid" : /multi|planche/i.test(cadre) ? "multishoot" : /strip|bandelette/i.test(cadre) ? "strip" : /carte|card/i.test(cadre) ? "carte" : "autre";
@@ -403,38 +760,33 @@ function Podium({ data }: { data: StatsParcours }) {
     .map(([t, g]) => ({ t, g, taux: part(g.payees, g.commencees), partSeances: part(g.commencees, avecCadre) }))
     .sort((a, b) => b.taux - a.taux);
   const podium = classes.slice(0, 3);
+  // 2 – 1 – 3, comme un podium
   const ordre = podium.length === 3 ? [podium[1], podium[0], podium[2]] : podium.length === 2 ? [podium[1], podium[0]] : podium;
-  const hauteurs = ["h-40", "h-28", "h-20"];
-  const tons = [
-    { fond: "bg-ok-bg", texte: "text-good", rond: "bg-good text-white" },
-    { fond: "bg-surface-2", texte: "", rond: "bg-line-strong text-ink" },
-    { fond: "bg-crit-bg", texte: "text-bad", rond: "bg-bad text-white" },
-  ];
-  const plusChoisi = [...classes].sort((a, b) => b.partSeances - a.partSeances)[0];
+  const hauteurs = ["h-40", "h-30", "h-20"];
   return (
     <section className="carte space-y-4 p-5">
-      <div>
-        <h2 className="text-base font-bold">Formats : qui fait payer</h2>
-        <p className="mt-0.5 text-sm text-ink-2">Podium au taux de séances payées. En dessous, la part des invités qui choisissent le format.</p>
-      </div>
+      <h2 className="text-base font-bold">Formats : qui fait payer</h2>
       {podium.length ? (
-        <div className={`grid items-end gap-4 ${ordre.length === 3 ? "grid-cols-3" : ordre.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
+        <div className={`mx-auto grid max-w-2xl items-end gap-4 ${ordre.length === 3 ? "grid-cols-3" : ordre.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}>
           {ordre.map((x) => {
             const rang = podium.indexOf(x);
-            const ton = tons[rang];
             return (
-              <div key={x.t} className="flex flex-col items-center gap-2">
+              <Infobulle
+                key={x.t}
+                className="flex flex-col items-center gap-2"
+                texte={`${TYPES_CADRE[x.t]} : ${pct(x.partSeances)} des séances le choisissent · ${pct(x.taux)} payées (${nombre(x.g.payees)} sur ${nombre(x.g.commencees)})`}
+              >
                 <SchemaFormat type={x.t} grand />
-                <div className={`flex w-full flex-col items-center gap-1 rounded-t-xl pt-3 ${ton.fond} ${hauteurs[rang]}`}>
-                  <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-extrabold ${ton.rond}`}>{rang + 1}</span>
-                  <span className={`text-2xl font-extrabold tabular ${ton.texte}`}>{pct(x.taux)}</span>
-                  {rang < 2 && <span className={`text-xs ${ton.texte || "text-ink-2"}`}>payées</span>}
+                <div className={`flex w-full flex-col items-center gap-1 rounded-t-xl bg-surface-2 pt-3 ${hauteurs[rang]}`}>
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-extrabold ${rang === 0 ? "bg-ink text-surface" : "bg-line-strong text-ink"}`}>{rang + 1}</span>
+                  <span className={`font-extrabold tabular ${rang === 0 ? "text-3xl" : "text-2xl"}`}>{pct(x.taux)}</span>
+                  {rang === 0 && <span className="text-xs font-semibold text-ink-2">payées</span>}
                 </div>
                 <div className="text-center">
-                  <div className="text-sm font-semibold">{TYPES_CADRE[x.t].libelle}</div>
+                  <div className="text-sm font-semibold">{TYPES_CADRE[x.t]}</div>
                   <div className="text-xs text-ink-2">{pct(x.partSeances)} des séances</div>
                 </div>
-              </div>
+              </Infobulle>
             );
           })}
         </div>
@@ -442,100 +794,17 @@ function Podium({ data }: { data: StatsParcours }) {
         <p className="text-sm text-ink-muted">Pas assez de séances avec un cadre choisi pour comparer les formats.</p>
       )}
       {classes.length > 3 && (
-        <p className="text-xs text-ink-2">
-          Ensuite : {classes.slice(3).map((x) => `${TYPES_CADRE[x.t].libelle} ${pct(x.taux)} payées (${pct(x.partSeances)} des séances)`).join(" · ")}
+        <p className="border-t border-line pt-3 text-xs text-ink-2">
+          Ensuite : {classes.slice(3).map((x) => `${TYPES_CADRE[x.t]} ${pct(x.taux)} payées (${pct(x.partSeances)} des séances)`).join(" · ")}
         </p>
       )}
-      {podium.length >= 2 && plusChoisi && (
-        <p className="border-t border-line pt-3 text-sm text-ink-2">
-          {plusChoisi.t === podium[0].t
-            ? `${TYPES_CADRE[plusChoisi.t].libelle} : le plus choisi et celui qui fait le mieux payer.`
-            : `${TYPES_CADRE[plusChoisi.t].libelle} : le plus choisi (${pct(plusChoisi.partSeances)} des séances) mais ${pct(plusChoisi.taux)} payées, contre ${pct(podium[0].taux)} pour ${TYPES_CADRE[podium[0].t].libelle.toLowerCase()}.`}
-        </p>
-      )}
-    </section>
-  );
-}
-
-// ─── Au terminal ───
-
-/** Tentative échouée (ventes) → cause regroupée */
-const causeTentative = (statut: string, motif: string | null) =>
-  statut === "EXPIREE" ? "expire" : statut === "REFUSEE" ? (motif === "TERMINAL" ? "refus_terminal" : "refuse") : motif === "TERMINAL" ? "annule_terminal" : "annule";
-const CAUSES: { cle: string; libelle: string; couleur: string; raison: string | null }[] = [
-  { cle: "annule", libelle: "Annulé par l'invité", couleur: "bg-accent", raison: "annule" },
-  { cle: "expire", libelle: "Terminal sans réponse", couleur: "bg-warn-ink", raison: "expire" },
-  { cle: "refuse", libelle: "Refus de la banque", couleur: "bg-bad", raison: "refuse" },
-  { cle: "refus_terminal", libelle: "Refus du terminal (erreur TPA)", couleur: "bg-bad/60", raison: null },
-  { cle: "annule_terminal", libelle: "Annulé par le terminal (erreur TPA)", couleur: "bg-accent/50", raison: null },
-];
-
-function AuTerminal({ data }: { data: StatsParcours }) {
-  const tentatives = new Map<string, number>();
-  for (const t of data.tentativesEchouees ?? []) tentatives.set(causeTentative(t.statut, t.motif), (tentatives.get(causeTentative(t.statut, t.motif)) ?? 0) + t.nb);
-  const seances = new Map((data.nonAboutis ?? []).map((x) => [x.raison, x.nb]));
-  const totalTentatives = [...tentatives.values()].reduce((s, x) => s + x, 0);
-  // Séances perdues au terminal : paiement lancé, non payé (pas celles qui ont fermé la fenêtre avant)
-  const perdues = [...seances].filter(([r]) => r !== "non_demande").reduce((s, [, x]) => s + x, 0);
-  const lignes = CAUSES.filter((x) => tentatives.get(x.cle) || (x.raison && seances.get(x.raison)));
-  const issues = data.issues.filter((x) => x.nb > 0);
-  return (
-    <section className="carte space-y-4 p-5">
-      <div>
-        <h2 className="text-base font-bold">Au terminal</h2>
-        <p className="mt-0.5 text-sm text-ink-2">
-          {nombre(totalTentatives)} passage{totalTentatives > 1 ? "s" : ""} sans débit pour {nombre(perdues)} séance{perdues > 1 ? "s" : ""} perdue{perdues > 1 ? "s" : ""}.
-          Un invité qui annule puis paie n&apos;est pas perdu.
-        </p>
-      </div>
-      {totalTentatives > 0 && (
-        <div className="flex h-4 gap-0.5 overflow-hidden rounded-lg" role="img" aria-label={lignes.map((l) => `${l.libelle} ${pct(part(tentatives.get(l.cle) ?? 0, totalTentatives))}`).join(", ")}>
-          {lignes.map((l) => <span key={l.cle} className={l.couleur} style={{ width: `${part(tentatives.get(l.cle) ?? 0, totalTentatives) * 100}%` }} />)}
-        </div>
-      )}
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs text-ink-2">
-          <tr>
-            <th className="pb-2 font-medium">Cause</th>
-            <th className="pb-2 text-right font-medium">Tentatives</th>
-            <th className="pb-2 text-right font-medium">Séances perdues</th>
-          </tr>
-        </thead>
-        <tbody className="tabular">
-          {lignes.map((l) => (
-            <tr key={l.cle} className="border-t border-line">
-              <td className="py-2"><span className={`mr-2 inline-block h-2.5 w-2.5 rounded-sm align-[-1px] ${l.couleur}`} />{l.libelle}</td>
-              <td className="py-2 text-right">{tentatives.get(l.cle) ? `${nombre(tentatives.get(l.cle)!)} · ${pct(part(tentatives.get(l.cle)!, totalTentatives))}` : "—"}</td>
-              <td className="py-2 text-right">{l.raison && seances.get(l.raison) ? nombre(seances.get(l.raison)!) : "—"}</td>
-            </tr>
-          ))}
-          {(seances.get("offert") ?? 0) > 0 && (
-            <tr className="border-t border-line text-ink-2"><td className="py-2">Tirage offert après un échec</td><td className="py-2 text-right">—</td><td className="py-2 text-right">{nombre(seances.get("offert")!)}</td></tr>
-          )}
-          {(seances.get("inconnu") ?? 0) > 0 && (
-            <tr className="border-t border-line text-ink-2"><td className="py-2">Issue inconnue</td><td className="py-2 text-right">—</td><td className="py-2 text-right">{nombre(seances.get("inconnu")!)}</td></tr>
-          )}
-          {!lignes.length && !seances.get("offert") && !seances.get("inconnu") && (
-            <tr className="border-t border-line"><td colSpan={3} className="py-2 text-ink-muted">Aucun paiement manqué sur la période.</td></tr>
-          )}
-        </tbody>
-      </table>
-      <div className="space-y-1.5 rounded-xl bg-surface-2 p-3">
-        <span className="text-xs font-semibold tracking-wide text-ink-2 uppercase">Comment finissent les {nombre(data.commencees)} séances</span>
-        <div className="flex h-2.5 gap-0.5 overflow-hidden rounded" role="img" aria-label={issues.map((x) => `${ISSUES[x.issue] ?? x.issue} ${pct(part(x.nb, data.commencees))}`).join(", ")}>
-          {issues.map((x) => <span key={x.issue} className={COULEURS_ISSUES[x.issue] ?? "bg-line-strong"} style={{ width: `${part(x.nb, data.commencees) * 100}%` }} />)}
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {issues.map((x) => (
-            <span key={x.issue}><b className="tabular">{nombre(x.nb)}</b> {(ISSUES[x.issue] ?? x.issue).toLowerCase()} · {pct(part(x.nb, data.commencees))}</span>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }
 
 // ─── Borne par borne ───
+
+const Etiquette = ({ children }: { children: ReactNode }) => <span className="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1.5 text-sm">{children}</span>;
 
 /** Ce qui cloche sur une borne, comparé au parc */
 function aRegarder(b: BorneParcours, parc: { paiement: number; payees: number; recommencent: number; photoAOffre: number | null }) {
@@ -553,7 +822,7 @@ function Tendance({ valeurs }: { valeurs: number[] }) {
   const iMax = valeurs.indexOf(max);
   return (
     <span className="inline-flex h-5 items-end gap-0.5" aria-hidden>
-      {valeurs.map((v, i) => <i key={i} className={`block w-1.5 rounded-sm ${i === iMax ? "bg-accent" : "bg-accent/30"}`} style={{ height: `${Math.max(2, (v / max) * 20)}px` }} />)}
+      {valeurs.map((v, i) => <i key={i} className="block w-1.5 rounded-sm" style={{ height: `${Math.max(2, (v / max) * 20)}px`, background: i === iMax ? VIOLET : VIOLET_CLAIR }} />)}
     </span>
   );
 }
@@ -561,7 +830,7 @@ function Tendance({ valeurs }: { valeurs: number[] }) {
 function Taux({ valeur, mauvais }: { valeur: number; mauvais?: boolean }) {
   return (
     <span className="inline-flex items-center gap-2 font-semibold">
-      <i className="inline-block h-2 w-14 overflow-hidden rounded bg-surface-2"><b className={`block h-full rounded ${mauvais ? "bg-bad" : "bg-accent"}`} style={{ width: `${valeur * 100}%` }} /></i>
+      <i className="inline-block h-2 w-14 overflow-hidden rounded bg-surface-2"><b className="block h-full rounded" style={{ width: `${valeur * 100}%`, background: mauvais ? ROUGE : VIOLET }} /></i>
       {pct(valeur)}
     </span>
   );
@@ -569,33 +838,35 @@ function Taux({ valeur, mauvais }: { valeur: number; mauvais?: boolean }) {
 
 function BorneParBorne({ data }: { data: StatsParcours }) {
   const c = data.commencees;
-  const parc = { paiement: part(data.etapes.paiement_demande, c), payees: part(data.payees, c), recommencent: part(data.hesitations.avecRecommencer, c), photoAOffre: data.dureesMedianesS.photoAOffre };
+  const parc = {
+    paiement: part(somme(data.arbre, DEMANDE), c),
+    payees: part(data.payees, c),
+    recommencent: part(somme(data.arbre, (x) => x.recommence), c),
+    photoAOffre: data.dureesMedianesS.photoAOffre,
+  };
   return (
     <section className="carte space-y-4 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold">Borne par borne</h2>
-          <p className="mt-0.5 text-sm text-ink-2">Les mêmes clés que le parc. Une borne loin de la moyenne a un problème à elle : caméra, lumière, lenteur, terminal.</p>
-        </div>
+        <h2 className="text-base font-bold">Borne par borne</h2>
         <Etiquette>Parc : <b>{pct(parc.paiement)} jusqu&apos;au paiement</b> · <b>{pct(parc.payees)} payées</b></Etiquette>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[56rem] text-sm">
           <thead className="text-left text-xs text-ink-2">
             <tr>
-              <th className="pb-2 pr-3 font-medium">Borne</th>
-              <th className="pb-2 pr-3 font-medium">Lieu</th>
-              <th className="pb-2 pr-3 text-right font-medium">Séances</th>
-              <th className="pb-2 pr-3 font-medium">Sur la période</th>
-              <th className="pb-2 pr-3 text-right font-medium">Jusqu&apos;au paiement</th>
-              <th className="pb-2 pr-3 text-right font-medium">Payées</th>
-              <th className="pb-2 pr-3 text-right font-medium">Recommencent</th>
-              <th className="pb-2 pr-3 text-right font-medium">Photo → offre</th>
+              <th className="pr-3 pb-2 font-medium">Borne</th>
+              <th className="pr-3 pb-2 font-medium">Lieu</th>
+              <th className="pr-3 pb-2 text-right font-medium">Séances</th>
+              <th className="pr-3 pb-2 font-medium">Sur la période</th>
+              <th className="pr-3 pb-2 text-right font-medium">Jusqu&apos;au paiement</th>
+              <th className="pr-3 pb-2 text-right font-medium">Payées</th>
+              <th className="pr-3 pb-2 text-right font-medium">Recommencent</th>
+              <th className="pr-3 pb-2 text-right font-medium">Photo → offre</th>
               <th className="pb-2 font-medium">À regarder</th>
             </tr>
           </thead>
           <tbody className="tabular">
-            {data.parBorne!.map((b) => {
+            {data.parBorne.map((b) => {
               const alertes = aRegarder(b, parc);
               const grave = alertes.some((x) => x.grave);
               const payees = part(b.payees, b.commencees);
@@ -630,314 +901,7 @@ function BorneParBorne({ data }: { data: StatsParcours }) {
   );
 }
 
-// ─── Vue Par heure de soirée ───
-
-// Une soirée commence à 6 h : 20 h, 21 h… minuit, 1 h… 5 h dans cet ordre
-const rangSoiree = (h: number) => (h + 18) % 24;
-const libelleHeure = (h: number) => `${h} h`;
-const creneau = (h: number, n: number) => `${h} h – ${(h + n) % 24} h`;
-
-type LigneHeure = HeureParcours;
-
-function heuresDeLaSoiree(data: StatsParcours): LigneHeure[] {
-  const vide = (heure: number): LigneHeure => ({ heure, commencees: 0, cadre: 0, photo: 0, offre: 0, paiementDemande: 0, payees: 0, recommencent: 0, sansRien: 0, upsell: 0, dureeMedianeS: null, photoAOffreS: null });
-  const parHeure = new Map(data.parHeure.map((h) => [h.heure, { ...vide(h.heure), ...h } as LigneHeure]));
-  const actives = data.parHeure.filter((h) => h.commencees > 0).map((h) => rangSoiree(h.heure));
-  if (!actives.length) return [];
-  const debut = Math.min(...actives);
-  const fin = Math.max(...actives);
-  const lignes: LigneHeure[] = [];
-  for (let r = debut; r <= fin; r++) {
-    const h = (r + 6) % 24;
-    lignes.push(parHeure.get(h) ?? vide(h));
-  }
-  return lignes;
-}
-
-/** Somme de lignes horaires (créneau de plusieurs heures) */
-const sommeHeures = (l: LigneHeure[]) =>
-  l.reduce(
-    (s, x) => ({ commencees: s.commencees + x.commencees, payees: s.payees + x.payees, sansRien: s.sansRien + x.sansRien, recommencent: s.recommencent + x.recommencent, upsell: s.upsell + x.upsell }),
-    { commencees: 0, payees: 0, sansRien: 0, recommencent: 0, upsell: 0 }
-  );
-
-/** Meilleur créneau de deux heures selon un critère, parmi ceux qui ont assez de séances */
-function meilleurCreneau(heures: LigneHeure[], score: (s: ReturnType<typeof sommeHeures>) => number, total: number) {
-  let meilleur: { i: number; s: ReturnType<typeof sommeHeures>; v: number } | null = null;
-  for (let i = 0; i + 1 < heures.length; i++) {
-    const s = sommeHeures(heures.slice(i, i + 2));
-    if (s.commencees < Math.max(10, total * 0.05)) continue;
-    const v = score(s);
-    if (!meilleur || v > meilleur.v) meilleur = { i, s, v };
-  }
-  return meilleur;
-}
-
-function VueParHeure({ data }: { data: StatsParcours }) {
-  const heures = heuresDeLaSoiree(data);
-  const total = data.commencees;
-  if (heures.length < 2) return <Section titre="Par heure"><p className="text-sm text-ink-2">Pas assez d&apos;heures avec des séances pour comparer.</p></Section>;
-  const max = Math.max(1, ...heures.map((h) => h.commencees));
-  const pointe = heures.reduce((a, b) => (b.commencees > a.commencees ? b : a));
-  const paie = meilleurCreneau(heures, (s) => part(s.payees, s.commencees), total);
-  const abandon = meilleurCreneau(heures, (s) => part(s.sansRien, s.commencees), total);
-  const volume = meilleurCreneau(heures, (s) => s.commencees, total);
-  const fin = sommeHeures(heures.slice(-2));
-  const tauxParc = part(data.payees, total);
-  const recommenceHors = (i: number) => {
-    const autres = sommeHeures([...heures.slice(0, i), ...heures.slice(i + 2)]);
-    return part(autres.recommencent, autres.commencees);
-  };
-  const ton = (taux: number) => (taux >= tauxParc + 0.05 ? "bg-ok-bg text-ok-ink" : taux <= tauxParc - 0.05 ? "bg-crit-bg text-crit-ink" : "bg-surface-2 text-ink-2");
-  const photoOffreVolume = volume ? heures.slice(volume.i, volume.i + 2).map((h) => h.photoAOffreS).filter((x): x is number => x !== null) : [];
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Cle libelle="Heure de pointe" valeur={creneau(pointe.heure, 1)} evolution={null} detail={`${nombre(pointe.commencees)} séances · ${pct(part(pointe.commencees, total))} de la soirée`} />
-        <Cle
-          libelle="On paie le mieux"
-          valeur={paie ? creneau(heures[paie.i].heure, 2) : "—"}
-          ton="text-good"
-          evolution={null}
-          detail={paie ? `${pct(part(paie.s.payees, paie.s.commencees))} de séances payées, contre ${pct(tauxParc)} sur la soirée` : "pas assez de séances"}
-        />
-        <Cle
-          libelle="On abandonne le plus"
-          valeur={abandon ? creneau(heures[abandon.i].heure, 2) : "—"}
-          ton="text-bad"
-          evolution={null}
-          detail={
-            abandon
-              ? `${pct(part(abandon.s.sansRien, abandon.s.commencees))} repartent sans rien · recommencent ${pct(part(abandon.s.recommencent, abandon.s.commencees))} (${pct(recommenceHors(abandon.i))} le reste de la soirée)`
-              : "pas assez de séances"
-          }
-        />
-        <Cle
-          libelle="Fin de soirée"
-          valeur={pct(part(fin.commencees, total))}
-          ton="text-ink-2"
-          evolution={null}
-          detail={`des séances après ${libelleHeure(heures[heures.length - 2].heure)} · ${pct(part(fin.payees, fin.commencees))} payées`}
-        />
-      </div>
-
-      <section className="carte space-y-5 p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold">Séances par heure, payées ou non</h2>
-            <p className="mt-0.5 text-sm text-ink-2">Hauteur = séances commencées dans l&apos;heure. Vert = payées. Sous chaque colonne, le taux payé de l&apos;heure.</p>
-          </div>
-          <div className="flex gap-3 text-xs text-ink-2">
-            <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm bg-good" />payées</span>
-            <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm bg-accent/30" />non payées</span>
-          </div>
-        </div>
-        <div className="grid items-end gap-1.5 sm:gap-2" style={{ gridTemplateColumns: `repeat(${heures.length}, minmax(0, 1fr))` }} role="img" aria-label={heures.map((h) => `${h.heure} h : ${h.commencees} séances, ${h.payees} payées`).join(" ; ")}>
-          {heures.map((h) => (
-            <div key={h.heure} className="flex min-w-0 flex-col items-center gap-1.5" title={`${creneau(h.heure, 1)} : ${h.commencees} séances, ${h.payees} payées`}>
-              <span className="text-sm font-extrabold tabular">{nombre(h.commencees)}</span>
-              <div className="flex h-40 w-full flex-col justify-end overflow-hidden rounded-lg bg-surface-2 sm:h-52">
-                <i className="block w-full bg-accent/30" style={{ height: `${((h.commencees - h.payees) / max) * 100}%` }} />
-                <i className="block w-full bg-good" style={{ height: `${(h.payees / max) * 100}%` }} />
-              </div>
-              <span className="text-xs font-semibold text-ink-2">{libelleHeure(h.heure)}</span>
-              {h.commencees >= 5 ? (
-                <span className={`rounded px-1 text-[11px] font-bold tabular sm:px-1.5 sm:text-xs ${ton(part(h.payees, h.commencees))}`}>{pct(part(h.payees, h.commencees))}</span>
-              ) : (
-                <span className="text-[11px] text-ink-muted">—</span>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="grid gap-3 border-t border-line pt-4 md:grid-cols-3">
-          {paie && (
-            <Encadre ton="bg-ok-bg" titre={`${creneau(heures[paie.i].heure, 2)} : le créneau qui rapporte`} titreTon="text-good">
-              {nombre(paie.s.commencees)} séances, {pct(part(paie.s.payees, paie.s.commencees))} payées.
-              {paie.s.upsell > 0 && ` « +1 pour un pote » accepté ${nombre(paie.s.upsell)} fois.`}
-            </Encadre>
-          )}
-          {volume && (
-            <Encadre ton="bg-surface-2" titre={`${creneau(heures[volume.i].heure, 2)} : le volume`}>
-              {nombre(volume.s.commencees)} séances ({pct(part(volume.s.commencees, total))} de la soirée), {pct(part(volume.s.payees, volume.s.commencees))} payées.
-              {photoOffreVolume.length > 0 && ` Délai photo → offre : ${duree(Math.max(...photoOffreVolume))} au plus, contre ${duree(data.dureesMedianesS.photoAOffre)} sur la soirée.`}
-            </Encadre>
-          )}
-          {abandon && (
-            <Encadre ton="bg-crit-bg" titre={`${creneau(heures[abandon.i].heure, 2)} : on joue, on paie moins`} titreTon="text-bad">
-              {nombre(abandon.s.commencees)} séances, {pct(part(abandon.s.payees, abandon.s.commencees))} payées ; {pct(part(abandon.s.sansRien, abandon.s.commencees))} repartent sans rien.
-            </Encadre>
-          )}
-        </div>
-      </section>
-
-      <div className="grid gap-4 xl:grid-cols-[6fr_5fr]">
-        <PertesParHeure heures={heures} />
-        <TempsParHeure heures={heures} />
-      </div>
-
-      {(data.parBorne?.length ?? 0) > 1 && <BorneParHeure data={data} heures={heures} />}
-    </div>
-  );
-}
-
-function Encadre({ ton, titre, titreTon = "", children }: { ton: string; titre: string; titreTon?: string; children: ReactNode }) {
-  return (
-    <div className={`flex flex-col gap-1.5 rounded-xl p-4 ${ton}`}>
-      <b className={`text-sm font-extrabold ${titreTon}`}>{titre}</b>
-      <span className="text-sm">{children}</span>
-    </div>
-  );
-}
-
-/** Grille de cases colorées, une par heure */
-function Cases({ valeurs, couleur, titre }: { valeurs: (number | null)[]; couleur: (v: number) => string; titre: (i: number) => string }) {
-  return (
-    <div className="grid gap-[3px]" style={{ gridTemplateColumns: `repeat(${valeurs.length}, minmax(0, 1fr))` }}>
-      {valeurs.map((v, i) => <i key={i} className="block h-6 rounded" style={{ background: v === null ? "var(--color-surface-2)" : couleur(v) }} title={titre(i)} />)}
-    </div>
-  );
-}
-
-function EnteteHeures({ heures }: { heures: LigneHeure[] }) {
-  return (
-    <div className="grid gap-[3px] text-[11px] font-semibold text-ink-2" style={{ gridTemplateColumns: `repeat(${heures.length}, minmax(0, 1fr))` }} aria-hidden>
-      {heures.map((h) => <span key={h.heure} className="text-center">{h.heure}</span>)}
-    </div>
-  );
-}
-
-function PertesParHeure({ heures }: { heures: LigneHeure[] }) {
-  // Part des séances arrivées à l'étape qui s'y perdent ; moins de 5 séances : case grise
-  const lignes: { libelle: string; fort?: boolean; orange?: boolean; taux: (h: LigneHeure) => number | null }[] = [
-    { libelle: "Avant la photo", taux: (h) => (h.commencees >= 5 ? part(h.commencees - h.photo, h.commencees) : null) },
-    { libelle: "Photo → offre", taux: (h) => (h.photo >= 5 ? part(h.photo - h.offre, h.photo) : null) },
-    { libelle: "À l'offre, sans payer", fort: true, taux: (h) => (h.offre >= 5 ? part(h.offre - h.paiementDemande, h.offre) : null) },
-    { libelle: "Au terminal", taux: (h) => (h.paiementDemande >= 5 ? part(h.paiementDemande - h.payees, h.paiementDemande) : null) },
-    { libelle: "Recommencent la photo", orange: true, taux: (h) => (h.commencees >= 5 ? part(h.recommencent, h.commencees) : null) },
-  ];
-  return (
-    <section className="carte space-y-4 p-5">
-      <div>
-        <h2 className="text-base font-bold">Où décrochent-ils, selon l&apos;heure</h2>
-        <p className="mt-0.5 text-sm text-ink-2">Part des séances de l&apos;heure perdue à chaque étape. Plus la case est foncée, plus on perd. Case grise : moins de 5 séances.</p>
-      </div>
-      <div className="grid grid-cols-[minmax(0,10rem)_1fr] items-center gap-x-3 gap-y-2 text-sm">
-        <span />
-        <EnteteHeures heures={heures} />
-        {lignes.map((l) => {
-          const valeurs = heures.map(l.taux);
-          const maxi = Math.max(0.01, ...valeurs.filter((v): v is number => v !== null));
-          const base = l.orange ? "var(--color-warn-ink)" : "var(--color-bad)";
-          return (
-            <Fragment key={l.libelle}>
-              <span className={`truncate ${l.fort ? "font-semibold" : l.orange ? "text-ink-2" : ""}`}>{l.libelle}</span>
-              <Cases
-                valeurs={valeurs}
-                couleur={(v) => `color-mix(in srgb, ${base} ${Math.round(10 + (v / maxi) * 80)}%, var(--color-surface))`}
-                titre={(i) => `${creneau(heures[i].heure, 1)} : ${valeurs[i] === null ? "moins de 5 séances" : pct(valeurs[i]!)}`}
-              />
-            </Fragment>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function TempsParHeure({ heures }: { heures: LigneHeure[] }) {
-  const valeurs = heures.map((h) => (h.commencees >= 5 ? h.dureeMedianeS : null));
-  const connues = valeurs.filter((v): v is number => v !== null);
-  if (!connues.length) return null;
-  const max = Math.max(...connues);
-  const min = Math.min(...connues);
-  const iMax = valeurs.indexOf(max);
-  return (
-    <section className="carte space-y-3 p-5">
-      <div>
-        <h2 className="text-base font-bold">Temps de séance</h2>
-        <p className="mt-0.5 text-sm text-ink-2">Médiane, de l&apos;accueil à la fin de la séance</p>
-      </div>
-      <div className="flex h-24 items-end gap-1.5" role="img" aria-label={heures.map((h, i) => `${h.heure} h : ${duree(valeurs[i])}`).join(", ")}>
-        {valeurs.map((v, i) => (
-          <i
-            key={i}
-            className={`block flex-1 rounded-t ${v === null ? "bg-surface-2" : v >= max * 0.9 ? "bg-accent" : v >= (min + max) / 2 ? "bg-accent/60" : "bg-accent/30"}`}
-            style={{ height: v === null ? "4%" : `${(v / max) * 100}%` }}
-            title={`${creneau(heures[i].heure, 1)} : ${duree(v)}`}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between text-xs text-ink-2">
-        <span>{libelleHeure(heures[0].heure)} · {duree(valeurs[0])}</span>
-        <span>{libelleHeure(heures[iMax].heure)} · <b className="text-ink">{duree(max)}</b></span>
-        <span>{libelleHeure(heures[heures.length - 1].heure)} · {duree(valeurs[valeurs.length - 1])}</span>
-      </div>
-      {max - min >= 10 && (
-        <p className="text-sm text-ink-2">
-          +{duree(max - min)} entre l&apos;heure la plus rapide et la plus lente ({libelleHeure(heures[iMax].heure)}) : attente de l&apos;offre ou paiement plus long, c&apos;est là qu&apos;on perd des séances
-          par inactivité.
-        </p>
-      )}
-    </section>
-  );
-}
-
-function BorneParHeure({ data, heures }: { data: StatsParcours; heures: LigneHeure[] }) {
-  const tauxParc = part(data.payees, data.commencees);
-  // Écart au parc : vert au-dessus, rouge en dessous ; case grise sous 5 séances
-  const couleur = (v: number) => {
-    const ecart = v - tauxParc;
-    return ecart >= 0.07 ? "var(--color-good)" : ecart >= -0.03 ? "color-mix(in srgb, var(--color-good) 35%, var(--color-surface))" : ecart >= -0.13 ? "color-mix(in srgb, var(--color-bad) 30%, var(--color-surface))" : "var(--color-bad)";
-  };
-  return (
-    <section className="carte space-y-4 p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold">Taux payé par borne et par heure</h2>
-          <p className="mt-0.5 text-sm text-ink-2">
-            Vert = au-dessus du parc ({pct(tauxParc)}), rouge = en dessous. Une ligne qui vire au rouge tôt a un lieu qui ferme tôt, ou un problème de borne.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-3 text-xs text-ink-2">
-          {[
-            ["var(--color-good)", "au-dessus"],
-            ["color-mix(in srgb, var(--color-good) 35%, var(--color-surface))", "dans la moyenne"],
-            ["color-mix(in srgb, var(--color-bad) 30%, var(--color-surface))", "un peu en dessous"],
-            ["var(--color-bad)", "nettement en dessous"],
-          ].map(([c, l]) => <span key={l} className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-sm" style={{ background: c }} />{l}</span>)}
-        </div>
-      </div>
-      <div className="overflow-x-auto">
-        <div className="grid min-w-[44rem] grid-cols-[9rem_8rem_1fr_4.5rem] items-center gap-x-3 gap-y-2 text-sm">
-          <span className="text-xs font-medium text-ink-2">Borne</span>
-          <span className="text-xs font-medium text-ink-2">Lieu</span>
-          <EnteteHeures heures={heures} />
-          <span className="text-right text-xs font-medium text-ink-2">Soirée</span>
-          {data.parBorne!.map((b) => {
-            const parHeure = new Map(b.parHeure.map((x) => [x.heure, x]));
-            const valeurs = heures.map((h) => {
-              const x = parHeure.get(h.heure);
-              return x && x.commencees >= 5 ? part(x.payees, x.commencees) : null;
-            });
-            const taux = part(b.payees, b.commencees);
-            return (
-              <Fragment key={b.borneId}>
-                <span className="truncate font-semibold">{b.identifiant}</span>
-                <span className="truncate text-ink-2">{b.lieu?.enseigne ?? "—"}</span>
-                <Cases valeurs={valeurs} couleur={couleur} titre={(i) => `${b.identifiant}, ${creneau(heures[i].heure, 1)} : ${valeurs[i] === null ? "moins de 5 séances" : `${pct(valeurs[i]!)} payées`}`} />
-                <span className={`text-right font-semibold tabular ${taux < tauxParc - 0.1 ? "text-bad" : taux > tauxParc + 0.05 ? "text-good" : ""}`}>{pct(taux)}</span>
-              </Fragment>
-            );
-          })}
-        </div>
-      </div>
-      <p className="text-xs text-ink-muted">Case grise : moins de 5 séances dans l&apos;heure.</p>
-    </section>
-  );
-}
-
-// ─── Détail des formats et des gabarits (tableau, repliable) ───
+// ─── Fiche lieu : détail des formats et des gabarits (tableau, repliable) ───
 
 /** Schéma du format (le rendu réel dépend du cadre de chaque lieu) */
 function SchemaFormat({ type, grand = false }: { type: TypeCadre; grand?: boolean }) {
@@ -1011,7 +975,7 @@ function FormatsCadre({ data, lieuId }: { data: StatsParcours; lieuId?: number }
                 {tries.map(([t, g]) => {
                   const ouvert = ouverts.has(t);
                   const detail = g.gabarits.length > 1 || (g.gabarits[0]?.cadre ?? null) !== null;
-                  const total: LigneFormat = { cle: t, libelle: TYPES_CADRE[t].libelle, commencees: g.commencees, offres: g.offres, payees: g.payees };
+                  const total: LigneFormat = { cle: t, libelle: TYPES_CADRE[t], commencees: g.commencees, offres: g.offres, payees: g.payees };
                   return (
                     <Fragment key={t}>
                       <tr className="border-t border-line">
@@ -1019,7 +983,7 @@ function FormatsCadre({ data, lieuId }: { data: StatsParcours; lieuId?: number }
                           <button type="button" className="flex items-center gap-2 text-left font-medium hover:text-accent disabled:hover:text-ink" onClick={() => basculer(t)} disabled={!detail} aria-expanded={detail ? ouvert : undefined}>
                             <SchemaFormat type={t} />
                             <span>
-                              {TYPES_CADRE[t].libelle}
+                              {TYPES_CADRE[t]}
                               {detail && <span className="block text-xs font-normal text-ink-muted">{g.gabarits.length} gabarit{g.gabarits.length > 1 ? "s" : ""} · {ouvert ? "masquer" : "détail"}</span>}
                             </span>
                           </button>
@@ -1029,7 +993,7 @@ function FormatsCadre({ data, lieuId }: { data: StatsParcours; lieuId?: number }
                       {ouvert &&
                         g.gabarits.map((x) => (
                           <tr key={x.cadre ?? "—"} className="border-t border-line/60 bg-surface-2/40">
-                            <td className="py-1.5 pl-6 pr-3">
+                            <td className="py-1.5 pr-3 pl-6">
                               <span className="flex items-center gap-2">
                                 {x.cadre && data.apercus?.[x.cadre] ? (
                                   // eslint-disable-next-line @next/next/no-img-element -- vignette du studio (data URL)

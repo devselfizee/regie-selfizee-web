@@ -23,10 +23,8 @@ function Comportements() {
   const requete = qs({ ...filtres, granularite: undefined });
   return (
     <>
-      <EnTete
-        titre="Comportements des invités"
-        sousTitre={`De la première page à l'impression : combien vont au bout, où ils décrochent, et quelles bornes sortent du lot · du ${jour(filtres.du)} au ${jour(filtres.au)}`}
-      />
+      {/* Pas de paragraphe d'introduction (maquette du 10/11) : la période seule */}
+      <EnTete titre="Comportements" sousTitre={`Du ${jour(filtres.du)} au ${jour(filtres.au)}`} />
       <Filtres valeurs={filtres} onChange={setFiltres} />
       <Comportement requete={requete} />
     </>

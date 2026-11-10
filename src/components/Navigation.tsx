@@ -15,6 +15,7 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/lieux/carte", libelle: "Analyse géographique", perm: "pages.analyse_geo.view" },
   { href: "/analyse", libelle: "Analyse", perm: "pages.analyse.view" },
   { href: "/comportements", libelle: "Comportements", perm: "pages.comportements.view" },
+  { href: "/par-heure", libelle: "Par heure", perm: "pages.comportements.view" },
   { href: "/monitoring", libelle: "Monitoring live", perm: "pages.monitoring.view" },
   { href: "/papier", libelle: "Papier", perm: "pages.papier.view" },
   { href: "/alertes", libelle: "Alertes", perm: "pages.alertes.view" },

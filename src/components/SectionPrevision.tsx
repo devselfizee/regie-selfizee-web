@@ -3,12 +3,65 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { api, type Atteinte, type PrevisionGlobale, type PrevisionLieu } from "@/lib/api";
-import { euros, eurosRond, jour } from "@/lib/format";
+import { euros, eurosRond, jour, pct, variation } from "@/lib/format";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
 import { AvertissementsPrevision, GraphiquePrevision, libelleMois, METHODE, previsionEnHt, ResumePrevision } from "./Prevision";
 
-/** Vue globale : prévision du mois en cours, tous lieux actifs (indépendante des filtres). */
-export function PrevisionGlobaleSection({ ht = false }: { ht?: boolean }) {
+/** Ligne par lieu de /previsions/global ; precedentCents : CA du mois précédent du lieu (API récente) */
+type LieuPrevu = PrevisionGlobale["lieux"][number] & { precedentCents?: number };
+
+/** Détail par lieu sous la prévision globale (page Lieux) : réalisé, reste prévu, fourchette, écart au mois précédent */
+function DetailParLieu({ p }: { p: PrevisionGlobale }) {
+  const lieux = (p.lieux as LieuPrevu[]).filter((l) => l.totalCents > 0 || l.realiseCents > 0);
+  if (!lieux.length) return null;
+  const max = Math.max(...lieux.map((l) => l.totalCents));
+  const dernier = [...p.jours].reverse().find((j) => j.realiseCents !== null)?.jour;
+  const moisPrec = libelleMois(new Date(Date.UTC(Number(p.du.slice(0, 4)), Number(p.du.slice(5, 7)) - 2, 1)).toISOString().slice(0, 10)).split(" ")[0];
+  return (
+    <div className="mt-4 overflow-x-auto border-t border-line pt-3">
+      <table className="w-full text-sm">
+        <thead className="text-left text-xs text-ink-2">
+          <tr>
+            <th className="py-2 pr-3 font-medium">Par lieu</th>
+            <th className="py-2 pr-3 text-right font-medium">Réalisé{dernier ? ` au ${jour(dernier).slice(0, 5)}` : ""}</th>
+            <th className="w-1/4 py-2 pr-3 font-medium">Réalisé · reste prévu</th>
+            <th className="py-2 pr-3 text-right font-medium">Prévu fin {libelleMois(p.du).split(" ")[0]}</th>
+            <th className="py-2 pr-3 text-right font-medium">Fourchette</th>
+            <th className="py-2 text-right font-medium">vs {moisPrec}</th>
+          </tr>
+        </thead>
+        <tbody className="tabular">
+          {lieux.map((l) => {
+            const v = l.precedentCents ? variation(l.totalCents, l.precedentCents) : null;
+            return (
+              <tr key={l.id} className="border-t border-line" title={`${l.enseigne} : ${eurosRond(l.realiseCents)} réalisés · ${eurosRond(l.totalCents)} prévus (entre ${eurosRond(l.basseCents)} et ${eurosRond(l.hauteCents)})`}>
+                <td className="py-2 pr-3"><Link className="font-medium hover:underline" href={`/lieux/${l.id}`}>{l.enseigne}</Link></td>
+                <td className="py-2 pr-3 text-right">{eurosRond(l.realiseCents)}</td>
+                <td className="py-2 pr-3">
+                  <div className="flex h-2.5 overflow-hidden rounded-full bg-[#ECECFC]" style={{ width: `${max ? (l.totalCents / max) * 100 : 0}%` }}>
+                    <span className="bg-[#5B4CF5]" style={{ width: `${l.totalCents ? (l.realiseCents / l.totalCents) * 100 : 0}%` }} />
+                    <span className="flex-1 bg-[#C9CBF8]" />
+                  </div>
+                </td>
+                <td className="py-2 pr-3 text-right font-medium">{eurosRond(l.totalCents)}</td>
+                <td className="py-2 pr-3 text-right text-ink-2">{eurosRond(l.basseCents)} – {eurosRond(l.hauteCents)}</td>
+                <td className={`py-2 text-right ${v === null ? "text-ink-muted" : v < 0 ? "text-bad" : "text-ink-2"}`}>
+                  {v === null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${pct(Math.abs(v))}`}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Vue globale : prévision du mois en cours, tous lieux actifs (indépendante des filtres).
+ * detail : tableau par lieu dessous et méthode repliée (page Lieux) ; sans : tableau de bord, inchangé.
+ */
+export function PrevisionGlobaleSection({ ht = false, detail = false }: { ht?: boolean; detail?: boolean }) {
   const { data, error } = useQuery({ queryKey: ["previsions", "global"], queryFn: () => api<PrevisionGlobale>("/previsions/global"), staleTime: 5 * 60_000 });
   // Calculée en TTC : en HT, montants passés à la part HT des ventes réelles (bascule HT / TTC de la page)
   const p = data && ht ? previsionEnHt(data, data.ratioHt ?? 1 / 1.2) : data;
@@ -31,13 +84,21 @@ export function PrevisionGlobaleSection({ ht = false }: { ht?: boolean }) {
               </div>
             )}
             {p.lieuxPeuFiables > 0 && <p className="text-xs text-ink-muted">{p.lieuxPeuFiables} lieu(x) avec moins de 3 semaines d&apos;historique : prévision indicative.</p>}
-            <p className="text-xs text-ink-muted">{METHODE}</p>
+            {detail ? (
+              <details className="text-xs text-ink-muted">
+                <summary className="cursor-pointer text-ink-2">Méthode</summary>
+                <p className="mt-1">{METHODE.replace(/^Méthode : m/, "M")}</p>
+              </details>
+            ) : (
+              <p className="text-xs text-ink-muted">{METHODE}</p>
+            )}
           </div>
           <div className="lg:col-span-2">
             <GraphiquePrevision jours={p.jours} n1Cents={p.n1Cents} />
           </div>
         </div>
       )}
+      {p && detail && <DetailParLieu p={p} />}
     </Section>
   );
 }
