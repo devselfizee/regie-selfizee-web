@@ -115,7 +115,12 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
 }
 
 /** Boutons collés (filtre, échelle de la frise) : celui choisi en noir. */
-export function Segments<T extends string>({ choix, valeur, onChange, libelle }: { choix: { cle: T; libelle: ReactNode }[]; valeur: T; onChange: (v: T) => void; libelle: string }) {
+export function Segments<T extends string>({ choix, valeur, onChange, libelle }: {
+  choix: { cle: T; libelle: ReactNode; desactive?: boolean; aide?: string }[];
+  valeur: T;
+  onChange: (v: T) => void;
+  libelle: string;
+}) {
   return (
     <div role="group" aria-label={libelle} className="flex overflow-hidden rounded-lg border border-line-strong bg-surface">
       {choix.map((c) => (
@@ -123,8 +128,10 @@ export function Segments<T extends string>({ choix, valeur, onChange, libelle }:
           key={c.cle}
           type="button"
           aria-pressed={valeur === c.cle}
+          disabled={c.desactive}
+          title={c.aide}
           onClick={() => onChange(c.cle)}
-          className={`h-9 px-3.5 text-sm font-medium whitespace-nowrap ${valeur === c.cle ? "bg-ink text-white" : "text-ink hover:bg-surface-2"}`}
+          className={`h-9 px-3.5 text-sm font-medium whitespace-nowrap disabled:cursor-not-allowed ${valeur === c.cle ? "bg-ink text-white" : "text-ink hover:bg-surface-2 disabled:text-ink-muted disabled:hover:bg-transparent"}`}
         >
           {c.libelle}
         </button>

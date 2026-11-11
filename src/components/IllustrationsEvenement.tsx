@@ -38,6 +38,7 @@ const LIBELLES_CADRES: Record<Lieu["illustrations"], string> = {
   festif: "série festive",
   chic: "série chic",
   serie: "série de la bibliothèque",
+  client: "photos du client",
   photos: "nos photos",
   camera: "caméra en direct",
   aucune: "aucune (cases unies)",
@@ -47,6 +48,7 @@ const LIBELLES_ACCUEIL: Record<Lieu["illustrationsAccueil"], string> = {
   festif: "série festive",
   chic: "série chic",
   serie: "série de la bibliothèque",
+  client: "photos du client",
   photos: "photos dédiées",
 };
 // Thèmes de l'interface de la borne (uiKit) : les autres viendront quand la borne saura les afficher
@@ -67,6 +69,7 @@ function Style({ choix, apercus }: { choix: Lieu["illustrations"]; apercus: stri
     festif: "bg-gradient-to-br from-fuchsia-500 via-pink-500 to-amber-400",
     chic: "bg-gradient-to-br from-slate-800 via-slate-600 to-amber-200",
     serie: "bg-surface-2",
+    client: "bg-surface-2",
     photos: "bg-surface-2",
     camera: "bg-slate-900",
     aucune: "bg-surface-2",
@@ -258,7 +261,7 @@ export function IllustrationsEvenement({ lieu, majLieu, theme, majTheme, gabarit
 }
 
 /** La page « Choisis ton format » de la borne en miniature : les trois premiers formats, cases remplies. */
-function ApercuChoixFormat({ gabarits, remplissage, legende }: { gabarits: GabaritEvenement[]; remplissage: RemplissagePhotos; legende: string }) {
+export function ApercuChoixFormat({ gabarits, remplissage, legende }: { gabarits: GabaritEvenement[]; remplissage: RemplissagePhotos; legende: string }) {
   const montres = (gabarits.length ? gabarits : (["bandelette", "pola", "planche"] as GabaritEvenement[])).slice(0, 3);
   return (
     <figure className="self-start">
@@ -341,7 +344,7 @@ function Galerie({ cible, apiEvenement, enregistre }: { cible: IllustrationEvene
 }
 
 /** Image → JPEG d'au plus 1600 px de côté (l'API la réduit ensuite à 1200 px) : une photo de téléphone passe. */
-async function reduire(fichier: File): Promise<string> {
+export async function reduire(fichier: File): Promise<string> {
   const bitmap = await createImageBitmap(fichier);
   const echelle = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");

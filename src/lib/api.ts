@@ -879,10 +879,10 @@ export interface ReglagesEvenement {
     heureDebut: string | null;
     heureFin: string | null;
     ton: "club" | "bar" | "famille" | "pro";
-    /** Photos d'exemple des cases des cadres : séries du logiciel, photos de l'événement, caméra, aucune */
-    illustrations: "festif" | "chic" | "serie" | "photos" | "camera" | "aucune";
+    /** Photos d'exemple des cases des cadres : séries du logiciel, de la bibliothèque, photos du client (sur le lieu), de l'événement, caméra, aucune */
+    illustrations: "festif" | "chic" | "serie" | "client" | "photos" | "camera" | "aucune";
     /** Série des cadres de l'accueil : « memes » = celle des cadres */
-    illustrationsAccueil: "memes" | "festif" | "chic" | "serie" | "photos";
+    illustrationsAccueil: "memes" | "festif" | "chic" | "serie" | "client" | "photos";
     /** Série de la bibliothèque choisie (« serie »), pour les cadres et pour l'accueil */
     illustrationsSerieId: number | null;
     illustrationsAccueilSerieId: number | null;
