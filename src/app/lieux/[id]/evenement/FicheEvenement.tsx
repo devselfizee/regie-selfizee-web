@@ -391,10 +391,23 @@ function SectionEvenement({ r, setR, lieuId, fiche, nom, setNom, supprimer }: Pr
           </div>
         )}
         <Champ libelle="Début *">
-          <input className="champ" type="date" required value={l.dateDebut} onChange={(e) => maj({ dateDebut: e.target.value })} />
+          <span className="flex gap-2">
+            <input className="champ" type="date" required value={l.dateDebut} onChange={(e) => maj({ dateDebut: e.target.value })} />
+            {nom !== null && (
+              <input className="champ w-32" type="time" aria-label="Heure de début" value={l.heureDebut ?? ""} onChange={(e) => maj({ heureDebut: e.target.value || null })} />
+            )}
+          </span>
         </Champ>
-        <Champ libelle="Fin *" aide={nom === null ? "Une borne à l'année : plusieurs années." : "Le même jour que le début : une seule journée."}>
-          <input className="champ" type="date" required value={l.dateFin} min={l.dateDebut} onChange={(e) => maj({ dateFin: e.target.value })} />
+        <Champ
+          libelle="Fin *"
+          aide={nom === null ? "Une borne à l'année : plusieurs années." : "Sans heure : toute la journée. Une soirée finit le lendemain (20:00 → 06:00)."}
+        >
+          <span className="flex gap-2">
+            <input className="champ" type="date" required value={l.dateFin} min={l.dateDebut} onChange={(e) => maj({ dateFin: e.target.value })} />
+            {nom !== null && (
+              <input className="champ w-32" type="time" aria-label="Heure de fin" value={l.heureFin ?? ""} onChange={(e) => maj({ heureFin: e.target.value || null })} />
+            )}
+          </span>
         </Champ>
       </div>
       <p className="mt-3 text-xs text-ink-muted">

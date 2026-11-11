@@ -2,35 +2,26 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type EvenementPonctuel, type FicheEvenementLieu } from "@/lib/api";
-import { dateHeure, jour } from "@/lib/format";
-import { Badge, Chargement, Erreur, Section } from "./Etat";
+import { Fragment, useState, type ReactNode } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api, type EvenementPonctuel } from "@/lib/api";
+import { jour } from "@/lib/format";
+import { usePerm } from "@/lib/perms";
+import { duAu, etatPublication, instants, maintenantParis, periode, type Periode } from "@/lib/programmation";
+import { Badge, Erreur } from "./Etat";
+import { MenuActions } from "./MenuActions";
 import { Modale } from "./Modale";
 
-// Événements de la borne d'un lieu (CDC page souvenir § 13) : celui par défaut et les autres (Halloween,
-// Noël, une soirée…), chacun avec son code. Bloc « Événements » de l'onglet Configuration de la fiche lieu,
-// création d'un événement depuis ce bloc ou depuis la fiche événement, et copie d'un événement existant.
+// Événements programmés d'un lieu (maquettes « configuration-evenements » du 10/11/2026) : la liste de l'onglet
+// Configuration, groupée par mois, filtrée (en cours et à venir, passés, tous) avec une recherche qui porte sur
+// tous les événements ; la fenêtre « Nouvel événement » (nom, début et fin avec leur heure) et la copie d'un
+// événement. L'événement par défaut n'est pas dans cette liste : il est en haut de l'onglet.
 
-export type Periode = "en-cours" | "a-venir" | "passe";
-const aujourdhui = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Paris" }); // AAAA-MM-JJ
-export const periode = (e: { dateDebut: string; dateFin: string }, ce = aujourdhui()): Periode =>
-  e.dateFin < ce ? "passe" : e.dateDebut > ce ? "a-venir" : "en-cours";
-const PERIODES: Record<Periode, { libelle: string; ton: "ok" | "neutre" | "warn" }> = {
-  "en-cours": { libelle: "En cours", ton: "ok" },
-  "a-venir": { libelle: "À venir", ton: "neutre" },
-  passe: { libelle: "Passé", ton: "warn" },
-};
-export const dates = (e: { dateDebut: string; dateFin: string }) => (e.dateDebut === e.dateFin ? jour(e.dateDebut) : `${jour(e.dateDebut)} → ${jour(e.dateFin)}`);
-/** En cours d'abord, puis à venir (les plus proches en premier), puis passés (les plus récents en premier). */
-export function trier<T extends { dateDebut: string; dateFin: string }>(liste: T[]): T[] {
-  const rang = { "en-cours": 0, "a-venir": 1, passe: 2 } as const;
-  return [...liste].sort((a, b) => {
-    const pa = periode(a), pb = periode(b);
-    if (pa !== pb) return rang[pa] - rang[pb];
-    return pa === "passe" ? b.dateDebut.localeCompare(a.dateDebut) : a.dateDebut.localeCompare(b.dateDebut);
-  });
+/** « 12/11/2026 à 20:00 → 13/11/2026 à 06:00 » (en-tête de la fiche événement). */
+export function dates(e: { dateDebut: string; dateFin: string; heureDebut?: string | null; heureFin?: string | null }) {
+  const h = (d: string, heure?: string | null) => `${jour(d)}${heure ? ` à ${heure}` : ""}`;
+  if (e.dateDebut === e.dateFin && !e.heureDebut && !e.heureFin) return jour(e.dateDebut);
+  return `${h(e.dateDebut, e.heureDebut)} → ${h(e.dateFin, e.heureFin)}`;
 }
 
 const pageEvenement = (lieuId: number, eid?: number | null) => (eid ? `/lieux/${lieuId}/evenement/${eid}` : `/lieux/${lieuId}/evenement`);
@@ -41,23 +32,37 @@ export interface SourceCopie {
   nom: string;
   dateDebut?: string;
   dateFin?: string;
+  heureDebut?: string | null;
+  heureFin?: string | null;
 }
 
+/** Lendemain d'un jour « AAAA-MM-JJ ». */
+const lendemain = (ymd: string) => new Date(Date.parse(`${ymd}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
 /**
- * Formulaire de création d'un événement ; ouvre sa fiche une fois créé. Avec `source`, c'est une copie de cet
- * événement (formats, cadres, tarifs, options), sinon un nouvel événement repris de celui par défaut sans cadres.
+ * Fenêtre « Nouvel événement » : nom, début et fin avec leur heure ; ouvre la page de l'événement une fois créé.
+ * Avec `source`, c'est une copie de cet événement (cadres, tarifs, options). Sans date de fin : une seule
+ * soirée, qui finit le lendemain si l'heure de fin est avant celle du début.
  */
 export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: number; onAnnuler: () => void; source?: SourceCopie }) {
   const client = useQueryClient();
   const router = useRouter();
   const [nom, setNom] = useState(source ? `${source.nom} (copie)`.slice(0, 80) : "");
   const [debut, setDebut] = useState(source?.dateDebut ?? "");
-  const [fin, setFin] = useState(source?.dateFin ?? "");
+  const [heureDebut, setHeureDebut] = useState(source ? source.heureDebut ?? "" : "20:00");
+  const [fin, setFin] = useState(source?.dateFin && source.dateFin !== source.dateDebut ? source.dateFin : "");
+  const [heureFin, setHeureFin] = useState(source ? source.heureFin ?? "" : "06:00");
+
+  // Sans date de fin : le même jour, ou le lendemain matin pour une soirée (20:00 → 06:00)
+  const dateFin = fin || (debut && heureDebut && heureFin && heureFin <= heureDebut ? lendemain(debut) : debut);
+  const saisie = { nom: nom.trim(), dateDebut: debut, dateFin, heureDebut: heureDebut || null, heureFin: heureFin || null };
+  const finAvantDebut = Boolean(debut) && instants(saisie).fin <= instants(saisie).debut;
+
   const url = source
     ? `${source.eid ? `/lieux/${lieuId}/evenements-ponctuels/${source.eid}` : `/lieux/${lieuId}/evenement`}/dupliquer`
     : `/lieux/${lieuId}/evenements-ponctuels`;
   const creer = useMutation({
-    mutationFn: () => api<{ id: number | null }>(url, { method: "POST", json: { nom: nom.trim(), dateDebut: debut, dateFin: fin || debut } }),
+    mutationFn: () => api<{ id: number | null }>(url, { method: "POST", json: saisie }),
     onSuccess: (f) => {
       client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
       router.push(pageEvenement(lieuId, f.id));
@@ -65,7 +70,7 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
   });
   return (
     <form
-      className="flex flex-wrap items-end gap-3"
+      className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
         creer.mutate();
@@ -73,120 +78,215 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
     >
       <label className="block">
         <span className="etiquette">Nom *</span>
-        <input className="champ w-64" required maxLength={80} placeholder="Halloween, Noël…" value={nom} onChange={(e) => setNom(e.target.value)} />
+        <input className="champ" required maxLength={80} placeholder="Halloween, Noël…" value={nom} onChange={(e) => setNom(e.target.value)} />
       </label>
-      <label className="block">
-        <span className="etiquette">Début *</span>
-        <input className="champ" type="date" required value={debut} onChange={(e) => setDebut(e.target.value)} />
-      </label>
-      <label className="block">
-        <span className="etiquette">Fin</span>
-        <input className="champ" type="date" min={debut} value={fin} onChange={(e) => setFin(e.target.value)} />
-      </label>
-      <button type="submit" className="bouton" disabled={creer.isPending || !nom.trim() || !debut}>
-        {creer.isPending ? (source ? "Copie…" : "Création…") : source ? "Dupliquer" : "Créer"}
-      </button>
-      <button type="button" className="bouton-second" onClick={onAnnuler}>Annuler</button>
-      <p className="w-full text-xs text-ink-muted">
-        {source ? (
-          <>
-            Copie de « {source.nom} » : mêmes formats, cadres personnalisés, tarifs et options. Il aura son propre code, à taper sur la borne, et sera à
-            créer (publier) comme un nouvel événement. L&apos;original ne change pas.
-          </>
-        ) : (
-          <>Il reprend les réglages de l&apos;événement par défaut et les tarifs du lieu, sans aucun format : vous ajoutez ceux à proposer. Il aura son propre code, à taper sur la borne.</>
-        )}{" "}
-        Sans date de fin : une seule journée.
+      <div className="grid grid-cols-[1fr_8rem] gap-3">
+        <label className="block">
+          <span className="etiquette">Début *</span>
+          <input className="champ" type="date" required value={debut} onChange={(e) => setDebut(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">à</span>
+          <input className="champ" type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">Fin</span>
+          <input className="champ" type="date" min={debut || undefined} value={fin} onChange={(e) => setFin(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">à</span>
+          <input className="champ" type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-ink-muted">
+        Sans date de fin : une seule soirée, jusqu&apos;au lendemain si l&apos;heure de fin est avant celle du début. Sans heure : toute la journée.
+        {source && <> Copie de « {source.nom} » : mêmes cadres, tarifs et options, avec son propre code. L&apos;original ne change pas.</>}
       </p>
-      {creer.error && <div className="w-full"><Erreur erreur={creer.error} /></div>}
+      {finAvantDebut && <p role="alert" className="text-sm text-crit-ink">La fin est avant le début.</p>}
+      {creer.error && <Erreur erreur={creer.error} />}
+      <div className="-mx-4 -mb-4 flex justify-end gap-2 border-t border-line px-4 py-3">
+        <button type="button" className="bouton-second" onClick={onAnnuler}>Annuler</button>
+        <button type="submit" className="bouton" disabled={creer.isPending || !nom.trim() || !debut || finAvantDebut}>
+          {creer.isPending ? (source ? "Copie…" : "Création…") : source ? "Dupliquer" : "Créer l'événement"}
+        </button>
+      </div>
     </form>
   );
 }
 
-function Publication({ version, publieeLe, modifie, enregistre = true }: { version: number; publieeLe: string | null; modifie: boolean; enregistre?: boolean }) {
-  if (!enregistre) return <span className="text-ink-muted">Pas encore enregistré</span>;
-  if (!version) return <Badge ton="neutre">Pas encore créé</Badge>;
+/** Boutons collés (filtre, échelle de la frise) : celui choisi en noir. */
+export function Segments<T extends string>({ choix, valeur, onChange, libelle }: { choix: { cle: T; libelle: ReactNode }[]; valeur: T; onChange: (v: T) => void; libelle: string }) {
+  return (
+    <div role="group" aria-label={libelle} className="flex overflow-hidden rounded-lg border border-line-strong bg-surface">
+      {choix.map((c) => (
+        <button
+          key={c.cle}
+          type="button"
+          aria-pressed={valeur === c.cle}
+          onClick={() => onChange(c.cle)}
+          className={`h-9 px-3.5 text-sm font-medium whitespace-nowrap ${valeur === c.cle ? "bg-ink text-white" : "text-ink hover:bg-surface-2"}`}
+        >
+          {c.libelle}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** État de publication d'un événement, dans la liste. */
+export function Publication({ e, maintenant }: { e: EvenementPonctuel; maintenant: string }) {
+  const etat = etatPublication(e, maintenant);
+  if (etat === "brouillon") return <Badge ton="neutre">Brouillon</Badge>;
+  if (etat === "jamais") return <Badge ton="warn">Jamais publié</Badge>;
+  const le = e.publieeLe ? new Date(e.publieeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" }) : "";
   return (
     <span className="flex flex-wrap items-center gap-1">
-      <span className="tabular">Créé · v{version} du {dateHeure(publieeLe)}</span>
-      {modifie && <Badge ton="warn">Modifié depuis</Badge>}
+      <Badge ton="ok">Publié · v{e.version} du {le}</Badge>
+      {e.modifieDepuisPublication && <Badge ton="warn">Modifications non publiées</Badge>}
     </span>
   );
 }
 
-/** Bloc « Événements » de l'onglet Configuration : tous les événements de la borne, et la création d'un nouveau. */
-export function EvenementsLieu({ lieuId }: { lieuId: number }) {
-  const defaut = useQuery({ queryKey: ["evenement-lieu", lieuId, "habituel"], queryFn: () => api<FicheEvenementLieu>(`/lieux/${lieuId}/evenement`) });
-  const liste = useQuery({ queryKey: ["evenements-ponctuels", lieuId], queryFn: () => api<EvenementPonctuel[]>(`/lieux/${lieuId}/evenements-ponctuels`) });
-  const [creation, setCreation] = useState(false);
-  const [voirPasses, setVoirPasses] = useState(false);
-  const [copie, setCopie] = useState<SourceCopie | null>(null);
+type Filtre = "avenir" | "passes" | "tous";
+const MOTS: Record<Periode, string> = { "en-cours": "en cours", "a-venir": "à venir", passe: "passé" };
+const sansAccents = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+const moisFmt = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
+const mois = (ymd: string) => moisFmt.format(new Date(`${ymd.slice(0, 7)}-01T00:00:00Z`));
 
-  if (defaut.error || liste.error) return <Erreur erreur={defaut.error ?? liste.error} />;
-  if (!defaut.data || !liste.data) return <Chargement />;
-  const tries = trier(liste.data);
-  const passes = tries.filter((e) => periode(e) === "passe").length;
-  const visibles = voirPasses ? tries : tries.filter((e) => periode(e) !== "passe");
-  const d = defaut.data;
+/** Bloc « Événements programmés » de l'onglet Configuration. */
+export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: EvenementPonctuel[] }) {
+  const client = useQueryClient();
+  const peutModifier = usePerm("evenements.edit");
+  const [filtre, setFiltre] = useState<Filtre>("avenir");
+  const [recherche, setRecherche] = useState("");
+  const [creation, setCreation] = useState(false);
+  const [copie, setCopie] = useState<SourceCopie | null>(null);
+  const supprimer = useMutation({
+    mutationFn: (eid: number) => api(`/lieux/${lieuId}/evenements-ponctuels/${eid}`, { method: "DELETE" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] }),
+  });
+
+  const maintenant = maintenantParis();
+  const passes = liste.filter((e) => periode(e, maintenant) === "passe");
+  const aVenir = liste.filter((e) => periode(e, maintenant) !== "passe");
+  const q = sansAccents(recherche.trim());
+  // La recherche porte sur tous les événements, quel que soit le filtre
+  const visibles = (q ? liste.filter((e) => sansAccents(`${e.nom} ${e.code}`).includes(q)) : filtre === "avenir" ? aVenir : filtre === "passes" ? passes : liste)
+    .slice()
+    .sort((a, b) => (filtre === "passes" && !q ? -1 : 1) * instants(a).debut.localeCompare(instants(b).debut));
+  const groupes: { mois: string; evenements: EvenementPonctuel[] }[] = [];
+  for (const e of visibles) {
+    const m = mois(e.dateDebut);
+    if (groupes.at(-1)?.mois !== m) groupes.push({ mois: m, evenements: [] });
+    groupes.at(-1)!.evenements.push(e);
+  }
+  const copier = (e: EvenementPonctuel) => setCopie({ eid: e.id, nom: e.nom, dateDebut: e.dateDebut, dateFin: e.dateFin, heureDebut: e.heureDebut, heureFin: e.heureFin });
 
   return (
-    <Section
-      titre="Événements"
-      actions={<button type="button" className="bouton" aria-haspopup="dialog" onClick={() => setCreation(true)}>+ Nouvel événement</button>}
-    >
-      <p className="mb-3 text-sm text-ink-2">
-        Chaque événement a son code, ses créations graphiques et ses tarifs. Pour en installer un, tapez son code sur la borne ; pour revenir à
-        l&apos;événement par défaut, retapez le sien.
-      </p>
+    <section className="carte p-5 sm:p-6">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3.5">
+          <h2 className="text-lg font-semibold">Événements programmés</h2>
+          <Segments<Filtre>
+            libelle="Filtre"
+            valeur={filtre}
+            onChange={(f) => {
+              setFiltre(f);
+              setRecherche("");
+            }}
+            choix={[
+              { cle: "avenir", libelle: `En cours et à venir · ${aVenir.length}` },
+              { cle: "passes", libelle: `Passés · ${passes.length}` },
+              { cle: "tous", libelle: "Tous" },
+            ]}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            className="champ h-9 w-60"
+            placeholder="Chercher un nom ou un code…"
+            aria-label="Chercher un événement"
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+          />
+          {peutModifier && (
+            <button type="button" className="bouton h-9" aria-haspopup="dialog" onClick={() => setCreation(true)}>+ Nouvel événement</button>
+          )}
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[44rem] text-sm">
+        <table className="w-full min-w-[48rem] border-separate border-spacing-0 text-sm">
           <thead>
-            <tr className="border-b border-line text-left text-xs text-ink-2">
-              <th className="px-3 py-2 font-medium">Événement</th>
-              <th className="px-3 py-2 font-medium">Code</th>
-              <th className="px-3 py-2 font-medium">Dates</th>
-              <th className="px-3 py-2 font-medium">Période</th>
-              <th className="px-3 py-2 font-medium">État</th>
+            <tr className="text-left text-xs text-ink-2">
+              <th className="px-3 py-3 font-medium">Événement</th>
+              <th className="px-3 py-3 font-medium">Code borne</th>
+              <th className="px-3 py-3 font-medium">Du … au …</th>
+              <th className="px-3 py-3 font-medium">Publication</th>
               <th className="px-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-line bg-surface-2/50">
-              <td className="px-3 py-2 font-medium">
-                <Link href={pageEvenement(lieuId)} className="hover:text-accent hover:underline">Par défaut</Link>
-                <span className="ml-1 text-xs font-normal text-ink-muted">(toute l&apos;année)</span>
-              </td>
-              <td className="px-3 py-2 font-mono">{d.code ?? "—"}</td>
-              <td className="px-3 py-2 tabular">{dates(d.reglages.lieu)}</td>
-              <td className="px-3 py-2"><Badge ton={PERIODES[periode(d.reglages.lieu)].ton}>{PERIODES[periode(d.reglages.lieu)].libelle}</Badge></td>
-              <td className="px-3 py-2"><Publication version={d.version} publieeLe={d.publieeLe} modifie={d.modifieDepuisPublication} enregistre={d.enregistre} /></td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">
-                {d.enregistre && <BoutonDupliquer onClick={() => setCopie({ eid: null, nom: "Événement par défaut" })} nom="l'événement par défaut" />}
-                <Link href={pageEvenement(lieuId)} className="text-accent hover:underline">Ouvrir →</Link>
-              </td>
-            </tr>
-            {visibles.map((e) => {
-              const p = PERIODES[periode(e)];
-              return (
-                <tr key={e.id} className="border-b border-line last:border-0">
-                  <td className="px-3 py-2 font-medium">
-                    <Link href={pageEvenement(lieuId, e.id)} className="hover:text-accent hover:underline">{e.nom}</Link>
-                  </td>
-                  <td className="px-3 py-2 font-mono">{e.code}</td>
-                  <td className="px-3 py-2 tabular">{dates(e)}</td>
-                  <td className="px-3 py-2"><Badge ton={p.ton}>{p.libelle}</Badge></td>
-                  <td className="px-3 py-2"><Publication version={e.version} publieeLe={e.publieeLe} modifie={e.modifieDepuisPublication} /></td>
-                  <td className="whitespace-nowrap px-3 py-2 text-right">
-                    <BoutonDupliquer onClick={() => setCopie({ eid: e.id, nom: e.nom, dateDebut: e.dateDebut, dateFin: e.dateFin })} nom={e.nom} />
-                    <Link href={pageEvenement(lieuId, e.id)} className="text-accent hover:underline">Ouvrir →</Link>
-                  </td>
+            {groupes.map((g) => (
+              <Fragment key={g.mois}>
+                <tr>
+                  <th colSpan={5} scope="colgroup" className="px-3 pt-5 pb-2 text-left text-xs font-semibold tracking-wider text-ink-2 uppercase">{g.mois}</th>
                 </tr>
-              );
-            })}
+                {g.evenements.map((e, i) => {
+                  const p = periode(e, maintenant);
+                  const fond = i % 2 ? "bg-surface-2" : "";
+                  return (
+                    <tr key={e.id} className={fond}>
+                      <td className="rounded-l-lg px-3 py-2.5">
+                        <Link href={pageEvenement(lieuId, e.id)} className="font-medium text-accent underline underline-offset-2 hover:opacity-80">{e.nom}</Link>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <span className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold">{e.code}</span>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="tabular">{duAu(e)}</span>{" "}
+                        <span className={p === "en-cours" ? "ml-1 font-semibold" : "ml-1 text-ink-muted"}>{MOTS[p]}</span>
+                      </td>
+                      <td className="px-3 py-2.5"><Publication e={e} maintenant={maintenant} /></td>
+                      <td className="rounded-r-lg px-3 py-2.5">
+                        <div className="flex items-center justify-end gap-4 whitespace-nowrap">
+                          {p === "passe" && peutModifier && (
+                            <button type="button" className="font-medium text-accent hover:underline" aria-haspopup="dialog" onClick={() => copier(e)}>Dupliquer</button>
+                          )}
+                          <Link href={pageEvenement(lieuId, e.id)} className="font-medium text-accent hover:underline">Ouvrir →</Link>
+                          {peutModifier ? (
+                            <MenuActions
+                              libelle={`Actions sur ${e.nom}`}
+                              actions={[
+                                { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },
+                                {
+                                  libelle: "Supprimer",
+                                  danger: true,
+                                  onClick: () => confirm(`Supprimer l'événement « ${e.nom} » et ses cadres ? Son code ne fonctionnera plus.`) && supprimer.mutate(e.id),
+                                },
+                              ]}
+                            />
+                          ) : (
+                            <span className="w-8" />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </Fragment>
+            ))}
           </tbody>
         </table>
       </div>
-      {liste.data.length === 0 && <p className="mt-3 text-sm text-ink-muted">Aucun autre événement pour l&apos;instant (Halloween, Noël, une soirée…).</p>}
+      {visibles.length === 0 && (
+        <p className="py-6 text-center text-sm text-ink-muted">
+          {q ? "Aucun événement ne correspond à cette recherche." : filtre === "passes" ? "Aucun événement passé." : "Aucun événement programmé (Halloween, Noël, une soirée…)."}
+        </p>
+      )}
+      {supprimer.error && <div className="mt-3"><Erreur erreur={supprimer.error} /></div>}
+
       <Modale titre={copie ? `Dupliquer « ${copie.nom} »` : "Dupliquer"} ouverte={copie !== null} onFermer={() => setCopie(null)}>
         {/* Clé : un formulaire neuf, prérempli, pour chaque événement copié */}
         {copie && <FormNouvelEvenement key={`${copie.eid}`} lieuId={lieuId} source={copie} onAnnuler={() => setCopie(null)} />}
@@ -194,19 +294,6 @@ export function EvenementsLieu({ lieuId }: { lieuId: number }) {
       <Modale titre="Nouvel événement" ouverte={creation} onFermer={() => setCreation(false)}>
         {creation && <FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
       </Modale>
-      {passes > 0 && (
-        <button type="button" className="mt-3 text-sm text-accent hover:underline" onClick={() => setVoirPasses(!voirPasses)}>
-          {voirPasses ? "Masquer les événements passés" : `Voir les ${passes} événement${passes > 1 ? "s" : ""} passé${passes > 1 ? "s" : ""}`}
-        </button>
-      )}
-    </Section>
-  );
-}
-
-function BoutonDupliquer({ onClick, nom }: { onClick: () => void; nom: string }) {
-  return (
-    <button type="button" onClick={onClick} aria-haspopup="dialog" aria-label={`Dupliquer ${nom}`} className="mr-4 text-ink-2 hover:text-accent hover:underline">
-      Dupliquer
-    </button>
+    </section>
   );
 }

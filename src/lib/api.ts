@@ -875,6 +875,9 @@ export interface ReglagesEvenement {
     ville: string | null;
     dateDebut: string;
     dateFin: string;
+    /** « HH:mm » ; null : toute la journée */
+    heureDebut: string | null;
+    heureFin: string | null;
     ton: "club" | "bar" | "famille" | "pro";
     /** Photos d'exemple des cases des cadres : séries du logiciel, photos de l'événement, caméra, aucune */
     illustrations: "festif" | "chic" | "serie" | "photos" | "camera" | "aucune";
@@ -967,6 +970,11 @@ export interface EvenementPonctuel {
   code: string;
   dateDebut: string;
   dateFin: string;
+  /** « HH:mm » ; null : toute la journée */
+  heureDebut: string | null;
+  heureFin: string | null;
+  /** Reprend les tarifs du lieu */
+  tarifsHerites: boolean;
   version: number;
   publieeLe: string | null;
   modifieDepuisPublication: boolean;
