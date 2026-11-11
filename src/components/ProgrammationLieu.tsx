@@ -8,7 +8,6 @@ import {
 } from "@/lib/programmation";
 import { usePerm } from "@/lib/perms";
 import { Badge } from "./Etat";
-import { Infobulle } from "./Entonnoir";
 import { FormNouvelEvenement, Segments } from "./EvenementsLieu";
 import { MenuActions } from "./MenuActions";
 import { Modale } from "./Modale";
@@ -20,22 +19,59 @@ import { Modale } from "./Modale";
 const pageEvenement = (lieuId: number, eid?: number | null) => (eid ? `/lieux/${lieuId}/evenement/${eid}` : `/lieux/${lieuId}/evenement`);
 const ETIQUETTE = "text-xs font-bold tracking-[0.08em] text-ink-2 uppercase";
 
+/**
+ * Infobulle en position fixe, accrochée à l'élément survolé : elle passe par-dessus les autres blocs et
+ * n'est pas coupée par un conteneur qui défile (la frise). Se ferme au défilement.
+ */
+function useBulle() {
+  const [bulle, setBulle] = useState<{ texte: string; x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!bulle) return;
+    const cacher = () => setBulle(null);
+    window.addEventListener("scroll", cacher, true);
+    return () => window.removeEventListener("scroll", cacher, true);
+  }, [bulle]);
+  const montrer = (e: { currentTarget: HTMLElement }, texte: string) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    setBulle({ texte, x: Math.max(8, Math.min(r.left, window.innerWidth - 328)), y: r.top });
+  };
+  const rendu = bulle && (
+    <span
+      role="tooltip"
+      className="pointer-events-none fixed z-[60] w-max max-w-80 -translate-y-full rounded-lg bg-[#15171C] px-2.5 py-1.5 text-xs leading-snug font-semibold text-white shadow-lg"
+      style={{ left: bulle.x, top: bulle.y - 6 }}
+    >
+      {bulle.texte}
+    </span>
+  );
+  return { montrer, cacher: () => setBulle(null), rendu };
+}
+
+const AIDE_BANDEAU =
+  "D'après la programmation. La borne ne remonte pas encore l'événement installé, et n'en change pas toute seule : on tape le code de l'événement sur la borne.";
+
 /** Bandeau « Prévu sur la borne en ce moment ». */
 export function SurLaBorne({ lieuId, defaut, liste, maintenant }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; maintenant: string }) {
   const peutModifier = usePerm("evenements.edit");
   const [copie, setCopie] = useState(false);
+  const bulleBandeau = useBulle();
   const actuel = affiche(liste, maintenant);
   const suivant = prochainChangement(liste, maintenant);
   const version = actuel ?? defaut;
   return (
     <section className="carte flex flex-wrap items-center justify-between gap-5 border-l-4 border-l-[#0E9F8A] px-6 py-5">
       <div className="flex min-w-0 flex-col gap-1.5">
-        <Infobulle
-          cote="gauche"
-          texte="D'après la programmation. La borne ne remonte pas encore l'événement installé, et n'en change pas toute seule : on tape le code de l'événement sur la borne."
+        <span
+          tabIndex={0}
+          className={`${ETIQUETTE} w-fit cursor-help`}
+          onMouseEnter={(e) => bulleBandeau.montrer(e, AIDE_BANDEAU)}
+          onFocus={(e) => bulleBandeau.montrer(e, AIDE_BANDEAU)}
+          onMouseLeave={bulleBandeau.cacher}
+          onBlur={bulleBandeau.cacher}
         >
-          <span className={`${ETIQUETTE} cursor-help`}>Prévu sur la borne en ce moment</span>
-        </Infobulle>
+          Prévu sur la borne en ce moment
+        </span>
+        {bulleBandeau.rendu}
         <div className="flex flex-wrap items-center gap-2.5">
           {actuel ? (
             <Link href={pageEvenement(lieuId, actuel.id)} className="text-2xl font-bold tracking-tight hover:text-accent">{actuel.nom}</Link>
@@ -118,7 +154,7 @@ function useLargeur() {
 export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; maintenant: string }) {
   const [echelle, setEchelle] = useState<Echelle>(6);
   const [decalage, setDecalage] = useState(0);
-  const [bulle, setBulle] = useState<{ texte: string; gauche: number; haut: number } | null>(null);
+  const bulle = useBulle();
   const { ref, largeur } = useLargeur();
 
   const aujourdhui = maintenant.slice(0, 10);
@@ -165,14 +201,14 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
               );
             })}
           </div>
-          <div ref={ref} className="relative" style={{ height: HAUT_LIGNES + nbLignes * PAS_LIGNE + 6 }} onMouseLeave={() => setBulle(null)}>
+          <div ref={ref} className="relative" style={{ height: HAUT_LIGNES + nbLignes * PAS_LIGNE + 6 }} onMouseLeave={bulle.cacher}>
             {mois.map((m) => (
               <i key={m} aria-hidden className="absolute top-0 bottom-0 border-l border-line/70" style={{ left: `${pct(`${m}T00:00`)}%` }} />
             ))}
             <Link
               href={pageEvenement(lieuId)}
               className="absolute inset-x-0 top-1.5 h-6 truncate rounded-md bg-[#0E9F8A] px-2 text-[11px] leading-6 font-bold text-white"
-              onMouseEnter={() => setBulle({ texte: `Par défaut${defaut.code ? ` (${defaut.code})` : ""} : affiché quand rien d'autre n'est programmé`, gauche: 2, haut: 6 })}
+              onMouseEnter={(ev) => bulle.montrer(ev, `Par défaut${defaut.code ? ` (${defaut.code})` : ""} : affiché quand rien d'autre n'est programmé`)}
             >
               Par défaut · tout le temps, hors programmation
             </Link>
@@ -192,7 +228,7 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
                     aria-label={`${e.nom} · ${duAu(e)} · ${LIBELLES_ETAT[etat]}`}
                     className={`absolute box-border h-6 overflow-hidden rounded-md px-1.5 text-[11px] leading-6 font-bold whitespace-nowrap hover:ring-2 hover:ring-ink/30 ${COULEURS[etat]}`}
                     style={{ left: `${gauche}%`, width: `max(${large}%, 8px)`, top: haut }}
-                    onMouseEnter={() => setBulle({ texte: `${e.nom} · du ${jourHeure(e.dateDebut, e.heureDebut)} au ${jourHeure(e.dateFin, e.heureFin)} · ${LIBELLES_ETAT[etat]}`, gauche, haut })}
+                    onMouseEnter={(ev) => bulle.montrer(ev, `${e.nom} · du ${jourHeure(e.dateDebut, e.heureDebut)} au ${jourHeure(e.dateFin, e.heureFin)} · ${LIBELLES_ETAT[etat]}`)}
                   >
                     {tient && e.nom}
                   </Link>
@@ -211,15 +247,7 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
             {aujourdhui >= mois[0] && `${aujourdhui}T00:00` < fin && (
               <i aria-hidden className="pointer-events-none absolute -top-1 bottom-0 border-l-2 border-ink" style={{ left: `${pct(maintenant)}%` }} />
             )}
-            {bulle && (
-              <span
-                role="tooltip"
-                className="pointer-events-none absolute z-40 w-max max-w-80 -translate-y-full rounded-lg bg-[#15171C] px-2.5 py-1.5 text-xs leading-snug font-semibold text-white shadow-lg"
-                style={{ left: `min(${bulle.gauche}%, calc(100% - 20rem))`, top: bulle.haut - 6 }}
-              >
-                {bulle.texte}
-              </span>
-            )}
+            {bulle.rendu}
           </div>
         </div>
       </div>
