@@ -4,18 +4,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type EvenementPonctuel } from "@/lib/api";
-import { jour } from "@/lib/format";
+import { api, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
+import { euros, jour } from "@/lib/format";
 import { usePerm } from "@/lib/perms";
-import { duAu, etatPublication, instants, maintenantParis, periode, type Periode } from "@/lib/programmation";
+import { affiche, duAu, etatPublication, instants, maintenantParis, periode, type Periode } from "@/lib/programmation";
 import { Badge, Erreur } from "./Etat";
 import { MenuActions } from "./MenuActions";
 import { Modale } from "./Modale";
 
-// Événements programmés d'un lieu (maquettes « configuration-evenements » du 10/11/2026) : la liste de l'onglet
-// Configuration, groupée par mois, filtrée (en cours et à venir, passés, tous) avec une recherche qui porte sur
-// tous les événements ; la fenêtre « Nouvel événement » (nom, début et fin avec leur heure) et la copie d'un
-// événement. L'événement par défaut n'est pas dans cette liste : il est en haut de l'onglet.
+// Événements d'un lieu (maquettes « configuration-evenements » du 10/11/2026, retour du 12/11) : un seul bloc dans
+// l'onglet Configuration, la ligne « Par défaut » puis les événements personnalisés groupés par mois, filtrés (en
+// cours et à venir, passés, tous) avec une recherche qui porte sur tous ; chaque ligne montre les tarifs pratiqués.
+// La fenêtre « Nouvel événement » (nom, début et fin avec leur heure), la copie d'un événement, et la conversion
+// d'un événement personnalisé en événement par défaut.
 
 /** « 12/11/2026 à 20:00 → 13/11/2026 à 06:00 » (en-tête de la fiche événement). */
 export function dates(e: { dateDebut: string; dateFin: string; heureDebut?: string | null; heureFin?: string | null }) {
@@ -159,21 +160,95 @@ const MOTS: Record<Periode, string> = { "en-cours": "en cours", "a-venir": "à v
 const sansAccents = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 const moisFmt = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
 const mois = (ymd: string) => moisFmt.format(new Date(`${ymd.slice(0, 7)}-01T00:00:00Z`));
+const COLONNES = 6;
+const TITRE_GROUPE = "px-3 pt-5 pb-2 text-left text-xs font-semibold tracking-wider text-ink-2 uppercase";
 
-/** Bloc « Événements programmés » de l'onglet Configuration. */
-export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: EvenementPonctuel[] }) {
+/** Tarifs pratiqués, sur une ligne : « 3,50 € · ★ dès 2 : 3,00 € · dès 3 : 2,50 € · +1 pote : 2,00 € ». */
+export function TarifsCourts({ grille: g, herite }: { grille: GrilleTarifs; herite: boolean }) {
+  const cases = g.paliers.map((p) => ({ cle: `${p.de}`, libelle: p.de === 1 ? null : `dès ${p.de}`, prix: euros(p.prixCents), avant: g.palierMisEnAvant === p.de }));
+  if (g.plusUnCents) cases.push({ cle: "pote", libelle: "+1 pote", prix: euros(g.plusUnCents), avant: false });
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" title={herite ? "Tarifs du lieu" : "Tarifs propres à l'événement"}>
+      {cases.map((c, i) => (
+        <span key={c.cle} className="whitespace-nowrap">
+          {i > 0 && <span aria-hidden className="mr-2 text-ink-muted">·</span>}
+          {c.libelle && <span className={c.avant ? "font-semibold text-accent" : "text-ink-2"}>{c.avant ? `★ ${c.libelle}` : c.libelle} : </span>}
+          <span className="tabular font-semibold">{c.prix}</span>
+        </span>
+      ))}
+      {herite && <span className="text-ink-muted">(lieu)</span>}
+    </span>
+  );
+}
+
+/** État de publication de l'événement par défaut. */
+function PublicationDefaut({ d }: { d: FicheEvenementLieu }) {
+  if (!d.enregistre) return <Badge ton="warn">Pas encore enregistré</Badge>;
+  if (d.version === 0) return <Badge ton="warn">Jamais publié</Badge>;
+  const le = d.publieeLe ? new Date(d.publieeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" }) : "";
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      <Badge ton="ok">Publié · v{d.version} du {le}</Badge>
+      {d.modifieDepuisPublication && <Badge ton="warn">Modifications non publiées</Badge>}
+    </span>
+  );
+}
+
+/**
+ * « Utiliser comme événement par défaut » : le par défaut reprend le contenu de l'événement (réglages, cadres,
+ * photos d'exemple) et garde son code ; l'événement d'origine peut être supprimé dans la foulée.
+ */
+function DevenirDefaut({ lieuId, e, onFermer }: { lieuId: number; e: EvenementPonctuel; onFermer: () => void }) {
+  const client = useQueryClient();
+  const router = useRouter();
+  const [supprimer, setSupprimer] = useState(false);
+  const convertir = useMutation({
+    mutationFn: () => api(`/lieux/${lieuId}/evenements-ponctuels/${e.id}/devenir-defaut`, { method: "POST", json: { supprimer } }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] });
+      client.invalidateQueries({ queryKey: ["evenement-lieu", lieuId] });
+      router.push(pageEvenement(lieuId));
+    },
+  });
+  return (
+    <div className="space-y-4 text-sm">
+      <p>
+        L&apos;événement par défaut reprend les cadres, tarifs et options de « {e.nom} ». Il <b>garde son code</b> : les bornes réglées
+        sur le par défaut n&apos;ont rien à retaper. Le contenu actuel du par défaut est remplacé. Pensez ensuite à le publier.
+      </p>
+      <label className="flex items-start gap-2">
+        <input type="checkbox" className="mt-0.5" checked={supprimer} onChange={(ev) => setSupprimer(ev.target.checked)} />
+        <span>
+          Supprimer « {e.nom} » ensuite <span className="text-ink-muted">(son code {e.code} ne fonctionnera plus)</span>
+        </span>
+      </label>
+      {convertir.error && <Erreur erreur={convertir.error} />}
+      <div className="-mx-4 -mb-4 flex justify-end gap-2 border-t border-line px-4 py-3">
+        <button type="button" className="bouton-second" onClick={onFermer}>Annuler</button>
+        <button type="button" className="bouton" disabled={convertir.isPending} onClick={() => convertir.mutate()}>
+          {convertir.isPending ? "Conversion…" : "Utiliser comme événement par défaut"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Bloc « Événements » de l'onglet Configuration : la ligne « Par défaut », puis les événements personnalisés. */
+export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[] }) {
   const client = useQueryClient();
   const peutModifier = usePerm("evenements.edit");
   const [filtre, setFiltre] = useState<Filtre>("avenir");
   const [recherche, setRecherche] = useState("");
   const [creation, setCreation] = useState(false);
   const [copie, setCopie] = useState<SourceCopie | null>(null);
+  const [versDefaut, setVersDefaut] = useState<EvenementPonctuel | null>(null);
   const supprimer = useMutation({
     mutationFn: (eid: number) => api(`/lieux/${lieuId}/evenements-ponctuels/${eid}`, { method: "DELETE" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] }),
   });
 
   const maintenant = maintenantParis();
+  const defautAffiche = affiche(liste, maintenant) === null;
   const passes = liste.filter((e) => periode(e, maintenant) === "passe");
   const aVenir = liste.filter((e) => periode(e, maintenant) !== "passe");
   const q = sansAccents(recherche.trim());
@@ -192,22 +267,7 @@ export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: Evene
   return (
     <section className="carte p-5 sm:p-6">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3.5">
-          <h2 className="text-lg font-semibold">Événements programmés</h2>
-          <Segments<Filtre>
-            libelle="Filtre"
-            valeur={filtre}
-            onChange={(f) => {
-              setFiltre(f);
-              setRecherche("");
-            }}
-            choix={[
-              { cle: "avenir", libelle: `En cours et à venir · ${aVenir.length}` },
-              { cle: "passes", libelle: `Passés · ${passes.length}` },
-              { cle: "tous", libelle: "Tous" },
-            ]}
-          />
-        </div>
+        <h2 className="text-lg font-semibold">Événements</h2>
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="search"
@@ -224,21 +284,77 @@ export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: Evene
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[48rem] border-separate border-spacing-0 text-sm">
+        <table className="w-full min-w-[56rem] border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-2">
               <th className="px-3 py-3 font-medium">Événement</th>
               <th className="px-3 py-3 font-medium">Code borne</th>
               <th className="px-3 py-3 font-medium">Du … au …</th>
+              <th className="px-3 py-3 font-medium">Tarifs pratiqués</th>
               <th className="px-3 py-3 font-medium">Publication</th>
               <th className="px-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
+            {!q && (
+              <>
+                <tr>
+                  <th colSpan={COLONNES} scope="colgroup" className={TITRE_GROUPE}>Par défaut</th>
+                </tr>
+                <tr className="bg-[#0E9F8A]/[0.06]">
+                  <td className="rounded-l-lg border-l-4 border-l-[#0E9F8A] px-3 py-2.5">
+                    <Link href={pageEvenement(lieuId)} className="font-semibold text-accent underline underline-offset-2 hover:opacity-80">Par défaut</Link>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    {defaut.code ? <span className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold">{defaut.code}</span> : <span className="text-ink-muted">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="text-ink-2">Tout le temps, hors programmation</span>{" "}
+                    {defautAffiche && <span className="ml-1 font-semibold">en ce moment</span>}
+                  </td>
+                  <td className="px-3 py-2.5"><TarifsCourts grille={defaut.reglages.tarifs} herite={defaut.reglages.tarifs.herite} /></td>
+                  <td className="px-3 py-2.5"><PublicationDefaut d={defaut} /></td>
+                  <td className="rounded-r-lg px-3 py-2.5">
+                    <div className="flex items-center justify-end gap-4 whitespace-nowrap">
+                      <Link href={pageEvenement(lieuId)} className="font-medium text-accent hover:underline">Ouvrir →</Link>
+                      {peutModifier && defaut.enregistre ? (
+                        <MenuActions
+                          libelle="Actions sur l'événement par défaut"
+                          actions={[{ libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie({ eid: null, nom: "Événement par défaut" }) }]}
+                        />
+                      ) : (
+                        <span className="w-8" />
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              </>
+            )}
+            <tr>
+              <th colSpan={COLONNES} scope="colgroup" className={TITRE_GROUPE}>
+                <span className="flex flex-wrap items-center gap-3">
+                  {q ? "Recherche" : "Personnalisés"}
+                  {!q && (
+                    <span className="font-normal tracking-normal normal-case">
+                      <Segments<Filtre>
+                        libelle="Filtre"
+                        valeur={filtre}
+                        onChange={setFiltre}
+                        choix={[
+                          { cle: "avenir", libelle: `En cours et à venir · ${aVenir.length}` },
+                          { cle: "passes", libelle: `Passés · ${passes.length}` },
+                          { cle: "tous", libelle: `Tous · ${liste.length}` },
+                        ]}
+                      />
+                    </span>
+                  )}
+                </span>
+              </th>
+            </tr>
             {groupes.map((g) => (
               <Fragment key={g.mois}>
                 <tr>
-                  <th colSpan={5} scope="colgroup" className="px-3 pt-5 pb-2 text-left text-xs font-semibold tracking-wider text-ink-2 uppercase">{g.mois}</th>
+                  <th colSpan={COLONNES} scope="colgroup" className="px-3 pt-3 pb-1.5 text-left text-xs font-medium text-ink-muted first-letter:uppercase">{g.mois}</th>
                 </tr>
                 {g.evenements.map((e, i) => {
                   const p = periode(e, maintenant);
@@ -255,6 +371,7 @@ export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: Evene
                         <span className="tabular">{duAu(e)}</span>{" "}
                         <span className={p === "en-cours" ? "ml-1 font-semibold" : "ml-1 text-ink-muted"}>{MOTS[p]}</span>
                       </td>
+                      <td className="px-3 py-2.5"><TarifsCourts grille={e.tarifs} herite={e.tarifsHerites} /></td>
                       <td className="px-3 py-2.5"><Publication e={e} maintenant={maintenant} /></td>
                       <td className="rounded-r-lg px-3 py-2.5">
                         <div className="flex items-center justify-end gap-4 whitespace-nowrap">
@@ -267,6 +384,7 @@ export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: Evene
                               libelle={`Actions sur ${e.nom}`}
                               actions={[
                                 { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },
+                                { libelle: "Utiliser comme événement par défaut", aide: "Le par défaut reprend son contenu et garde son code", onClick: () => setVersDefaut(e) },
                                 {
                                   libelle: "Supprimer",
                                   danger: true,
@@ -289,7 +407,7 @@ export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: Evene
       </div>
       {visibles.length === 0 && (
         <p className="py-6 text-center text-sm text-ink-muted">
-          {q ? "Aucun événement ne correspond à cette recherche." : filtre === "passes" ? "Aucun événement passé." : "Aucun événement programmé (Halloween, Noël, une soirée…)."}
+          {q ? "Aucun événement ne correspond à cette recherche." : filtre === "passes" ? "Aucun événement passé." : "Aucun événement personnalisé à venir (Halloween, Noël, une soirée…)."}
         </p>
       )}
       {supprimer.error && <div className="mt-3"><Erreur erreur={supprimer.error} /></div>}
@@ -300,6 +418,9 @@ export function EvenementsLieu({ lieuId, liste }: { lieuId: number; liste: Evene
       </Modale>
       <Modale titre="Nouvel événement" ouverte={creation} onFermer={() => setCreation(false)}>
         {creation && <FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
+      </Modale>
+      <Modale titre={versDefaut ? `« ${versDefaut.nom} » comme événement par défaut` : "Événement par défaut"} ouverte={versDefaut !== null} onFermer={() => setVersDefaut(null)}>
+        {versDefaut && <DevenirDefaut key={versDefaut.id} lieuId={lieuId} e={versDefaut} onFermer={() => setVersDefaut(null)} />}
       </Modale>
     </section>
   );

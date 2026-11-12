@@ -135,7 +135,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
 
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
-      {ongletActif === "configuration" && <ConfigurationLieu lieuId={id} enseigne={l.enseigne} />}
+      {ongletActif === "configuration" && <ConfigurationLieu lieuId={id} />}
 
       {ongletActif === "souvenir" && <PageSouvenirLieu lieuId={id} />}
 

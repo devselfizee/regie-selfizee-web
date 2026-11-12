@@ -3,21 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { EvenementPonctuel, FicheEvenementLieu } from "@/lib/api";
-import {
-  affiche, chevauchements, duAu, etatPublication, instantLisible, instants, jourHeure, LIBELLES_ETAT, lignes, minutes, prochainChangement, type EtatPublication,
-} from "@/lib/programmation";
-import { usePerm } from "@/lib/perms";
-import { Badge } from "./Etat";
-import { FormNouvelEvenement, Segments } from "./EvenementsLieu";
-import { MenuActions } from "./MenuActions";
-import { Modale } from "./Modale";
+import { affiche, chevauchements, duAu, etatPublication, instants, jourHeure, LIBELLES_ETAT, lignes, minutes, type EtatPublication } from "@/lib/programmation";
+import { Segments } from "./EvenementsLieu";
 
-// Haut de l'onglet Configuration (maquettes du 10/11/2026) : l'événement prévu sur la borne en ce moment et le
-// prochain changement, puis la frise de la programmation. Tout est déduit des dates : la borne ne remonte pas
-// encore l'événement installé, et n'en change pas encore toute seule (on tape le code).
+// Frise de la programmation de l'onglet Configuration (maquettes du 10/11/2026) : à partir d'aujourd'hui (retour du
+// 12/11 : le passé encombrait), le par défaut en continu et les événements programmés par-dessus. Le passé se
+// retrouve dans la liste des événements (filtre « Passés »).
 
 const pageEvenement = (lieuId: number, eid?: number | null) => (eid ? `/lieux/${lieuId}/evenement/${eid}` : `/lieux/${lieuId}/evenement`);
-const ETIQUETTE = "text-xs font-bold tracking-[0.08em] text-ink-2 uppercase";
 
 /**
  * Infobulle en position fixe, accrochée à l'élément survolé : elle passe par-dessus les autres blocs et
@@ -45,78 +38,6 @@ function useBulle() {
     </span>
   );
   return { montrer, cacher: () => setBulle(null), rendu };
-}
-
-const AIDE_BANDEAU =
-  "D'après la programmation. La borne ne remonte pas encore l'événement installé, et n'en change pas toute seule : on tape le code de l'événement sur la borne.";
-
-/** Bandeau « Prévu sur la borne en ce moment ». */
-export function SurLaBorne({ lieuId, defaut, liste, maintenant }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; maintenant: string }) {
-  const peutModifier = usePerm("evenements.edit");
-  const [copie, setCopie] = useState(false);
-  const bulleBandeau = useBulle();
-  const actuel = affiche(liste, maintenant);
-  const suivant = prochainChangement(liste, maintenant);
-  const version = actuel ?? defaut;
-  return (
-    <section className="carte flex flex-wrap items-center justify-between gap-5 border-l-4 border-l-[#0E9F8A] px-6 py-5">
-      <div className="flex min-w-0 flex-col gap-1.5">
-        <span
-          tabIndex={0}
-          className={`${ETIQUETTE} w-fit cursor-help`}
-          onMouseEnter={(e) => bulleBandeau.montrer(e, AIDE_BANDEAU)}
-          onFocus={(e) => bulleBandeau.montrer(e, AIDE_BANDEAU)}
-          onMouseLeave={bulleBandeau.cacher}
-          onBlur={bulleBandeau.cacher}
-        >
-          Prévu sur la borne en ce moment
-        </span>
-        {bulleBandeau.rendu}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {actuel ? (
-            <Link href={pageEvenement(lieuId, actuel.id)} className="text-2xl font-bold tracking-tight hover:text-accent">{actuel.nom}</Link>
-          ) : (
-            <b className="text-2xl font-bold tracking-tight">Par défaut</b>
-          )}
-          {(actuel?.code ?? defaut.code) && <span className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold">{actuel?.code ?? defaut.code}</span>}
-          {!actuel && !defaut.enregistre ? (
-            <Badge ton="warn">Pas encore enregistré</Badge>
-          ) : version.version === 0 ? (
-            <Badge ton="warn">Jamais publié</Badge>
-          ) : version.modifieDepuisPublication ? (
-            <Badge ton="warn">version {version.version} · modifications non publiées</Badge>
-          ) : (
-            <Badge ton="ok">version {version.version} · à jour</Badge>
-          )}
-        </div>
-        <span className="text-sm text-ink-muted">{actuel ? `Événement programmé · ${duAu(actuel)}` : "Événement par défaut du lieu"}</span>
-      </div>
-      <div className="flex flex-wrap items-center gap-5">
-        <div className="flex flex-col gap-1 text-sm">
-          <span className={ETIQUETTE}>Prochain changement</span>
-          {suivant ? (
-            <span>
-              <b>{suivant.evenement?.nom ?? "Par défaut"}</b> · le {instantLisible(suivant.instant)}
-            </span>
-          ) : (
-            <span className="text-ink-muted">Aucun, rien n&apos;est programmé</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <Link href={pageEvenement(lieuId)} className="bouton-second">Ouvrir l&apos;événement par défaut</Link>
-          {peutModifier && defaut.enregistre && (
-            <MenuActions
-              libelle="Actions sur l'événement par défaut"
-              actions={[{ libelle: "Dupliquer l'événement par défaut", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie(true) }]}
-            />
-          )}
-        </div>
-      </div>
-      <Modale titre="Dupliquer l'événement par défaut" ouverte={copie} onFermer={() => setCopie(false)}>
-        {copie && <FormNouvelEvenement lieuId={lieuId} source={{ eid: null, nom: "Événement par défaut" }} onAnnuler={() => setCopie(false)} />}
-      </Modale>
-    </section>
-  );
 }
 
 const COULEURS: Record<EtatPublication, string> = {
@@ -150,7 +71,7 @@ function useLargeur() {
   return { ref, largeur };
 }
 
-/** Frise « Programmation » : le par défaut en continu, les événements programmés par-dessus. */
+/** Frise « Programmation » : d'aujourd'hui à la fin de la période, puis mois par mois vers l'avenir. */
 export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; maintenant: string }) {
   const [echelle, setEchelle] = useState<Echelle>(6);
   const [decalage, setDecalage] = useState(0);
@@ -159,7 +80,8 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
 
   const aujourdhui = maintenant.slice(0, 10);
   const mois = Array.from({ length: echelle }, (_, k) => premierDuMois(aujourdhui, decalage + k));
-  const debut = `${mois[0]}T00:00`;
+  // Période en cours : elle part d'aujourd'hui, pas du début du mois
+  const debut = decalage === 0 ? `${aujourdhui}T00:00` : `${mois[0]}T00:00`;
   const fin = `${premierDuMois(aujourdhui, decalage + echelle)}T00:00`;
   const total = minutes(fin) - minutes(debut);
   const pct = (instant: string) => Math.min(100, Math.max(0, ((minutes(instant) - minutes(debut)) / total) * 100));
@@ -181,7 +103,7 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
             onChange={(v) => setEchelle(Number(v) as Echelle)}
             choix={ECHELLES.map((e) => ({ cle: `${e}` as const, libelle: `${e} mois` }))}
           />
-          <button type="button" className="bouton-second h-9 px-3" aria-label="Période précédente" onClick={() => setDecalage(decalage - 1)}>‹</button>
+          <button type="button" className="bouton-second h-9 px-3" aria-label="Période précédente" disabled={decalage === 0} onClick={() => setDecalage(decalage - 1)}>‹</button>
           <button type="button" className="bouton-second h-9" onClick={() => setDecalage(0)} disabled={decalage === 0}>Aujourd&apos;hui</button>
           <button type="button" className="bouton-second h-9 px-3" aria-label="Période suivante" onClick={() => setDecalage(decalage + 1)}>›</button>
         </div>
@@ -191,7 +113,7 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
         <div className="min-w-[36rem]">
           <div className="flex">
             {mois.map((m, k) => {
-              const jours = (minutes(k + 1 < mois.length ? `${mois[k + 1]}T00:00` : fin) - minutes(`${m}T00:00`)) / 1440;
+              const jours = (minutes(k + 1 < mois.length ? `${mois[k + 1]}T00:00` : fin) - minutes(k === 0 ? debut : `${m}T00:00`)) / 1440;
               const nom = majuscule(moisCourt.format(new Date(`${m}T00:00:00Z`)));
               return (
                 <span key={m} style={{ flex: jours }} className="truncate border-l border-line pl-1.5 text-[11px] font-semibold text-ink-muted">
@@ -202,7 +124,7 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
             })}
           </div>
           <div ref={ref} className="relative" style={{ height: HAUT_LIGNES + nbLignes * PAS_LIGNE + 6 }} onMouseLeave={bulle.cacher}>
-            {mois.map((m) => (
+            {mois.slice(1).map((m) => (
               <i key={m} aria-hidden className="absolute top-0 bottom-0 border-l border-line/70" style={{ left: `${pct(`${m}T00:00`)}%` }} />
             ))}
             <Link

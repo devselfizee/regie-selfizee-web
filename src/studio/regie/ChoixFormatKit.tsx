@@ -6,11 +6,13 @@ import { MAX_COMPOSITIONS, type GabaritEvenement } from "@/lib/api";
 import { GABARITS } from "@/lib/gabaritsEvenement";
 import { FORMATS_KIT } from "./formatsKit";
 import { ChoixDepart, EnTeteStudio, type Depart } from "./StudioRegie";
+import { ChoixCadreLieu, type CadreDuLieu } from "./CadresDuLieu";
 
 // « Ajouter un format » depuis la fiche événement : les deux premières étapes du studio, avant d'y entrer
-// à l'étape 3 (modèle). 1. départ (modèle vierge ou catalogue), 2. format du kit à proposer sur la borne.
+// à l'étape 3 (modèle). 1. départ (modèle vierge, catalogue ou cadre du lieu), 2. format du kit à proposer sur la
+// borne, ou le cadre du lieu à reprendre (son format vient avec).
 
-const NOMS_DEPART: Record<Depart, string> = { vierge: "Modèle vierge", catalogue: "Catalogue" };
+export const NOMS_DEPART: Record<Depart, string> = { vierge: "Modèle vierge", catalogue: "Catalogue", lieu: "Cadre du lieu" };
 
 /** Étape 1 : modèle vierge ou catalogue, avant de savoir quel format on ajoute. */
 export function ChoixDepartNouveau({ nomLieu, onChoisir, onRetour }: { nomLieu: string; onChoisir: (d: Depart) => void; onRetour: () => void }) {
@@ -20,6 +22,31 @@ export function ChoixDepartNouveau({ nomLieu, onChoisir, onRetour }: { nomLieu: 
       <div className="mx-auto max-w-3xl p-6">
         <h2 className="mb-8 text-center text-2xl font-bold text-ink">Comment voulez-vous commencer ?</h2>
         <ChoixDepart onChoisir={onChoisir} />
+      </div>
+    </div>
+  );
+}
+
+/** Étape 2 (départ « Cadre du lieu ») : le cadre à reprendre, tous formats confondus ; son format du kit vient avec. */
+export function ChoixCadreNouveau({ lieuId, nomLieu, nbFormats, onChoisir, onRetour }: {
+  lieuId: number;
+  nomLieu: string;
+  nbFormats: number;
+  onChoisir: (c: CadreDuLieu) => void;
+  onRetour: () => void;
+}) {
+  const plein = nbFormats >= MAX_COMPOSITIONS;
+  return (
+    <div className="min-h-screen bg-page">
+      <EnTeteStudio retour={onRetour} libelleRetour="Retour" titre="Studio · Nouveau format" nomLieu={nomLieu} etape={2} details={[NOMS_DEPART.lieu]} allerA={{ 1: onRetour }} />
+      <div className="p-6">
+        <h2 className="mb-2 text-center text-2xl font-bold text-ink">Quel cadre reprendre ?</h2>
+        <p className="mb-8 text-center text-sm text-ink-2">
+          {plein
+            ? `${MAX_COMPOSITIONS} formats au plus sur l'écran de choix : retirez-en un dans la fiche.`
+            : "Les cadres déjà dessinés pour ce lieu. On copie le dessin dans cet événement, avec son format : le cadre d'origine ne change pas."}
+        </p>
+        {!plein && <ChoixCadreLieu lieuId={lieuId} onChoisir={onChoisir} />}
       </div>
     </div>
   );
@@ -36,7 +63,7 @@ export function ChoixFormatKit({ nomLieu, nbFormats, depart, onChoisir, onRetour
   const plein = nbFormats >= MAX_COMPOSITIONS;
   return (
     <div className="min-h-screen bg-page">
-      <EnTeteStudio retour={onRetour} libelleRetour="Retour" titre="Studio · Nouveau format" nomLieu={nomLieu} etape={2} details={[NOMS_DEPART[depart]]} />
+      <EnTeteStudio retour={onRetour} libelleRetour="Retour" titre="Studio · Nouveau format" nomLieu={nomLieu} etape={2} details={[NOMS_DEPART[depart]]} allerA={{ 1: onRetour }} />
       <div className="p-6">
         <h2 className="mb-2 text-center text-2xl font-bold text-ink">Quel format proposer sur la borne ?</h2>
         <p className="mb-8 text-center text-sm text-ink-2">

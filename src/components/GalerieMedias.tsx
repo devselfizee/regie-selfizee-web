@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, fichierProtege, libelleTypeMedia, qs, telecharger, type MediaDetail, type MediaResume, type PageMedias, type ResumeMedias } from "@/lib/api";
 import { Badge, Chargement, Erreur, Vide } from "@/components/Etat";
@@ -10,7 +10,8 @@ import { dateHeure, euros, libelleMoyen, nombre } from "@/lib/format";
 
 // Galerie des médias reçus de PikCloud pour un lieu (onglet Galerie de la fiche lieu) : les photos et vidéos
 // des séances, par événement. Les vignettes arrivent avec la liste ; le fichier en taille réelle est lu avec
-// le jeton à l'ouverture (fichierProtege), jamais par un lien direct.
+// le jeton à l'ouverture (fichierProtege), jamais par un lien direct. Comme sur BoothPay (retour du 12/11) : les
+// séances payées sont marquées et filtrables, et on passe d'un média à l'autre avec les flèches du clavier.
 
 const PAR_PAGE = 48;
 
@@ -41,11 +42,14 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
   const [du, setDu] = useState("");
   const [au, setAu] = useState("");
   const [tests, setTests] = useState(false);
+  const [vente, setVente] = useState("");
   const [page, setPage] = useState(1);
   const [ouvert, setOuvert] = useState<string | null>(null);
+  // Média à ouvrir une fois la page voisine chargée (flèches au bord d'une page)
+  const [aOuvrir, setAOuvrir] = useState<"premier" | "dernier" | null>(null);
 
   const resume = useQuery({ queryKey: ["medias-resume", lieuId], queryFn: () => api<ResumeMedias>(`/lieux/${lieuId}/medias/resume`) });
-  const filtres = { evenement, type, du, au, tests: tests ? "1" : "", page, parPage: PAR_PAGE };
+  const filtres = { evenement, type, du, au, tests: tests ? "1" : "", vente, page, parPage: PAR_PAGE };
   const liste = useQuery({
     queryKey: ["medias", lieuId, filtres],
     queryFn: () => api<PageMedias>(`/lieux/${lieuId}/medias${qs(filtres)}`),
@@ -65,6 +69,25 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
 
   const r = resume.data;
   const pages = liste.data ? Math.max(1, Math.ceil(liste.data.total / PAR_PAGE)) : 1;
+
+  // Média voisin du média ouvert (flèches du clavier) : sur la page, sinon sur la page d'à côté
+  const medias = useMemo(() => (liste.isPlaceholderData ? [] : (liste.data?.medias ?? [])), [liste.isPlaceholderData, liste.data]);
+  const rang = ouvert ? medias.findIndex((m) => m.uuid === ouvert) : -1;
+  const voisin = (sens: -1 | 1) => {
+    if (rang < 0) return;
+    const cible = medias[rang + sens];
+    if (cible) return setOuvert(cible.uuid);
+    const autre = page + sens;
+    if (autre < 1 || autre > pages) return;
+    setAOuvrir(sens > 0 ? "premier" : "dernier");
+    setPage(autre);
+  };
+  useEffect(() => {
+    if (!aOuvrir || !medias.length) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOuvert((aOuvrir === "premier" ? medias[0] : medias[medias.length - 1]).uuid);
+    setAOuvrir(null);
+  }, [aOuvrir, medias]);
   const aRelancer = r ? r.enAttente + r.enErreur : 0;
   // Depuis la fiche événement : le compte de cet événement seulement (les types et la dernière séance sont ceux du lieu)
   const total = r ? (evenementId ? (r.parEvenement.find((e) => e.id === evenementId)?.total ?? 0) : r.total) : 0;
@@ -128,11 +151,27 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
           <span className="etiquette">Au</span>
           <input type="date" className="champ" value={au} onChange={(e) => changer(setAu)(e.target.value)} />
         </label>
+        <label className="block">
+          <span className="etiquette">Ventes</span>
+          <select id="galerie-vente" className="champ" value={vente} onChange={(e) => changer(setVente)(e.target.value)}>
+            <option value="">Toutes les séances</option>
+            <option value="payee">Séances payées</option>
+            <option value="sans">Sans vente</option>
+          </select>
+        </label>
         <label className="flex items-center gap-2 pb-2 text-sm">
           <input type="checkbox" checked={tests} onChange={(e) => changer(setTests)(e.target.checked)} />
           Montrer les séances de test
         </label>
       </div>
+
+      {liste.data && (
+        <p className="text-sm text-ink-2">
+          <span className="font-semibold tabular text-ink">{nombre(liste.data.ventes.seancesPayees)}</span> séance{liste.data.ventes.seancesPayees > 1 ? "s" : ""} payée
+          {liste.data.ventes.seancesPayees > 1 ? "s" : ""} · <span className="font-semibold tabular text-ink">{euros(liste.data.ventes.montantTtcCents)}</span> encaissés
+          <span className="text-ink-muted"> (sur ces filtres, ventes acceptées hors cartes de test)</span>
+        </p>
+      )}
 
       {liste.error ? (
         <Erreur erreur={liste.error} />
@@ -156,6 +195,14 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
                     <span className="rounded bg-ink/70 px-1.5 py-0.5 text-[0.65rem] font-medium text-white">{libelleTypeMedia(m.type)}</span>
                     {m.test && <span className="rounded bg-warn-bg px-1.5 py-0.5 text-[0.65rem] font-medium text-warn-ink">test</span>}
                   </span>
+                  {m.venteSeance && (
+                    <span
+                      className="absolute top-1 right-1 rounded bg-ok-bg px-1.5 py-0.5 text-[0.65rem] font-semibold text-ok-ink"
+                      title={`Séance payée${m.venteSeance.paiements > 1 ? ` (${m.venteSeance.paiements} paiements)` : ""}`}
+                    >
+                      Payée · {euros(m.venteSeance.montantTtcCents)}
+                    </span>
+                  )}
 
                 </button>
                 <p className="mt-1 truncate text-xs text-ink-muted">{m.datePhoto ? dateHeure(m.datePhoto) : "Date inconnue"}</p>
@@ -178,7 +225,15 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
         </>
       )}
 
-      {ouvert && <DetailMedia uuid={ouvert} onFermer={() => setOuvert(null)} />}
+      {ouvert && (
+        <DetailMedia
+          uuid={ouvert}
+          onFermer={() => setOuvert(null)}
+          precedent={rang > 0 || page > 1 ? () => voisin(-1) : undefined}
+          suivant={rang >= 0 && (rang < medias.length - 1 || page < pages) ? () => voisin(1) : undefined}
+          position={rang >= 0 && liste.data ? `${(page - 1) * PAR_PAGE + rang + 1} / ${nombre(liste.data.total)}` : undefined}
+        />
+      )}
     </div>
   );
 }
@@ -196,7 +251,8 @@ function Vignette({ m }: { m: MediaResume }) {
   );
 }
 
-function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void }) {
+/** Fiche d'un média ; `precedent` / `suivant` : flèches ← → du clavier et boutons, absents au bout de la liste. */
+function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: string; onFermer: () => void; precedent?: () => void; suivant?: () => void; position?: string }) {
   const relance = usePerm("medias.manage");
   const client = useQueryClient();
   const detail = useQuery({ queryKey: ["media", uuid], queryFn: () => api<MediaDetail>(`/medias/${uuid}`) });
@@ -207,6 +263,30 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
   });
   const [url, setUrl] = useState<string | null>(null);
   const [erreurFichier, setErreurFichier] = useState<unknown>(null);
+
+  // Flèches gauche / droite : média précédent / suivant (pas pendant une saisie ni sur le lecteur vidéo)
+  useEffect(() => {
+    const touche = (e: KeyboardEvent) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const cible = e.target as HTMLElement | null;
+      if (cible && (cible.tagName === "VIDEO" || cible.tagName === "INPUT" || cible.tagName === "SELECT" || cible.tagName === "TEXTAREA")) return;
+      if (e.key === "ArrowLeft" && precedent) {
+        e.preventDefault();
+        precedent();
+      } else if (e.key === "ArrowRight" && suivant) {
+        e.preventDefault();
+        suivant();
+      }
+    };
+    window.addEventListener("keydown", touche);
+    return () => window.removeEventListener("keydown", touche);
+  }, [precedent, suivant]);
+  // Nouveau média : on oublie le fichier du précédent
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUrl(null);
+    setErreurFichier(null);
+  }, [uuid]);
 
   // Le fichier en taille réelle, lu avec le jeton ; l'URL d'objet est libérée à la fermeture
   useEffect(() => {
@@ -295,7 +375,19 @@ function DetailMedia({ uuid, onFermer }: { uuid: string; onFermer: () => void })
             </dl>
           </div>
         )}
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          {(precedent || suivant) && (
+            <span className="mr-auto flex items-center gap-2 text-sm text-ink-2">
+              <button type="button" className="bouton-second px-3" disabled={!precedent} onClick={precedent} aria-label="Média précédent" title="Média précédent (←)">
+                ←
+              </button>
+              <button type="button" className="bouton-second px-3" disabled={!suivant} onClick={suivant} aria-label="Média suivant" title="Média suivant (→)">
+                →
+              </button>
+              {position && <span className="tabular">{position}</span>}
+              <span className="hidden text-xs text-ink-muted sm:inline">Flèches du clavier pour passer d&apos;un média à l&apos;autre</span>
+            </span>
+          )}
           {m && m.statut !== "TELECHARGE" && relance && (
             <button type="button" className="bouton-second" disabled={relancer.isPending} onClick={() => relancer.mutate()} title="Remet le fichier en attente : le téléchargement repart tout de suite">
               {relancer.isPending ? "Relance…" : "Relancer le téléchargement"}

@@ -975,6 +975,8 @@ export interface EvenementPonctuel {
   heureFin: string | null;
   /** Reprend les tarifs du lieu */
   tarifsHerites: boolean;
+  /** Tarifs pratiqués (ceux du lieu s'il en hérite) */
+  tarifs: GrilleTarifs;
   version: number;
   publieeLe: string | null;
   modifieDepuisPublication: boolean;
@@ -1084,10 +1086,14 @@ export interface MediaResume {
   evenement: { id: number; code: string; nom: string | null; habituel: boolean } | null;
   /** Vignette JPEG en data URL ; null pour une vidéo, un média pas encore téléchargé ou purgé */
   vignette: string | null;
+  /** Séance payée (ventes acceptées, hors cartes de test) : total encaissé ; dans la liste de la galerie seulement */
+  venteSeance?: { montantTtcCents: number; paiements: number; moyenPaiement: string } | null;
 }
 
 export interface PageMedias {
   total: number;
+  /** Séances payées et montant encaissé sur les filtres choisis (hors filtre « vente ») */
+  ventes: { seancesPayees: number; montantTtcCents: number };
   page: number;
   parPage: number;
   medias: MediaResume[];

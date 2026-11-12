@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ErreurApi, MAX_COMPOSITIONS, type FicheEvenementLieu, type GabaritEvenement } from "@/lib/api";
@@ -9,7 +8,9 @@ import { PageGuard } from "@/lib/perms";
 import { Chargement, Erreur } from "@/components/Etat";
 import { nouvelId } from "@/lib/gabaritsEvenement";
 import { StudioRegie, type CadreARouvrir, type Depart } from "@/studio/regie/StudioRegie";
-import { ChoixDepartNouveau, ChoixFormatKit } from "@/studio/regie/ChoixFormatKit";
+import { ChoixCadreNouveau, ChoixDepartNouveau, ChoixFormatKit } from "@/studio/regie/ChoixFormatKit";
+import { cheminDuRepere, repereCadre } from "@/studio/regie/CadresDuLieu";
+import { useNavigationStudio } from "@/studio/regie/navigationStudio";
 import { FORMATS_KIT } from "@/studio/regie/formatsKit";
 import { cheminsEvenement } from "../../FicheEvenement";
 
@@ -60,7 +61,7 @@ function Chargeur({ lieuId, compositionId, eid }: { lieuId: number; compositionI
   }
   if (!fiche.data || (!nouveau && cadre.data === undefined)) return <Chargement />;
   const nom = fiche.data.habituel ? fiche.data.reglages.lieu.nom : `${fiche.data.reglages.lieu.nom} · ${fiche.data.nom}`;
-  if (nouveau) return <NouveauFormat fiche={fiche.data} nomLieu={nom} apiEvenement={chemins.api} pageRetour={chemins.page} cleFiche={cleFiche} />;
+  if (nouveau) return <NouveauFormat lieuId={lieuId} fiche={fiche.data} nomLieu={nom} apiEvenement={chemins.api} pageRetour={chemins.page} cleFiche={cleFiche} />;
   if (!composition) {
     return (
       <div className="mx-auto max-w-xl space-y-4 p-10">
@@ -73,6 +74,7 @@ function Chargeur({ lieuId, compositionId, eid }: { lieuId: number; compositionI
 
   return (
     <StudioRegie
+      lieuId={lieuId}
       gabarit={composition.gabarit}
       nomLieu={nom}
       cadre={cadre.data ?? null}
@@ -83,12 +85,16 @@ function Chargeur({ lieuId, compositionId, eid }: { lieuId: number; compositionI
   );
 }
 
+const DEPARTS: Depart[] = ["vierge", "catalogue", "lieu"];
+
 /**
- * « Ajouter un format » : étape 1 (modèle vierge ou catalogue), étape 2 (format du kit), puis le studio à
- * l'étape 3 (modèle). Le format n'entre dans l'événement qu'au premier enregistrement de son cadre :
- * abandonner en route ne laisse pas de format vide dans la fiche.
+ * « Ajouter un format » : étape 1 (modèle vierge, catalogue ou cadre du lieu), étape 2 (format du kit, ou le cadre
+ * du lieu à reprendre), puis le studio à l'étape 3 (modèle). Les choix sont dans l'adresse (?depart=&format=&cadre=) :
+ * le retour du navigateur revient à l'étape d'avant. Le format n'entre dans l'événement qu'au premier
+ * enregistrement de son cadre : abandonner en route ne laisse pas de format vide dans la fiche.
  */
-function NouveauFormat({ fiche, nomLieu, apiEvenement, pageRetour, cleFiche }: {
+function NouveauFormat({ lieuId, fiche, nomLieu, apiEvenement, pageRetour, cleFiche }: {
+  lieuId: number;
   fiche: FicheEvenementLieu;
   nomLieu: string;
   apiEvenement: string;
@@ -97,12 +103,39 @@ function NouveauFormat({ fiche, nomLieu, apiEvenement, pageRetour, cleFiche }: {
 }) {
   const router = useRouter();
   const client = useQueryClient();
-  const [depart, setDepart] = useState<Depart | null>(null);
-  const [gabarit, setGabarit] = useState<GabaritEvenement | null>(null);
+  const nav = useNavigationStudio();
+  const depart = DEPARTS.find((d) => d === nav.lire("depart")) ?? null;
+  const formatUrl = nav.lire("format");
+  const gabarit = formatUrl && formatUrl in FORMATS_KIT ? (formatUrl as GabaritEvenement) : null;
+  // Départ « Cadre du lieu » : le cadre repris (son événement et sa composition), son dessin lu dans l'API
+  const cheminModele = depart === "lieu" ? cheminDuRepere(lieuId, nav.lire("cadre")) : null;
+  const modele = useQuery({
+    queryKey: ["cadre-modele", cheminModele],
+    queryFn: () => api<CadreARouvrir>(cheminModele!),
+    enabled: Boolean(cheminModele),
+    staleTime: Infinity,
+  });
   const choisis = fiche.reglages.gabarits.choisis;
+  const versDepart = () => nav.aller({ depart: null, format: null, cadre: null, etape: null });
+  const versFormat = () => nav.aller({ format: null, cadre: null, etape: null });
 
-  if (!depart) return <ChoixDepartNouveau nomLieu={nomLieu} onChoisir={setDepart} onRetour={() => router.push(pageRetour)} />;
-  if (!gabarit) return <ChoixFormatKit nomLieu={nomLieu} nbFormats={choisis.length} depart={depart} onChoisir={setGabarit} onRetour={() => setDepart(null)} />;
+  if (!depart) return <ChoixDepartNouveau nomLieu={nomLieu} onChoisir={(d) => nav.aller({ depart: d, format: null, cadre: null, etape: null })} onRetour={() => router.push(pageRetour)} />;
+  if (depart === "lieu" && (!cheminModele || !gabarit)) {
+    return (
+      <ChoixCadreNouveau
+        lieuId={lieuId}
+        nomLieu={nomLieu}
+        nbFormats={choisis.length}
+        onChoisir={(c) => nav.aller({ format: c.gabarit, cadre: repereCadre(c), etape: null })}
+        onRetour={versDepart}
+      />
+    );
+  }
+  if (!gabarit) return <ChoixFormatKit nomLieu={nomLieu} nbFormats={choisis.length} depart={depart} onChoisir={(g) => nav.aller({ format: g, etape: null })} onRetour={versDepart} />;
+  if (depart === "lieu") {
+    if (modele.error) return <div className="mx-auto max-w-xl space-y-4 p-10"><Erreur erreur={modele.error} /><button type="button" className="bouton-second" onClick={versFormat}>← Choisir un autre cadre</button></div>;
+    if (!modele.data) return <Chargement />;
+  }
 
   const memes = choisis.filter((c) => c.gabarit === gabarit).length + 1;
   // Ajout à la fin de l'écran de choix, sur la fiche relue (elle a pu changer depuis l'ouverture)
@@ -120,14 +153,17 @@ function NouveauFormat({ fiche, nomLieu, apiEvenement, pageRetour, cleFiche }: {
 
   return (
     <StudioRegie
-      key={`${depart}-${gabarit}`}
+      key={`${depart}-${gabarit}-${cheminModele ?? ""}`}
+      lieuId={lieuId}
       gabarit={gabarit}
       nomLieu={nomLieu}
       cadre={null}
       apiCadre={null}
       creerComposition={creerComposition}
       departInitial={depart}
-      onRetourFormat={() => setGabarit(null)}
+      modele={depart === "lieu" && modele.data ? { gabarit, formatId: modele.data.formatId, gabaritStudioId: modele.data.gabaritStudioId, canvas: modele.data.canvas } : null}
+      onRetourFormat={versFormat}
+      onRetourDepart={versDepart}
       pageRetour={pageRetour}
       libelle={libelleDe(gabarit, memes, memes)}
     />
