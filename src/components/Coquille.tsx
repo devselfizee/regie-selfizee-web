@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { jeton, keycloak } from "@/lib/auth";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
-import { chargerPlateforme, PLATEFORME_URL, type Plateforme, type Racine18 } from "@/lib/plateforme";
+import { chargerPlateforme, PLATEFORME_URL, useTicketsPlateforme, type Plateforme, type Racine18 } from "@/lib/plateforme";
 import { Navigation } from "./Navigation";
 import { estPageAnalyses, OngletsAnalyses, PERM_ANALYSES, useVoitMenu } from "./Analyses";
 
@@ -104,6 +104,7 @@ export function Coquille({ children }: { children: ReactNode }) {
   const [plateforme, setPlateforme] = useState<Plateforme | null>(null);
   const [local, setLocal] = useState(false);
   const [jetonActuel, setJeton] = useState<string | null>(null);
+  useTicketsPlateforme();
   const [replie, setReplie] = useState(() => {
     try {
       return typeof localStorage !== "undefined" && localStorage.getItem("k_sidebar_collapsed") === "1";

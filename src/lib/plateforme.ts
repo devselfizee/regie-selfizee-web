@@ -4,6 +4,8 @@
 // React 18, que React 19 refuse) : ils sont donc rendus dans un îlot React 18 séparé,
 // chargé depuis un CDN, et partagé avec eux via le « shared scope » de la fédération.
 
+import { useEffect } from "react";
+
 export const PLATEFORME_URL = (process.env.NEXT_PUBLIC_PLATEFORM_URL ?? "https://plateform.orkessi.com").replace(/\/+$/, "");
 const REACT18 = "https://esm.sh/react@18.3.1";
 const REACT_DOM18 = "https://esm.sh/react-dom@18.3.1";
@@ -91,3 +93,32 @@ export function chargerPlateforme(): Promise<Plateforme> {
   return chargement;
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */
+
+interface WidgetTickets {
+  configured?: () => boolean;
+  updateConfig?: (c: { url: string; token: string; project: string }) => void;
+}
+
+/**
+ * Bouton « Tickets » de l'en-tête de la plateforme : son widget (konitys-tickets.js, chargé par l'en-tête) cherche la
+ * config Ticket Flow à la gateway avec la clé « régie », qu'elle ne connaît pas, et affiche « Tickets non configuré ».
+ * Le widget prévoit que l'application lui passe la sienne : on lui donne nos NEXT_PUBLIC_TICKET_FLOW_*, dès qu'il est
+ * prêt et tant qu'il ne se dit pas configuré (il annonce chaque changement d'état par « konitys-tickets:state »).
+ */
+export function useTicketsPlateforme() {
+  useEffect(() => {
+    const brute = process.env.NEXT_PUBLIC_TICKET_FLOW_URL ?? "";
+    const token = process.env.NEXT_PUBLIC_TICKET_FLOW_TOKEN ?? "";
+    const project = process.env.NEXT_PUBLIC_TICKET_FLOW_PROJECT ?? "";
+    if (!brute || !token) return;
+    // Le widget appelle l'API directement : une adresse relative (proxy) devient absolue
+    const url = brute.startsWith("/") ? `${window.location.origin}${brute}` : brute;
+    const transmettre = () => {
+      const w = (window as unknown as { __KONITYS_TICKETS?: WidgetTickets }).__KONITYS_TICKETS;
+      if (w?.updateConfig && !w.configured?.()) w.updateConfig({ url, token, project });
+    };
+    transmettre();
+    window.addEventListener("konitys-tickets:state", transmettre);
+    return () => window.removeEventListener("konitys-tickets:state", transmettre);
+  }, []);
+}
