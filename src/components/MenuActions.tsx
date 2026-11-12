@@ -69,7 +69,8 @@ export function MenuActions({ libelle, actions, declencheur, className }: { libe
           role="menu"
           aria-label={libelle}
           style={{ top: position.haut, right: position.droite }}
-          className="fixed z-50 w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 text-left shadow-xl"
+          // Largeur selon le contenu, bornée par l'écran ; retour à la ligne permis même dans une cellule « nowrap »
+          className="fixed z-50 w-max max-w-[min(20rem,calc(100vw-1rem))] min-w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 text-left whitespace-normal shadow-xl"
         >
           {actions.map((a) => {
             const contenu = (
