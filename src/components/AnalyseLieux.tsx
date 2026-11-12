@@ -164,7 +164,7 @@ export function AnalyseLieux() {
   return (
     <div className="space-y-4">
       {/* Prévision du mois : tout le parc, indépendante de la période choisie */}
-      <PrevisionGlobaleSection detail />
+      <PrevisionGlobaleSection detail parc={parc} />
 
       <div className="flex flex-wrap items-end justify-end gap-2">
         {data && <span className="mr-auto text-sm text-ink-2">Du {jour(data.periode.du)} au {jour(data.periode.au)}</span>}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { api, type Atteinte, type PrevisionGlobale, type PrevisionLieu } from "@/lib/api";
+import { api, qs, type Atteinte, type PrevisionGlobale, type PrevisionLieu } from "@/lib/api";
 import { euros, eurosRond, jour, pct, variation } from "@/lib/format";
 import { Badge, Chargement, Erreur, Section } from "./Etat";
 import { AvertissementsPrevision, GraphiquePrevision, libelleMois, METHODE, previsionEnHt, ResumePrevision } from "./Prevision";
@@ -58,11 +58,12 @@ function DetailParLieu({ p }: { p: PrevisionGlobale }) {
 }
 
 /**
- * Vue globale : prévision du mois en cours, tous lieux actifs (indépendante des filtres).
+ * Vue globale : prévision du mois en cours des lieux actifs retenus par le parc et le lieu choisis sur la page.
  * detail : tableau par lieu dessous et méthode repliée (page Lieux) ; sans : tableau de bord, inchangé.
  */
-export function PrevisionGlobaleSection({ ht = false, detail = false }: { ht?: boolean; detail?: boolean }) {
-  const { data, error } = useQuery({ queryKey: ["previsions", "global"], queryFn: () => api<PrevisionGlobale>("/previsions/global"), staleTime: 5 * 60_000 });
+export function PrevisionGlobaleSection({ ht = false, detail = false, parc, lieuId }: { ht?: boolean; detail?: boolean; parc?: string; lieuId?: number | string }) {
+  const query = qs({ lieuId: lieuId || undefined, parc: lieuId ? undefined : parc || undefined });
+  const { data, error } = useQuery({ queryKey: ["previsions", "global", query], queryFn: () => api<PrevisionGlobale>(`/previsions/global${query}`), staleTime: 5 * 60_000 });
   // Calculée en TTC : en HT, montants passés à la part HT des ventes réelles (bascule HT / TTC de la page)
   const p = data && ht ? previsionEnHt(data, data.ratioHt ?? 1 / 1.2) : data;
   return (

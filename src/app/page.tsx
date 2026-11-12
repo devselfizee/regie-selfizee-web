@@ -159,7 +159,7 @@ function VueGlobale() {
 
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
-      {data && <Contenu data={data} ht={ht} granularite={gran} setGranularite={setGranularite} />}
+      {data && <Contenu data={data} ht={ht} granularite={gran} setGranularite={setGranularite} parc={parc} lieuId={lieuId} />}
     </>
   );
 }
@@ -169,11 +169,15 @@ function Contenu({
   ht,
   granularite,
   setGranularite,
+  parc,
+  lieuId,
 }: {
   data: StatsGlobales;
   ht: boolean;
   granularite: Granularite;
   setGranularite: (g: Granularite) => void;
+  parc: string;
+  lieuId: string;
 }) {
   const { courant: c, precedente: p } = data.kpis;
   const montant = (k: { caTtcCents: number; caHtCents: number }) => (ht ? k.caHtCents : k.caTtcCents);
@@ -334,7 +338,7 @@ function Contenu({
       </div>
 
       {/* Prévision du mois ; l'état des bornes est sur la page Monitoring live (retour de Sébastien) */}
-      <PrevisionGlobaleSection ht={ht} />
+      <PrevisionGlobaleSection ht={ht} parc={parc} lieuId={lieuId} />
     </div>
   );
 }
