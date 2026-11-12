@@ -267,11 +267,27 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
   return (
     <section className="carte p-5 sm:p-6">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Événements</h2>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3.5">
+          <h2 className="text-lg font-semibold">Événements</h2>
+          {/* Filtre des événements personnalisés (la ligne « Par défaut » est toujours là) ; la recherche porte sur tous */}
+          <Segments<Filtre>
+            libelle="Filtre des événements personnalisés"
+            valeur={filtre}
+            onChange={(f) => {
+              setFiltre(f);
+              setRecherche("");
+            }}
+            choix={[
+              { cle: "avenir", libelle: `En cours et à venir · ${aVenir.length}` },
+              { cle: "passes", libelle: `Passés · ${passes.length}` },
+              { cle: "tous", libelle: `Tous · ${liste.length}` },
+            ]}
+          />
+        </div>
+        <div className="flex items-center gap-2">
           <input
             type="search"
-            className="champ h-9 w-60"
+            className="champ h-9 !w-60"
             placeholder="Chercher un nom ou un code…"
             aria-label="Chercher un événement"
             value={recherche}
@@ -332,23 +348,7 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
             )}
             <tr>
               <th colSpan={COLONNES} scope="colgroup" className={TITRE_GROUPE}>
-                <span className="flex flex-wrap items-center gap-3">
-                  {q ? "Recherche" : "Personnalisés"}
-                  {!q && (
-                    <span className="font-normal tracking-normal normal-case">
-                      <Segments<Filtre>
-                        libelle="Filtre"
-                        valeur={filtre}
-                        onChange={setFiltre}
-                        choix={[
-                          { cle: "avenir", libelle: `En cours et à venir · ${aVenir.length}` },
-                          { cle: "passes", libelle: `Passés · ${passes.length}` },
-                          { cle: "tous", libelle: `Tous · ${liste.length}` },
-                        ]}
-                      />
-                    </span>
-                  )}
-                </span>
+                {q ? "Recherche" : `Personnalisés · ${filtre === "avenir" ? "en cours et à venir" : filtre === "passes" ? "passés" : "tous"}`}
               </th>
             </tr>
             {groupes.map((g) => (
