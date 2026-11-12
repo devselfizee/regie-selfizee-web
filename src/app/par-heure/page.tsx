@@ -7,7 +7,7 @@ import { api, qs } from "@/lib/api";
 import { jour, nombre, pct } from "@/lib/format";
 import { PageGuard } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Section } from "@/components/Etat";
-import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
+import { FiltresPage, useFiltresPage } from "@/components/FiltresPage";
 import { KpiCouleur } from "@/components/KpiCouleur";
 import { ChoixJours, Infobulle, NUANCES, VERT, VIOLET_CLAIR, avecJours, duree, part } from "@/components/Entonnoir";
 
@@ -51,10 +51,10 @@ export default function PageParHeure() {
 }
 
 function ParHeure() {
-  const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
+  // Mêmes filtres que le tableau de bord, sur la ligne du titre (retour de Sébastien du 12/11)
+  const f = useFiltresPage("30j");
   const [soirs, setSoirs] = useState("");
-  // La granularité ne sert pas ici
-  const requete = avecJours(qs({ ...filtres, granularite: undefined }), soirs);
+  const requete = avecJours(qs({ du: f.du, au: f.au, lieuId: f.lieuId, parc: f.parc }), soirs);
   const { data, error, isPending, isFetching } = useQuery({
     queryKey: ["parcours-par-heure", requete],
     queryFn: () => api<StatsParTranche>(`/stats/parcours/par-heure${requete}`),
@@ -64,15 +64,14 @@ function ParHeure() {
     <>
       <EnTete
         titre="Par heure"
-        sousTitre={`Du ${jour(filtres.du)} au ${jour(filtres.au)}`}
+        sousTitre={`${f.du === f.au ? `Le ${jour(f.du)}` : `Du ${jour(f.du)} au ${jour(f.au)}`}${isFetching ? " · mise à jour…" : ""}`}
         actions={
-          <>
-            {isFetching && <span className="self-center text-xs text-ink-muted">mise à jour…</span>}
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <ChoixJours valeur={soirs} onChange={setSoirs} />
-          </>
+            <FiltresPage f={f} prefixe="ph" />
+          </div>
         }
       />
-      <Filtres valeurs={filtres} onChange={setFiltres} />
       {error ? <Erreur erreur={error} /> : isPending ? <Chargement /> : <Contenu data={data} filtreJours={!!soirs} />}
     </>
   );
@@ -211,11 +210,11 @@ const taux = (libelle: string, aide: string, n: (t: Tranche) => number, retrait 
 const LIGNES: LigneJournee[] = [
   { libelle: "Séances", aide: "séances commencées dans la tranche", valeur: (t) => t.commencees, texte: nombre, detail: (t) => nombre(t.commencees) },
   taux("Payées et imprimées", "des séances de la tranche", (t) => t.payees),
-  taux("Ne valident pas leur photo", "des séances de la tranche ; rien n'est gardé", (t) => t.nonValidees),
+  taux("Ne valident pas leur photo", "des séances de la tranche ; rien n'est enregistré", (t) => t.nonValidees),
   taux("· partis avant de prendre la photo", "partis avant la photo", (t) => t.avantPhoto, true),
-  taux("· photo prise, pas validée", "photo prise, mais rien n'est gardé", (t) => t.nonValidees - t.avantPhoto, true),
-  taux("Ferment l'offre sans payer", "photo gardée, sans tirage", (t) => t.fermentOffre),
-  taux("Paiement non abouti", "photo gardée, sans tirage", (t) => t.nonAboutis),
+  taux("· photo prise, pas validée", "photo prise, mais rien n'est enregistré", (t) => t.nonValidees - t.avantPhoto, true),
+  taux("Ferment l'offre sans payer", "photo validée, non payée", (t) => t.fermentOffre),
+  taux("Paiement non abouti", "photo validée, non payée", (t) => t.nonAboutis),
   taux("Recommencent la photo", "au moins une reprise", (t) => t.recommencent),
   { libelle: "Durée d'une séance", aide: "médiane, de l'accueil à la fin de la séance", valeur: (t) => t.dureeMedianeS, texte: duree, detail: (t) => duree(t.dureeMedianeS) },
   {

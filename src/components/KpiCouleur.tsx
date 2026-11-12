@@ -36,38 +36,54 @@ export function KpiCouleur({
   icone,
   courant,
   precedente,
+  ecart,
+  grand = false,
 }: {
   libelle: string;
   valeur: string;
   detail?: ReactNode;
   teinte: Teinte;
-  icone: Icone;
+  /** Sans icône : une pastille blanche devant le libellé (maquette du 10/11) */
+  icone?: Icone;
   /** Pour la comparaison avec la période précédente */
   courant?: number;
   precedente?: number;
+  /** Variation déjà écrite (écart en points d'un taux…), à la place de courant / precedente */
+  ecart?: string | null;
+  /** Chiffre plus grand (pages d'analyse, quatre ou cinq tuiles par ligne) */
+  grand?: boolean;
 }) {
   const v = courant !== undefined && precedente !== undefined ? variation(courant, precedente) : null;
+  const pastille =
+    ecart !== undefined
+      ? ecart
+      : v !== null
+        ? Math.abs(v) >= 0.005
+          ? `${v > 0 ? "▲ +" : "▼ −"}${pct(Math.abs(v))} vs période préc.`
+          : "= stable vs période préc."
+        : precedente !== undefined
+          ? "vs période préc. : —"
+          : null;
   return (
-    <div className={`relative overflow-hidden rounded-xl bg-gradient-to-br p-4 text-white shadow-sm ${TEINTES[teinte]}`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-br p-4 text-white shadow-sm ${TEINTES[teinte]}`}>
       {/* Cercle décoratif, comme sur les autres tableaux de bord Konitys */}
       <span aria-hidden className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-white/10" />
       <div className="relative flex items-start justify-between gap-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-white/90">{libelle}</span>
-        <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            {ICONES[icone]}
-          </svg>
+        <span className="flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-wider text-white">
+          {!icone && <i aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-white" />}
+          {libelle}
         </span>
+        {icone && (
+          <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/20">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {ICONES[icone]}
+            </svg>
+          </span>
+        )}
       </div>
-      <div className="relative mt-2 text-3xl font-bold tabular">{valeur}</div>
-      {detail && <div className="relative mt-1 text-xs text-white/85">{detail}</div>}
-      {v !== null && Math.abs(v) >= 0.005 && (
-        <div className="relative mt-1 text-xs font-medium text-white/90">
-          <span aria-hidden>{v > 0 ? "▲" : "▼"}</span> {v > 0 ? "+" : ""}
-          {pct(v)} vs période préc.
-        </div>
-      )}
-      {v === null && precedente !== undefined && <div className="relative mt-1 text-xs text-white/75">vs période préc. : —</div>}
+      <div className={`relative mt-2 leading-none font-extrabold tabular ${grand ? "text-[2.75rem]" : "text-3xl"}`}>{valeur}</div>
+      {pastille && <span className="relative mt-2.5 inline-flex rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">{pastille}</span>}
+      {detail && <div className="relative mt-2 text-[13px] leading-snug text-white/90">{detail}</div>}
     </div>
   );
 }

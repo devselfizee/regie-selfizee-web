@@ -5,8 +5,8 @@ import { qs } from "@/lib/api";
 import { jour } from "@/lib/format";
 import { PageGuard } from "@/lib/perms";
 import { EnTete } from "@/components/Etat";
-import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
-import { Comportement } from "@/components/Entonnoir";
+import { FiltresPage, useFiltresPage } from "@/components/FiltresPage";
+import { ChoixJours, Comportement } from "@/components/Entonnoir";
 
 // Comportement des invités (retour de Sébastien : le parcours n'avait pas sa place sur le tableau de bord)
 export default function PageComportements() {
@@ -18,15 +18,23 @@ export default function PageComportements() {
 }
 
 function Comportements() {
-  const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
-  // La granularité ne sert pas ici
-  const requete = qs({ ...filtres, granularite: undefined });
+  // Mêmes filtres que le tableau de bord, sur la ligne du titre (retour de Sébastien du 12/11)
+  const f = useFiltresPage("30j");
+  const [soirs, setSoirs] = useState("");
+  const requete = qs({ du: f.du, au: f.au, lieuId: f.lieuId, parc: f.parc });
   return (
     <>
-      {/* Pas de paragraphe d'introduction (maquette du 10/11) : la période seule */}
-      <EnTete titre="Comportements" sousTitre={`Du ${jour(filtres.du)} au ${jour(filtres.au)}`} />
-      <Filtres valeurs={filtres} onChange={setFiltres} />
-      <Comportement requete={requete} />
+      <EnTete
+        titre="Comportements"
+        sousTitre={f.du === f.au ? `Le ${jour(f.du)}` : `Du ${jour(f.du)} au ${jour(f.au)}`}
+        actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ChoixJours valeur={soirs} onChange={setSoirs} />
+            <FiltresPage f={f} prefixe="cpt" />
+          </div>
+        }
+      />
+      <Comportement requete={requete} soirs={soirs} />
     </>
   );
 }

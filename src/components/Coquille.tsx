@@ -9,6 +9,7 @@ import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
 import { chargerPlateforme, PLATEFORME_URL, type Plateforme, type Racine18 } from "@/lib/plateforme";
 import { Navigation } from "./Navigation";
+import { estPageAnalyses, OngletsAnalyses, PERM_ANALYSES, useVoitMenu } from "./Analyses";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- composants React 18 chargés à l'exécution */
 
@@ -18,10 +19,8 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     libelle: "Pilotage",
     liens: [
       { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", perm: "pages.tableau_de_bord.view" },
-      { href: "/lieux/carte", libelle: "Analyse géographique", icone: "Map", perm: "pages.analyse_geo.view" },
-      { href: "/analyse", libelle: "Analyse", icone: "ChartColumn", perm: "pages.analyse.view" },
-      { href: "/comportements", libelle: "Comportements", icone: "Footprints", perm: "pages.comportements.view" },
-      { href: "/par-heure", libelle: "Par heure", icone: "Clock", perm: "pages.comportements.view" },
+      { href: "/monitoring", libelle: "Live monitoring", icone: "Activity", perm: "pages.monitoring.view" },
+      { href: "/papier", libelle: "État papier", icone: "Printer", perm: "pages.papier.view" },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", perm: "pages.alertes.view" },
       // Mentions : dans la cloche de la plateforme (notifications), plus de page dédiée
     ],
@@ -31,19 +30,19 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     liens: [
       { href: "/lieux", libelle: "Lieux", icone: "MapPin", perm: "pages.lieux.view" },
       { href: "/bornes", libelle: "Bornes", icone: "Monitor", perm: "pages.bornes.view" },
-      { href: "/monitoring", libelle: "Monitoring live", icone: "Activity", perm: "pages.monitoring.view" },
-      { href: "/papier", libelle: "Papier", icone: "Printer", perm: "pages.papier.view" },
+      // Comportements, par heure, segments, géographique : une page à onglets (retour de Sébastien du 12/11)
+      { href: "/analyses", libelle: "Analyses", icone: "ChartColumn", perm: PERM_ANALYSES },
       // Journal des bornes et erreurs d'import : techniques, rangés dans « Suivi technique » de la page Bornes
     ],
   },
   {
-    libelle: "Argent",
+    libelle: "Transactions",
     liens: [
-      { href: "/reversements", libelle: "Commissions", icone: "Banknote", perm: "pages.commissions.view" },
       { href: "/paiements", libelle: "Paiements", icone: "Receipt", perm: "pages.paiements.view" },
+      { href: "/reversements", libelle: "Commissions", icone: "Banknote", perm: "pages.commissions.view" },
       { href: "/codes", libelle: "Codes de remise", icone: "Ticket", perm: "pages.codes_remise.view" },
-      { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", perm: "pages.rapprochement.view" },
       { href: "/rentabilite", libelle: "Rentabilité", icone: "TrendingUp", perm: "pages.rentabilite.view" },
+      { href: "/rapprochement", libelle: "Rapprochement", icone: "Scale", perm: "pages.rapprochement.view" },
     ],
   },
   {
@@ -141,7 +140,8 @@ export function Coquille({ children }: { children: ReactNode }) {
 
   // Droits du menu : les clés accordées, et leur empreinte (dépendance du menu mémorisé)
   const a = useDroits();
-  const permis = new Set(SECTIONS.flatMap((s) => s.liens.map((l) => l.perm)).filter((p) => a(p)));
+  const voit = useVoitMenu();
+  const permis = new Set(SECTIONS.flatMap((s) => s.liens.map((l) => l.perm)).filter((p) => voit(p)));
   const cleDroits = [...permis].join("|");
   const voitAlertes = a("pages.alertes.view");
   const monLieuSeul = !a("pages.lieux.view") && !!moi.lieuId;
@@ -175,6 +175,7 @@ export function Coquille({ children }: { children: ReactNode }) {
 
   // La barre latérale ne surligne que le chemin exact : on lui donne l'entrée de menu qui contient la page
   const cheminActif = useMemo(() => {
+    if (estPageAnalyses(chemin)) return "/analyses";
     const chemins = sections.flatMap((s) => s.items.map((i) => i.path));
     return chemins.filter((c) => (c === "/" ? chemin === "/" : chemin === c || chemin.startsWith(`${c}/`))).sort((a, b) => b.length - a.length)[0] ?? chemin;
   }, [sections, chemin]);
@@ -195,7 +196,10 @@ export function Coquille({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-full md:flex">
         <Navigation />
-        <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8 print:p-0">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8 print:p-0">
+          {estPageAnalyses(chemin) && <OngletsAnalyses />}
+          {children}
+        </main>
       </div>
     );
   }
@@ -238,7 +242,10 @@ export function Coquille({ children }: { children: ReactNode }) {
             <div className="sticky top-12 h-[calc(100vh-48px)] w-[210px] bg-[#1E2A40]" />
           )}
         </div>
-        <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8 print:p-0">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8 print:p-0">
+          {estPageAnalyses(chemin) && <OngletsAnalyses />}
+          {children}
+        </main>
       </div>
     </div>
   );

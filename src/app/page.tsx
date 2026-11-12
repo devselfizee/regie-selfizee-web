@@ -4,9 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { api, qs, type Granularite, type LieuListe, type StatsGlobales } from "@/lib/api";
+import { api, qs, type Granularite, type StatsGlobales } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
-import { ChoixLieu } from "@/components/ChoixLieu";
 import { euros, eurosRond, jour, MOYENS, nombre, pct } from "@/lib/format";
 
 // « 25/10 22:48 » : l'année se devine
@@ -17,7 +16,7 @@ import { BasculeHt, usePreferenceHt } from "@/components/BasculeHt";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { PrevisionGlobaleSection } from "@/components/SectionPrevision";
-import { dernierWeekEnd } from "@/components/Filtres";
+import { aujourdhui, FiltresPage, useFiltresPage, ymd } from "@/components/FiltresPage";
 import { Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
@@ -34,49 +33,7 @@ export default function Accueil() {
   return redirection ? null : <VueGlobale />;
 }
 
-// ─── Période (retour de Sébastien, comme boothpay : les ventes du jour par défaut) ───
-
-const ymd = (d: Date) => d.toISOString().slice(0, 10);
-// Aujourd'hui en heure de Paris, à minuit UTC (dates « métier »)
-const aujourdhui = () => new Date(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date()) + "T00:00:00Z");
-const plusJours = (d: Date, n: number) => new Date(d.getTime() + n * 86_400_000);
-const lundi = (d: Date) => plusJours(d, -((d.getUTCDay() + 6) % 7));
-
-const PERIODES: { cle: string; libelle: string; calcul?: () => { du: Date; au: Date } }[] = [
-  { cle: "jour", libelle: "Aujourd'hui", calcul: () => ({ du: aujourdhui(), au: aujourdhui() }) },
-  { cle: "hier", libelle: "Hier", calcul: () => ({ du: plusJours(aujourdhui(), -1), au: plusJours(aujourdhui(), -1) }) },
-  // Celui en cours le samedi et le dimanche, sinon le précédent (jamais celui à venir)
-  { cle: "we", libelle: "Ce week-end", calcul: () => dernierWeekEnd(aujourdhui()) },
-  { cle: "7j", libelle: "7 derniers jours", calcul: () => ({ du: plusJours(aujourdhui(), -6), au: aujourdhui() }) },
-  { cle: "30j", libelle: "30 derniers jours", calcul: () => ({ du: plusJours(aujourdhui(), -29), au: aujourdhui() }) },
-  { cle: "semaine", libelle: "Cette semaine", calcul: () => ({ du: lundi(aujourdhui()), au: aujourdhui() }) },
-  { cle: "semaine-1", libelle: "Semaine dernière", calcul: () => ({ du: plusJours(lundi(aujourdhui()), -7), au: plusJours(lundi(aujourdhui()), -1) }) },
-  {
-    cle: "mois",
-    libelle: "Ce mois",
-    calcul: () => {
-      const a = aujourdhui();
-      return { du: new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), 1)), au: a };
-    },
-  },
-  {
-    cle: "mois-1",
-    libelle: "Mois précédent",
-    calcul: () => {
-      const a = aujourdhui();
-      return { du: new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth() - 1, 1)), au: new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), 0)) };
-    },
-  },
-  {
-    cle: "annee",
-    libelle: "Cette année",
-    calcul: () => {
-      const a = aujourdhui();
-      return { du: new Date(Date.UTC(a.getUTCFullYear(), 0, 1)), au: a };
-    },
-  },
-  { cle: "perso", libelle: "Période personnalisée" },
-];
+// ─── Période (retour de Sébastien, comme boothpay : les ventes du jour par défaut), parc et lieu : FiltresPage ───
 
 /** Granularité de la courbe proposée selon la durée (une journée : par heure, à part). */
 const granulariteAuto = (du: string, au: string): Granularite => {
@@ -86,26 +43,20 @@ const granulariteAuto = (du: string, au: string): Granularite => {
 
 
 function VueGlobale() {
-  const [cle, setCle] = useState("jour");
-  const [perso, setPerso] = useState(() => ({ du: ymd(plusJours(aujourdhui(), -29)), au: ymd(aujourdhui()) }));
-  const [lieuId, setLieuId] = useState("");
-  // Parc Selfizee par défaut : les clients en location financière à part (demande de Sébastien)
-  const [parc, setParc] = useState("SELFIZEE");
+  const f = useFiltresPage("jour");
+  const { du, au, lieuId, parc } = f;
   const [ht, setHt] = usePreferenceHt();
   const [granularite, setGranularite] = useState<Granularite | null>(null);
 
-  const choisie = PERIODES.find((p) => p.cle === cle);
-  const { du, au } = choisie?.calcul ? (({ du, au }) => ({ du: ymd(du), au: ymd(au) }))(choisie.calcul()) : perso;
   const gran = granularite ?? granulariteAuto(du, au);
-  const query = qs({ du, au, granularite: gran, lieuId: lieuId || undefined, parc: lieuId ? undefined : parc || undefined });
+  const query = qs({ du, au, granularite: gran, lieuId, parc });
 
-  const lieux = useQuery({ queryKey: ["lieux", "tdb"], queryFn: () => api<LieuListe[]>("/lieux"), staleTime: 5 * 60_000 });
   const { data, error, isPending, isFetching } = useQuery({
     queryKey: ["stats-global", query],
     queryFn: () => api<StatsGlobales>(`/stats/global${query}`),
     placeholderData: keepPreviousData,
     // Les ventes du jour arrivent au fil de l'eau
-    refetchInterval: cle === "jour" ? 60_000 : false,
+    refetchInterval: f.etat.cle === "jour" ? 60_000 : false,
   });
 
   return (
@@ -116,37 +67,7 @@ function VueGlobale() {
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <BasculeHt ht={ht} onChange={setHt} />
-            <select id="tdb-parc" aria-label="Parc" className="champ !w-auto" value={parc} onChange={(e) => setParc(e.target.value)} disabled={!!lieuId}>
-              <option value="SELFIZEE">Parc Selfizee</option>
-              <option value="CLIENT">Parc client</option>
-              <option value="">Tous les parcs</option>
-            </select>
-            <div className="w-72 max-w-full">
-              <ChoixLieu
-                id="tdb-lieu"
-                lieux={(lieux.data ?? []).filter((l) => l.statut === "ACTIF" && (!parc || l.parc === parc))}
-                valeur={lieuId}
-                onChange={setLieuId}
-              />
-            </div>
-            <select
-              id="tdb-periode"
-              aria-label="Période"
-              className="champ !w-auto"
-              value={cle}
-              onChange={(e) => {
-                setCle(e.target.value);
-                setGranularite(null);
-              }}
-            >
-              {PERIODES.map((p) => <option key={p.cle} value={p.cle}>{p.libelle}</option>)}
-            </select>
-            {cle === "perso" && (
-              <>
-                <input id="tdb-du" aria-label="Du" type="date" className="champ !w-auto" value={perso.du} max={perso.au} onChange={(e) => e.target.value && setPerso({ ...perso, du: e.target.value })} />
-                <input id="tdb-au" aria-label="Au" type="date" className="champ !w-auto" value={perso.au} min={perso.du} onChange={(e) => e.target.value && setPerso({ ...perso, au: e.target.value })} />
-              </>
-            )}
+            <FiltresPage f={f} prefixe="tdb" onPeriode={() => setGranularite(null)} />
             <MenuExport
               exports={[
                 { libelle: "Ventes", chemin: "/export/transactions", requete: query },
@@ -159,7 +80,7 @@ function VueGlobale() {
 
       {error && <Erreur erreur={error} />}
       {isPending && !error && <Chargement />}
-      {data && <Contenu data={data} ht={ht} granularite={gran} setGranularite={setGranularite} parc={parc} lieuId={lieuId} />}
+      {data && <Contenu data={data} ht={ht} granularite={gran} setGranularite={setGranularite} parc={f.etat.parc} lieuId={f.etat.lieuId} />}
     </>
   );
 }

@@ -144,8 +144,10 @@ export function ecartPoints(courant: number, precedent: number | null) {
  * Comportement des invités, global (chemin /stats/parcours avec les filtres) ou d'un lieu.
  * requete : query string des filtres (« ?du=…&au=… »).
  */
-export function Comportement({ requete, lieuId }: { requete: string; lieuId?: number }) {
-  const [soirs, setSoirs] = useState("");
+export function Comportement({ requete, lieuId, soirs: soirsPage }: { requete: string; lieuId?: number; soirs?: string }) {
+  const [soirsLocaux, setSoirs] = useState("");
+  /** soirs : choisis par la page (sur la ligne du titre), sinon ici */
+  const soirs = soirsPage ?? soirsLocaux;
   const chemin = lieuId ? `/stats/lieux/${lieuId}/parcours` : "/stats/parcours";
   const complete = avecJours(requete, soirs);
   const { data, error, isPending, isFetching } = useQuery({
@@ -154,12 +156,13 @@ export function Comportement({ requete, lieuId }: { requete: string; lieuId?: nu
     placeholderData: keepPreviousData,
   });
 
-  const barre = (
-    <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
-      {isFetching && <span className="text-xs text-ink-muted">mise à jour…</span>}
-      <ChoixJours valeur={soirs} onChange={setSoirs} />
-    </div>
-  );
+  const barre =
+    soirsPage === undefined ? (
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
+        {isFetching && <span className="text-xs text-ink-muted">mise à jour…</span>}
+        <ChoixJours valeur={soirs} onChange={setSoirs} />
+      </div>
+    ) : null;
 
   if (error) return <>{barre}<Erreur erreur={error} /></>;
   if (isPending) return <>{barre}<Chargement /></>;
@@ -223,8 +226,8 @@ function VueParcours({ data, lieuId }: { data: StatsParcours; lieuId?: number })
   const detailPertes = [
     "",
     parIssue(l.filter((x) => x.marche === "avant_photo")),
-    [parIssue(l.filter((x) => x.marche === "photo" && x.sortie === "non_validee")), gardeesSansOffre ? `${nombre(gardeesSansOffre)} gardent leur photo sans voir l'offre` : ""].filter(Boolean).join(" · "),
-    `${nombre(somme(l, (x) => x.marche === "offre" && x.sortie === "gardee"))} gardent leur photo, ${nombre(somme(l, (x) => x.marche === "offre" && x.sortie === "non_validee"))} repartent sans`,
+    [parIssue(l.filter((x) => x.marche === "photo" && x.sortie === "non_validee")), gardeesSansOffre ? `${nombre(gardeesSansOffre)} valident leur photo sans voir l'offre` : ""].filter(Boolean).join(" · "),
+    `${nombre(somme(l, (x) => x.marche === "offre" && x.sortie === "gardee"))} photos validées non payées, ${nombre(somme(l, (x) => x.marche === "offre" && x.sortie === "non_validee"))} reviennent à la photo et abandonnent`,
     [...statuts].map(([k, v]) => `${nombre(v)} ${(LIBELLES_STATUTS[k] ?? LIBELLES_STATUTS.inconnu).toLowerCase()}`).join(", "),
   ];
 
@@ -234,12 +237,17 @@ function VueParcours({ data, lieuId }: { data: StatsParcours; lieuId?: number })
       <Tuiles data={data} />
 
       <section className="carte scroll-mt-4 space-y-5 p-5" id="parcours">
-        <h2 className="text-base font-bold">Le parcours d&apos;un invité</h2>
+        <div>
+          <h2 className="text-base font-bold">Le parcours d&apos;un invité</h2>
+          <p className="mt-0.5 text-sm text-ink-2">
+            Vue d&apos;ensemble : le ruban se rétrécit à chaque étape. Le détail de ce que devient chaque invité est dans l&apos;arbre juste en dessous.
+          </p>
+        </div>
         <Ruban valeurs={valeurs} pertes={pertes} details={detailPertes} />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           {MARCHES.map((m, i) => (
-            <div key={m} className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-3xl font-extrabold tracking-tight tabular" style={{ color: i === 4 ? VERT : VIOLET }}>{nombre(valeurs[i])}</span>
+            <div key={m} className="flex min-w-0 flex-col gap-1.5">
+              <span className="text-2xl leading-none font-extrabold tabular" style={{ color: i === 4 ? VERT : VIOLET }}>{nombre(valeurs[i])}</span>
               <span className="text-sm font-semibold">
                 {m}
                 {i > 0 && (
@@ -300,17 +308,11 @@ function Tuiles({ data }: { data: StatsParcours }) {
   const nonValidees = l.filter((x) => x.sortie === "non_validee");
   const nbNonValidees = somme(nonValidees);
   const autres = somme(nonValidees, (x) => x.issue !== "retour" && x.issue !== "delai");
-  const detail = (texte: string, ecart: string | null) => (
-    <>
-      {texte}
-      {ecart && <span className="mt-0.5 block font-medium text-white/90">{ecart}</span>}
-    </>
-  );
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <KpiCouleur
+        grand
         teinte="vert"
-        icone="image"
         libelle="Séances"
         valeur={nombre(c)}
         detail={`${data.soirees ? `${nombre(Math.round(c / data.soirees))} par borne et par soir · ` : ""}${duree(data.dureesMedianesS.seance)} en médiane`}
@@ -318,38 +320,36 @@ function Tuiles({ data }: { data: StatsParcours }) {
         precedente={p.commencees}
       />
       <KpiCouleur
+        grand
         teinte="bleu"
-        icone="billet"
         libelle="Jusqu'au paiement"
         valeur={pct(part(demandes, c))}
-        detail={detail(`${nombre(demandes)} séances demandent à payer`, ecartPoints(part(demandes, c), tauxPrec(p.paiementDemande)))}
+        ecart={ecartPoints(part(demandes, c), tauxPrec(p.paiementDemande))}
+        detail={`${nombre(demandes)} séances demandent à payer`}
       />
       <KpiCouleur
+        grand
         teinte="rose"
-        icone="imprimante"
         libelle="Payées et imprimées"
         valeur={pct(part(payees, c))}
-        detail={detail(`${nombre(payees)} séances · ${pct(part(payees, demandes))} des demandes aboutissent`, ecartPoints(part(payees, c), tauxPrec(p.payees)))}
+        ecart={ecartPoints(part(payees, c), tauxPrec(p.payees))}
+        detail={`${nombre(payees)} séances · ${pct(part(payees, demandes))} des demandes aboutissent`}
       />
       <KpiCouleur
+        grand
         teinte="orange"
-        icone="appareil"
         libelle="Recommencent"
         valeur={pct(part(recommencent, c))}
-        detail={detail(
-          `${nombre(recommencent)} séances${recommencent ? ` · dont ${pct(part(recommencentPerdus, recommencent))} ne valident finalement pas` : ""}`,
-          ecartPoints(part(recommencent, c), tauxPrec(p.recommencent))
-        )}
+        ecart={ecartPoints(part(recommencent, c), tauxPrec(p.recommencent))}
+        detail={`${nombre(recommencent)} séances${recommencent ? ` · dont ${pct(part(recommencentPerdus, recommencent))} ne valident finalement pas` : ""}`}
       />
       <KpiCouleur
+        grand
         teinte="violet"
-        icone="pourcent"
         libelle="Ne valident pas leur photo"
         valeur={pct(part(nbNonValidees, c))}
-        detail={detail(
-          `${nombre(nbNonValidees)} séances · ${nombre(somme(nonValidees, (x) => x.issue === "retour"))} quittent avant de valider, ${nombre(somme(nonValidees, (x) => x.issue === "delai"))} par inactivité${autres ? `, ${nombre(autres)} autres` : ""} · rien n'est gardé`,
-          ecartPoints(part(nbNonValidees, c), tauxPrec(p.nonValidees))
-        )}
+        ecart={ecartPoints(part(nbNonValidees, c), tauxPrec(p.nonValidees))}
+        detail={`${nombre(nbNonValidees)} séances · ${nombre(somme(nonValidees, (x) => x.issue === "retour"))} quittent avant de valider, ${nombre(somme(nonValidees, (x) => x.issue === "delai"))} par inactivité${autres ? `, ${nombre(autres)} autres` : ""} · rien n'est enregistré`}
       />
     </div>
   );
@@ -485,14 +485,14 @@ function construireArbre(data: StatsParcours): Noeud {
           ["Photos prises", avecPart(nbPhoto, c)],
           ["Cadre → photo", `${duree(d.cadreAPhoto)} en médiane`],
           ["Recommencent au moins une fois", avecPart(recPhoto, nbPhoto)],
-          ["… et gardent ensuite leur photo", `${nombre(s((x) => PHOTO_PRISE(x) && x.recommence && x.sortie !== "non_validee"))} sur ${nombre(recPhoto)}`],
+          ["… et valident ensuite leur photo", `${nombre(s((x) => PHOTO_PRISE(x) && x.recommence && x.sortie !== "non_validee"))} sur ${nombre(recPhoto)}`],
         ],
         enfants: [
           noeud("photo-seule", gardeesSansOffre ? "Ne va pas jusqu'à l'offre" : "Ne valide pas sa photo", s(photoSeule), {
             lignes: detailNonNul([["Dont après avoir recommencé", recommence(photoSeule)]]),
             enfants: [
               ...parIssues("photo", (x) => photoSeule(x) && x.sortie === "non_validee"),
-              noeud("photo-gardee", "Garde sa photo sans voir l'offre", gardeesSansOffre, { sortie: "gardee", fusion: true }),
+              noeud("photo-gardee", "Valide sa photo sans voir l'offre", gardeesSansOffre, { sortie: "gardee", fusion: true }),
             ],
           }),
           noeud("offre", "Valide et voit l'offre", nbOffre, {
@@ -508,16 +508,21 @@ function construireArbre(data: StatsParcours): Noeud {
                   ...detailNonNul([["Reviennent d'abord à la photo", s((x) => offreSeule(x) && x.retourOffre)]]),
                 ],
                 enfants: [
-                  noeud("offre-gardee", "Garde sa photo sans payer", s((x) => offreSeule(x) && x.sortie === "gardee"), {
+                  noeud("offre-non-merci", "« Non merci »", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "validee"), {
                     sortie: "gardee",
                     fusion: true,
-                    lignes: detailNonNul([
-                      ["Ferme l'offre, photo validée", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "validee")],
-                      ["Inactivité devant l'offre", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "delai")],
-                      ["Retour à l'accueil", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "retour")],
-                    ]),
+                    lignes: [["Ce qui arrive", "Ferme l'offre, photo validée mais pas payée"]],
                   }),
-                  noeud("offre-perdue", "Repart sans garder sa photo", s((x) => offreSeule(x) && x.sortie === "non_validee"), {
+                  noeud("offre-sans-reponse", "Ne répond pas", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue === "delai"), {
+                    sortie: "gardee",
+                    fusion: true,
+                    lignes: [["Ce qui arrive", "Inactivité devant l'offre"]],
+                  }),
+                  noeud("offre-accueil", "Retourne à l'accueil", s((x) => offreSeule(x) && x.sortie === "gardee" && x.issue !== "validee" && x.issue !== "delai"), {
+                    sortie: "gardee",
+                    fusion: true,
+                  }),
+                  noeud("offre-perdue", "Revient à la photo, abandonne", s((x) => offreSeule(x) && x.sortie === "non_validee"), {
                     sortie: "non_validee",
                     fusion: true,
                     lignes: detailNonNul([
@@ -551,8 +556,8 @@ function construireArbre(data: StatsParcours): Noeud {
                     ),
                     note: "Le détail est sur la page Paiements.",
                     enfants: [
-                      noeud("non-abouti-gardee", "Garde sa photo", s((x) => DEMANDE(x) && x.sortie === "gardee"), { sortie: "gardee", fusion: true }),
-                      noeud("non-abouti-perdue", "Repart sans sa photo", s((x) => DEMANDE(x) && x.sortie === "non_validee"), { sortie: "non_validee", fusion: true }),
+                      noeud("non-abouti-gardee", "Photo validée, non payée", s((x) => DEMANDE(x) && x.sortie === "gardee"), { sortie: "gardee", fusion: true }),
+                      noeud("non-abouti-perdue", "Photo non validée", s((x) => DEMANDE(x) && x.sortie === "non_validee"), { sortie: "non_validee", fusion: true }),
                     ],
                   }),
                 ],
@@ -568,7 +573,7 @@ function construireArbre(data: StatsParcours): Noeud {
 
 const PASTILLES: Record<Sortie, { texte: string; classe: string }> = {
   payee: { texte: "payée", classe: "bg-ok-bg text-ok-ink" },
-  gardee: { texte: "gardée", classe: "bg-[#EEEDFE] text-[#3F33C7]" },
+  gardee: { texte: "non payée", classe: "bg-[#EEEDFE] text-[#3F33C7]" },
   non_validee: { texte: "non validée", classe: "bg-crit-bg text-crit-ink" },
 };
 
@@ -603,12 +608,17 @@ function Arbre({ data }: { data: StatsParcours }) {
   return (
     <section className="carte space-y-5 p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <h2 className="text-base font-bold">Ce que devient chaque invité</h2>
+        <div>
+          <h2 className="text-base font-bold">Ce que devient chaque invité</h2>
+          <p className="mt-0.5 text-sm text-ink-2">
+            Les mêmes {nombre(c)} séances, une fois chacune. Le % est celui de l&apos;étape précédente. Cliquer une bulle pour le détail.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-3 text-xs text-ink-2">
           {(Object.keys(COULEURS_SORTIE) as Sortie[]).map((k) => (
             <span key={k} className="inline-flex items-center gap-1.5">
               <i className="inline-block h-3 w-3 rounded-sm" style={{ background: COULEURS_SORTIE[k] }} />
-              {k === "payee" ? "payée" : k === "gardee" ? "photo gardée, sans tirage" : "photo non validée"}
+              {k === "payee" ? "payée" : k === "gardee" ? "photo validée, non payée" : "photo non validée"}
             </span>
           ))}
         </div>
@@ -620,28 +630,29 @@ function Arbre({ data }: { data: StatsParcours }) {
       </div>
       <div className="grid gap-3 border-t border-line pt-5 md:grid-cols-3">
         <CarteSortie titre="Payée et imprimée" nb={payees} total={c} fond="bg-ok-bg" ton="text-ok-ink" couleur={VERT}>
-          L&apos;invité repart avec son tirage.
+          Le seul cas où l&apos;invité repart avec quelque chose : son tirage, et le QR pour retrouver la photo.
         </CarteSortie>
-        <CarteSortie titre="Photo gardée, sans tirage" nb={gardees} total={c} fond="bg-[#EEEDFE]" ton="text-[#4A43B8]" couleur={VIOLET_FONCE}>
-          Photo validée mais pas payée
+        <CarteSortie titre="Photo validée, non payée" nb={gardees} total={c} fond="bg-[#EEEDFE]" ton="text-[#4A43B8]" couleur={VIOLET_FONCE}>
+          L&apos;invité repart sans rien
           {gardees
             ? ` : ${liste([
                 [somme(l, (x) => x.sortie === "gardee" && x.marche === "offre"), "ferment l'offre"],
-                [gardeesNonAbouties, gardeesNonAbouties > 1 ? "paiements non aboutis" : "paiement non abouti"],
-                [somme(l, (x) => x.sortie === "gardee" && x.marche === "photo"), "sans voir l'offre"],
+                [gardeesNonAbouties, gardeesNonAbouties > 1 ? "paiements n'aboutissent pas" : "paiement n'aboutit pas"],
+                [somme(l, (x) => x.sortie === "gardee" && x.marche === "photo"), "valident sans voir l'offre"],
               ])}.`
-            : "."}
+            : "."}{" "}
+          La photo reste enregistrée sur la borne, lui ne l&apos;a pas.
         </CarteSortie>
         <CarteSortie titre="Photo non validée" nb={perdues} total={c} fond="bg-crit-bg" ton="text-crit-ink" couleur={ROUGE}>
           {perdues
             ? `${liste([
                 [somme(l, (x) => x.sortie === "non_validee" && x.marche === "avant_photo"), "avant la photo"],
                 [somme(l, (x) => x.sortie === "non_validee" && x.marche === "photo"), "après la photo"],
-                [somme(l, (x) => x.sortie === "non_validee" && x.marche === "offre"), "repartis de l'offre"],
+                [somme(l, (x) => x.sortie === "non_validee" && x.marche === "offre"), "revenus de l'offre"],
                 [somme(l, (x) => x.sortie === "non_validee" && x.marche === "paiement"), "après un paiement non abouti"],
               ])}. `
             : ""}
-          Rien n&apos;est gardé.
+          L&apos;invité repart sans rien, rien n&apos;est enregistré.
         </CarteSortie>
       </div>
     </section>
@@ -670,7 +681,7 @@ function Branche({ n, parent, profondeur, ouvert, basculer }: { n: Noeud; parent
           style={{ borderLeft: `3px solid ${couleur}` }}
         >
           <span className="flex items-center gap-2">
-            <span className="text-lg font-extrabold tracking-tight tabular" style={{ color: couleur }}>{nombre(n.nb)}</span>
+            <span className="text-lg font-extrabold tabular" style={{ color: couleur }}>{nombre(n.nb)}</span>
             {parent && <span className="text-xs font-semibold text-ink-2 tabular">{pct(part(n.nb, parent.nb))}</span>}
             {feuille && n.sortie && <span className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${PASTILLES[n.sortie].classe}`}>{PASTILLES[n.sortie].texte}</span>}
           </span>

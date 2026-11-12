@@ -48,7 +48,7 @@ function Papier() {
 
   return (
     <>
-      <EnTete titre="Papier" sousTitre="Tirages restants dans chaque imprimante, de la moins fournie à la plus fournie. Relevé : le dernier signe de vie qui a donné le niveau." />
+      <EnTete titre="État papier" sousTitre="Tirages restants dans chaque imprimante, de la moins fournie à la plus fournie. Relevé : le dernier signe de vie qui a donné le niveau." />
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="block">
