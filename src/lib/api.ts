@@ -272,7 +272,7 @@ export interface LieuFiche {
   origineLead: RefValeur | null;
   commercial: { id: number; nom: string; prenom: string } | null;
   clienteles: RefValeur[];
-  contacts: { id: number; role: string; nom: string; prenom: string | null; email: string | null; telephone: string | null }[];
+  contacts: { id: number; role: string; nom: string; prenom: string | null; email: string | null; telephone: string | null; commentaire: string | null }[];
   horaires: { id: number; jourSemaine: number; ouverture: string; fermeture: string }[];
   saisons: { id: number; libelle: string | null; debut: string; fin: string }[];
   fermetures: { id: number; debut: string; fin: string; motif: string | null }[];

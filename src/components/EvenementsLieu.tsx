@@ -160,7 +160,7 @@ const MOTS: Record<Periode, string> = { "en-cours": "en cours", "a-venir": "à v
 const sansAccents = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 const moisFmt = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
 const mois = (ymd: string) => moisFmt.format(new Date(`${ymd.slice(0, 7)}-01T00:00:00Z`));
-const COLONNES = 6;
+const COLONNES = 5;
 const TITRE_GROUPE = "px-3 pt-5 pb-2 text-left text-xs font-semibold tracking-wider text-ink-2 uppercase";
 
 /** Tarifs pratiqués, sur une ligne : « 3,50 € · ★ dès 2 : 3,00 € · dès 3 : 2,50 € · +1 pote : 2,00 € ». */
@@ -168,7 +168,7 @@ export function TarifsCourts({ grille: g, herite }: { grille: GrilleTarifs; heri
   const cases = g.paliers.map((p) => ({ cle: `${p.de}`, libelle: p.de === 1 ? null : `dès ${p.de}`, prix: euros(p.prixCents), avant: g.palierMisEnAvant === p.de }));
   if (g.plusUnCents) cases.push({ cle: "pote", libelle: "+1 pote", prix: euros(g.plusUnCents), avant: false });
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" title={herite ? "Tarifs du lieu" : "Tarifs propres à l'événement"}>
+    <span className="flex items-center gap-x-2 text-xs whitespace-nowrap" title={herite ? "Tarifs du lieu" : "Tarifs propres à l'événement"}>
       {cases.map((c, i) => (
         <span key={c.cle} className="whitespace-nowrap">
           {i > 0 && <span aria-hidden className="mr-2 text-ink-muted">·</span>}
@@ -300,11 +300,10 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[56rem] border-separate border-spacing-0 text-sm">
+        <table className="w-full min-w-[50rem] border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left text-xs text-ink-2">
               <th className="px-3 py-3 font-medium">Événement</th>
-              <th className="px-3 py-3 font-medium">Code borne</th>
               <th className="px-3 py-3 font-medium">Du … au …</th>
               <th className="px-3 py-3 font-medium">Tarifs pratiqués</th>
               <th className="px-3 py-3 font-medium">Publication</th>
@@ -318,15 +317,13 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                   <th colSpan={COLONNES} scope="colgroup" className={TITRE_GROUPE}>Par défaut</th>
                 </tr>
                 <tr className="bg-[#0E9F8A]/[0.06]">
-                  <td className="rounded-l-lg border-l-4 border-l-[#0E9F8A] px-3 py-2.5">
+                  <td className="rounded-l-lg border-l-4 border-l-[#0E9F8A] px-3 py-2.5 whitespace-nowrap">
                     <Link href={pageEvenement(lieuId)} className="font-semibold text-accent underline underline-offset-2 hover:opacity-80">Par défaut</Link>
+                    {defaut.code && <span className="ml-2 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold" title="Code à taper sur la borne">{defaut.code}</span>}
                   </td>
-                  <td className="px-3 py-2.5">
-                    {defaut.code ? <span className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold">{defaut.code}</span> : <span className="text-ink-muted">—</span>}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className="text-ink-2">Tout le temps, hors programmation</span>{" "}
-                    {defautAffiche && <span className="ml-1 font-semibold">en ce moment</span>}
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <span className="text-ink-2" title="Affiché quand aucun événement personnalisé n'est programmé">Hors programmation</span>
+                    {defautAffiche && <span className="ml-1.5 font-semibold">en ce moment</span>}
                   </td>
                   <td className="px-3 py-2.5"><TarifsCourts grille={defaut.reglages.tarifs} herite={defaut.reglages.tarifs.herite} /></td>
                   <td className="px-3 py-2.5"><PublicationDefaut d={defaut} /></td>
@@ -363,9 +360,7 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                     <tr key={e.id} className={fond}>
                       <td className="rounded-l-lg px-3 py-2.5">
                         <Link href={pageEvenement(lieuId, e.id)} className="font-medium text-accent underline underline-offset-2 hover:opacity-80">{e.nom}</Link>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold">{e.code}</span>
+                        <span className="ml-2 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold whitespace-nowrap" title="Code à taper sur la borne">{e.code}</span>
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <span className="tabular">{duAu(e)}</span>{" "}

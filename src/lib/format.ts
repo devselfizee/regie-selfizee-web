@@ -130,3 +130,17 @@ export function parametreUrl(cle: string, valeur: string | null) {
   else url.searchParams.set(cle, valeur);
   window.history.replaceState(window.history.state, "", url);
 }
+
+/**
+ * Téléphone enregistré en E.164 (« +33669045935 ») → lisible : « +33 6 69 04 59 35 » pour la France, « +971 501234567 »
+ * ailleurs (indicatif séparé). Un numéro ancien, pas encore normalisé, est rendu tel quel.
+ */
+export function telephoneLisible(t: string | null | undefined): string {
+  if (!t) return "";
+  const fr = /^\+33([1-9])(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(t);
+  if (fr) return `+33 ${fr.slice(1).join(" ")}`;
+  if (!/^\+\d{7,15}$/.test(t)) return t;
+  // Indicatif : 1 chiffre (1, 7), 3 chiffres pour ces débuts (212 Maroc, 971 Émirats…), 2 sinon (44, 32…)
+  const longueur = /^[17]/.test(t.slice(1)) ? 1 : /^(2[1-689]|3[578]|42|5[09]|6[789]|8[578]|9[679])/.test(t.slice(1)) ? 3 : 2;
+  return `+${t.slice(1, 1 + longueur)} ${t.slice(1 + longueur)}`;
+}

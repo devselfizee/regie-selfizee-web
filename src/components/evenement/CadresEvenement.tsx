@@ -213,21 +213,39 @@ interface ActionCarte {
   danger?: boolean;
 }
 
-/** Menu « ⋯ » d'une carte : toutes ses actions au même endroit. Échap et clic ailleurs le ferment. */
+/**
+ * Menu « ⋯ » d'une carte : toutes ses actions au même endroit. Échap, clic ailleurs et défilement le ferment. En
+ * position fixe, accroché au bouton : la carte (overflow hidden) ne le coupe pas ; vers le haut s'il manque de place.
+ */
 function MenuCarte({ libelle, actions }: { libelle: string; actions: ActionCarte[] }) {
-  const [ouvert, setOuvert] = useState(false);
+  const [position, setPosition] = useState<{ droite: number; haut?: number; bas?: number } | null>(null);
+  const ouvert = position !== null;
+  const setOuvert = (v: boolean | ((x: boolean) => boolean)) => {
+    const voulu = typeof v === "function" ? v(ouvert) : v;
+    if (!voulu) return setPosition(null);
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const droite = window.innerWidth - r.right;
+    // ~ 300 px de menu : au-dessus du bouton s'il ne tient pas en dessous
+    setPosition(window.innerHeight - r.bottom < 300 && r.top > 300 ? { droite, bas: window.innerHeight - r.top + 4 } : { droite, haut: r.bottom + 4 });
+  };
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!ouvert) return;
-    const dehors = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOuvert(false);
-    const echap = (e: KeyboardEvent) => e.key === "Escape" && setOuvert(false);
+    const fermer = () => setPosition(null);
+    const dehors = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && fermer();
+    const echap = (e: KeyboardEvent) => e.key === "Escape" && fermer();
     document.addEventListener("mousedown", dehors);
     document.addEventListener("keydown", echap);
+    window.addEventListener("scroll", fermer, true);
+    window.addEventListener("resize", fermer);
     // Le premier choix prend le focus, pour le clavier
     ref.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
     return () => {
       document.removeEventListener("mousedown", dehors);
       document.removeEventListener("keydown", echap);
+      window.removeEventListener("scroll", fermer, true);
+      window.removeEventListener("resize", fermer);
     };
   }, [ouvert]);
   return (
@@ -243,8 +261,13 @@ function MenuCarte({ libelle, actions }: { libelle: string; actions: ActionCarte
       >
         <span aria-hidden>⋯</span>
       </button>
-      {ouvert && (
-        <div role="menu" aria-label={`Actions : ${libelle}`} className="absolute top-9 right-0 z-30 w-64 overflow-hidden rounded-lg border border-line bg-surface py-1 text-left shadow-xl">
+      {position && (
+        <div
+          role="menu"
+          aria-label={`Actions : ${libelle}`}
+          style={{ right: position.droite, top: position.haut, bottom: position.bas }}
+          className="fixed z-50 w-64 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border border-line bg-surface py-1 text-left whitespace-normal shadow-xl"
+        >
           {actions.map((a) => (
             <div key={a.libelle}>
               {a.separe && <div role="separator" className="my-1 border-t border-line" />}

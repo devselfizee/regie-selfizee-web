@@ -356,7 +356,8 @@ export function EnTeteStudio({ retour, libelleRetour, titre, nomLieu, etape, det
         </div>
         <div className="max-w-[280px] truncate text-sm text-ink-2">{nomLieu}</div>
       </div>
-      <ol className="mx-auto flex max-w-2xl items-center gap-2 px-6 pb-4" aria-label="Étapes avant l'éditeur">
+      {/* Centrées, traits de liaison de même longueur quelle que soit la longueur des libellés */}
+      <ol className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 px-6 pb-4" aria-label="Étapes avant l'éditeur">
         {ETAPES.map((e, i) => {
           const n = i + 1;
           const fait = n < etape;
@@ -378,7 +379,7 @@ export function EnTeteStudio({ retour, libelleRetour, titre, nomLieu, etape, det
             </>
           );
           return (
-            <li key={e} className="flex flex-1 items-center gap-2" aria-current={courant ? "step" : undefined}>
+            <li key={e} className="flex min-w-0 items-center gap-2" aria-current={courant ? "step" : undefined}>
               {aller ? (
                 <button type="button" onClick={aller} title={`Revenir à l'étape « ${e} »`} className="group flex min-w-0 items-center gap-2 rounded-md text-left">
                   {contenu}
@@ -386,7 +387,7 @@ export function EnTeteStudio({ retour, libelleRetour, titre, nomLieu, etape, det
               ) : (
                 contenu
               )}
-              {n < ETAPES.length && <span aria-hidden className={`h-px flex-1 ${fait ? "bg-accent/40" : "bg-line"}`} />}
+              {n < ETAPES.length && <span aria-hidden className={`h-px w-8 shrink-0 sm:w-16 ${fait ? "bg-accent/40" : "bg-line"}`} />}
             </li>
           );
         })}

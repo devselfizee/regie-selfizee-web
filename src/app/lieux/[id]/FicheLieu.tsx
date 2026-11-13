@@ -6,7 +6,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
 import { Gate, useDroits } from "@/lib/perms";
-import { date, dateHeure, JOURS_SEMAINE, nombre, parametreUrl } from "@/lib/format";
+import { date, dateHeure, JOURS_SEMAINE, nombre, parametreUrl, telephoneLisible } from "@/lib/format";
 import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
@@ -202,8 +202,9 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
                 <div key={c.id} className="py-1">
                   <span className="font-medium">{[c.prenom, c.nom].filter(Boolean).join(" ")}</span>
                   <span className="text-ink-muted"> · {c.role.replace(/_/g, " ").toLowerCase()}</span>
-                  {c.telephone && <> · <a className="text-accent" href={`tel:${c.telephone}`}>{c.telephone}</a></>}
+                  {c.telephone && <> · <a className="text-accent" href={`tel:${c.telephone.replace(/[^\d+]/g, "")}`}>{telephoneLisible(c.telephone)}</a></>}
                   {c.email && <> · <a className="text-accent" href={`mailto:${c.email}`}>{c.email}</a></>}
+                  {c.commentaire && <span className="block text-xs text-ink-2">{c.commentaire}</span>}
                 </div>
               ))}
             </div>

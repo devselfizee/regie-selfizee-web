@@ -76,51 +76,43 @@ export function ChoixCadreLieu({ lieuId, gabarit, onChoisir, chargerDessin = fal
       </p>
     );
   }
-  const groupes: { cle: string; titre: string; code: string; cadres: CadreDuLieu[] }[] = [];
-  for (const c of liste.data) {
-    const cle = String(c.evenement.id);
-    if (groupes.at(-1)?.cle !== cle) groupes.push({ cle, titre: libelleEvenement(c.evenement), code: c.evenement.code, cadres: [] });
-    groupes.at(-1)!.cadres.push(c);
-  }
+  // Une seule grille (retour du 12/11 : un groupe par événement laissait des lignes presque vides) ; l'événement est
+  // écrit sur chaque carte, le par défaut d'abord (ordre de l'API)
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-4">
       {erreur != null && <Erreur erreur={erreur} />}
-      {groupes.map((g) => (
-        <section key={g.cle}>
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
-            {g.titre}
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold">{g.code}</span>
-          </h3>
-          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {g.cadres.map((c) => {
-              const r = repereCadre(c);
-              return (
-                <li key={r}>
-                  <button
-                    type="button"
-                    disabled={lecture !== null}
-                    onClick={() => choisir(c)}
-                    className="group w-full rounded-2xl border border-line bg-surface p-3 text-left transition-all hover:-translate-y-1 hover:border-accent hover:shadow-lg disabled:opacity-60"
-                  >
-                    <span className="mb-2 flex h-40 items-center justify-center overflow-hidden rounded-lg bg-surface-2">
-                      {c.vignette ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={c.vignette} alt="" className="max-h-full max-w-full object-contain" />
-                      ) : (
-                        <span className="text-xs text-ink-muted">Pas d&apos;aperçu</span>
-                      )}
-                    </span>
-                    <span className="block truncate text-sm font-semibold text-ink group-hover:text-accent">{FORMATS_KIT[c.gabarit]?.libelle ?? c.gabarit}</span>
-                    <span className="block text-xs text-ink-muted">
-                      {lecture === r ? "Ouverture…" : `Modifié le ${new Date(c.updatedAt).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+      <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {liste.data.map((c) => {
+          const r = repereCadre(c);
+          return (
+            <li key={r}>
+              <button
+                type="button"
+                disabled={lecture !== null}
+                onClick={() => choisir(c)}
+                className="group w-full rounded-2xl border border-line bg-surface p-3 text-left transition-all hover:-translate-y-1 hover:border-accent hover:shadow-lg disabled:opacity-60"
+              >
+                <span className="mb-2 flex min-w-0 items-center gap-1.5 text-xs text-ink-2">
+                  <span className="truncate font-medium">{libelleEvenement(c.evenement)}</span>
+                  <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[0.65rem] font-bold text-ink">{c.evenement.code}</span>
+                </span>
+                <span className="mb-2 flex h-40 items-center justify-center overflow-hidden rounded-lg bg-surface-2">
+                  {c.vignette ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.vignette} alt="" className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <span className="text-xs text-ink-muted">Pas d&apos;aperçu</span>
+                  )}
+                </span>
+                <span className="block truncate text-sm font-semibold text-ink group-hover:text-accent">{FORMATS_KIT[c.gabarit]?.libelle ?? c.gabarit}</span>
+                <span className="block text-xs text-ink-muted">
+                  {lecture === r ? "Ouverture…" : `Modifié le ${new Date(c.updatedAt).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris" })}`}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

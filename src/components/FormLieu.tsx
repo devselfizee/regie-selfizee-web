@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ErreurApi, type LieuFiche, type Referentiel } from "@/lib/api";
-import { JOURS_SEMAINE } from "@/lib/format";
+import { JOURS_SEMAINE, telephoneLisible } from "@/lib/format";
 import { useReferentiel } from "./Filtres";
 import { Chargement } from "./Etat";
 import { ChoixRecherche } from "./ChoixLieu";
@@ -14,7 +14,7 @@ import { MATERIELS, useConcurrents } from "./Concurrents";
 
 // État du formulaire : tout en chaînes (champs HTML), converti à l'envoi.
 type Horaire = { jourSemaine: number; ouverture: string; fermeture: string };
-type Contact = { role: string; nom: string; prenom: string; email: string; telephone: string };
+type Contact = { role: string; nom: string; prenom: string; email: string; telephone: string; commentaire: string };
 type Periode = { libelle?: string; motif?: string; debut: string; fin: string };
 
 interface Etat {
@@ -64,7 +64,7 @@ function depuisFiche(l?: LieuFiche, statut = "ACTIF"): Etat {
     horaires: l?.horaires.map(({ jourSemaine, ouverture, fermeture }) => ({ jourSemaine, ouverture, fermeture })) ?? [],
     saisons: l?.saisons.map((x) => ({ libelle: s(x.libelle), debut: jourIso(x.debut), fin: jourIso(x.fin) })) ?? [],
     fermetures: l?.fermetures.map((x) => ({ motif: s(x.motif), debut: jourIso(x.debut), fin: jourIso(x.fin) })) ?? [],
-    contacts: l?.contacts.map((c) => ({ role: c.role, nom: c.nom, prenom: s(c.prenom), email: s(c.email), telephone: s(c.telephone) })) ?? [],
+    contacts: l?.contacts.map((c) => ({ role: c.role, nom: c.nom, prenom: s(c.prenom), email: s(c.email), telephone: telephoneLisible(c.telephone), commentaire: s(c.commentaire) })) ?? [],
   };
 }
 
@@ -94,7 +94,7 @@ function versApi(e: Etat) {
     horaires: e.horaires,
     saisons: e.saisons.map((x) => ({ libelle: txt(x.libelle ?? ""), debut: x.debut, fin: x.fin })),
     fermetures: e.fermetures.map((x) => ({ motif: txt(x.motif ?? ""), debut: x.debut, fin: x.fin })),
-    contacts: e.contacts.map((c) => ({ role: c.role, nom: c.nom, prenom: txt(c.prenom), email: txt(c.email), telephone: txt(c.telephone) })),
+    contacts: e.contacts.map((c) => ({ role: c.role, nom: c.nom, prenom: txt(c.prenom), email: txt(c.email), telephone: txt(c.telephone), commentaire: txt(c.commentaire) })),
   };
 }
 
@@ -366,7 +366,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         <Liste
           titre=""
           lignes={e.contacts}
-          nouvelle={{ role: "GERANT", nom: "", prenom: "", email: "", telephone: "" }}
+          nouvelle={{ role: "GERANT", nom: "", prenom: "", email: "", telephone: "", commentaire: "" }}
           onChange={(contacts) => set({ contacts })}
           rendu={(c, maj) => (
             <>
@@ -379,7 +379,24 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
               <input className="champ" placeholder="Nom" required aria-label="Nom" value={c.nom} onChange={(ev) => maj({ nom: ev.target.value })} />
               <input className="champ" placeholder="Prénom" aria-label="Prénom" value={c.prenom} onChange={(ev) => maj({ prenom: ev.target.value })} />
               <input className="champ" type="email" placeholder="E-mail" aria-label="E-mail" value={c.email} onChange={(ev) => maj({ email: ev.target.value })} />
-              <input className="champ" placeholder="Téléphone" aria-label="Téléphone" value={c.telephone} onChange={(ev) => maj({ telephone: ev.target.value })} />
+              <input
+                className="champ"
+                type="tel"
+                placeholder="Téléphone"
+                aria-label="Téléphone"
+                title="06 12 34 56 78, ou avec l'indicatif pour l'étranger (+971 50 123 4567) : enregistré au format international"
+                value={c.telephone}
+                onChange={(ev) => maj({ telephone: ev.target.value })}
+              />
+              {/* Sous la ligne, sur toute la largeur (après le bouton ✕) */}
+              <input
+                className="champ order-last !basis-full"
+                maxLength={500}
+                placeholder={c.role === "AUTRE" ? "Commentaire : qui c'est (community manager…), quand le joindre…" : "Commentaire : quand le joindre, à savoir…"}
+                aria-label="Commentaire sur le contact"
+                value={c.commentaire}
+                onChange={(ev) => maj({ commentaire: ev.target.value })}
+              />
             </>
           )}
         />
