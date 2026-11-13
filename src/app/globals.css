@@ -22,6 +22,8 @@
   --crit-ink: #8f1d1d;
   --ok-bg: #e3f4e3;
   --ok-ink: #0a5a0a;
+  --row-alt: #f7f9fd;
+  --row-hover: #eef2fa;
 
   --viz-1: #2a78d6;
   --viz-2: #eb6834;
@@ -58,6 +60,8 @@
     --crit-ink: #f19999;
     --ok-bg: #12301a;
     --ok-ink: #5fd35f;
+    --row-alt: #1f1f1e;
+    --row-hover: #262624;
 
     --viz-1: #3987e5;
     --viz-2: #d95926;
@@ -93,6 +97,8 @@
   --crit-ink: #f19999;
   --ok-bg: #12301a;
   --ok-ink: #5fd35f;
+  --row-alt: #1f1f1e;
+  --row-hover: #262624;
 
   --viz-1: #3987e5;
   --viz-2: #d95926;
@@ -189,6 +195,17 @@ body {
 }
 .carte {
   @apply rounded-lg border border-line bg-surface;
+}
+
+/* Tableaux : une ligne sur deux teintée, survol plus marqué (comme la plateforme, retour du 13/11).
+   En couche base : une ligne colorée par une classe (alerte, sélection) garde sa couleur ; .sans-alternance pour s'en passer. */
+@layer base {
+  table:not(.sans-alternance) > tbody > tr:nth-child(even) {
+    background-color: var(--row-alt);
+  }
+  table:not(.sans-alternance) > tbody > tr:hover {
+    background-color: var(--row-hover);
+  }
 }
 
 /* Variables de la plateforme Konitys, utilisées par l'en-tête et la barre latérale chargés en ligne
