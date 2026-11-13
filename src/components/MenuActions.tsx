@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 export interface ActionMenu {
   libelle: string;
@@ -14,10 +14,11 @@ export interface ActionMenu {
 
 /**
  * Bouton qui ouvre un menu d'actions (« ⋯ » d'une ligne, « Suivi technique »…). Échap et clic ailleurs le ferment.
- * Le menu est en position fixe : il n'est pas rogné par un tableau qui défile.
+ * Le menu est en position fixe : il n'est pas rogné par un tableau qui défile. Il s'ouvre au-dessus du bouton quand il
+ * ne tient pas en dessous (dernière ligne d'une liste en bas de l'écran).
  */
 export function MenuActions({ libelle, actions, declencheur, className }: { libelle: string; actions: ActionMenu[]; declencheur?: ReactNode; className?: string }) {
-  const [position, setPosition] = useState<{ haut: number; droite: number } | null>(null);
+  const [position, setPosition] = useState<{ haut?: number; bas?: number; droite: number } | null>(null);
   const bouton = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const ouvert = position !== null;
@@ -40,6 +41,16 @@ export function MenuActions({ libelle, actions, declencheur, className }: { libe
       window.removeEventListener("resize", fermer);
     };
   }, [ouvert]);
+
+  // Une fois le menu affiché (sa hauteur connue) : au-dessus du bouton s'il dépasse en bas et tient en haut
+  useLayoutEffect(() => {
+    if (!position || position.haut === undefined || !menu.current || !bouton.current) return;
+    const h = menu.current.offsetHeight;
+    const r = bouton.current.getBoundingClientRect();
+    if (r.bottom + 4 + h > window.innerHeight - 8 && r.top - 4 - h >= 8) {
+      setPosition({ bas: window.innerHeight - r.top + 4, droite: position.droite });
+    }
+  }, [position]);
 
   const basculer = () => {
     if (ouvert) return setPosition(null);
@@ -68,9 +79,9 @@ export function MenuActions({ libelle, actions, declencheur, className }: { libe
           ref={menu}
           role="menu"
           aria-label={libelle}
-          style={{ top: position.haut, right: position.droite }}
+          style={{ top: position.haut, bottom: position.bas, right: position.droite }}
           // Largeur selon le contenu, bornée par l'écran ; retour à la ligne permis même dans une cellule « nowrap »
-          className="fixed z-50 w-max max-w-[min(20rem,calc(100vw-1rem))] min-w-56 overflow-hidden rounded-lg border border-line bg-surface py-1 text-left whitespace-normal shadow-xl"
+          className="fixed z-50 w-max max-w-[min(20rem,calc(100vw-1rem))] min-w-56 max-h-[calc(100vh-1rem)] overflow-y-auto rounded-lg border border-line bg-surface py-1 text-left whitespace-normal shadow-xl"
         >
           {actions.map((a) => {
             const contenu = (
