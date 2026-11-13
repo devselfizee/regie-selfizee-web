@@ -398,7 +398,10 @@ interface Detail extends CodeRemise {
   origine:
     | { type: "manuel"; le: string; par: { prenom: string | null; nom: string | null } | null; nbCodes: number }
     | { type: "carte_a_gratter"; le: string; grattee: string | null; codeEvent: string; evenement: string | null; lieu: { id: number; enseigne: string } | null; photoUuid: string };
-  utilisations: { id: string; horodatage: string; demandees: number; accordees: number; utilisationId: string | null; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null }[];
+  utilisations: { id: string; horodatage: string; demandees: number; accordees: number; utilisationId: string | null; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null;
+    /** Vente(s) de cette utilisation (code_utilisation_id, séance ou transaction) */
+    ventes: { id: string; transactionIdModule: string }[];
+  }[];
   /** Ventes faites avec ce code : code_remise envoyé par la borne, ou séance d'une utilisation */
   ventes: { id: string; transactionIdModule: string; horodatage: string; statut: string; montantTtcCents: number; nbTirages: number; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null }[];
 }
@@ -471,7 +474,14 @@ function DetailCode({ id }: { id: number }) {
                     {u.accordees}
                     {u.accordees < u.demandees && <span className="text-xs text-warn-ink"> / {u.demandees} demandées</span>}
                   </td>
-                  <td className="py-1.5 font-mono text-xs text-ink-2">{u.utilisationId ?? "—"}</td>
+                  <td className="py-1.5 font-mono text-xs text-ink-2">
+                    {u.utilisationId ?? "—"}
+                    {u.ventes.map((v) => (
+                      <Link key={v.id} className="block font-sans text-accent hover:underline" href={`/paiements?q=${encodeURIComponent(v.transactionIdModule)}`}>
+                        Vente {v.transactionIdModule}
+                      </Link>
+                    ))}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -511,7 +521,7 @@ function DetailCode({ id }: { id: number }) {
           </table>
         ) : (
           <p className="text-ink-muted">
-            Aucune vente reliée{c.utilisations.length ? " : la borne n'a envoyé ni le code avec la vente, ni la séance dans l'utilisation" : ""}.
+            Aucune vente reliée{c.utilisations.length ? " : la borne n'a pas encore envoyé le code (code_remise) avec la vente" : ""}.
           </p>
         )}
       </div>
