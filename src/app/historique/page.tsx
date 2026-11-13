@@ -15,7 +15,9 @@ import { PERIODES, useFiltresPage } from "@/components/FiltresPage";
 // bornes). Filtres par type, lieu et période. L'API fusionne les sources à la lecture et rend la suite par curseur.
 //
 // Deux vues (retour du 14/11, « encore le bazar ») :
-// - Résumé (par défaut) : ce qui est de même nature est regroupé, avec son nombre. Les étapes d'un téléchargement
+// - Résumé (par défaut) : par jour, une ligne par NATURE avec son nombre (« Modifications · Lieux × 8 », « Publications
+//   d'événements × 3 », « Envois refusés des bornes × 40 »), qu'on déplie pour voir ce qu'elle contient. Dedans, ce
+//   qui est identique est encore regroupé. Les étapes d'un téléchargement
 //   (demandé, envoyé, téléchargé, installé) tiennent sur UNE ligne avec son état ; une même chose qui se répète dans la
 //   journée (une borne refusée toutes les cinq minutes, dix modifications du même lieu) tient sur une ligne, avec
 //   « × 12 » et la plage horaire.
@@ -32,6 +34,7 @@ interface Ligne {
   type: Type;
   date: string;
   titre: string;
+  nature?: string;
   detail: string | null;
   ton: Ton;
   lieu: { id: number; enseigne: string } | null;
@@ -55,7 +58,9 @@ interface Element {
   date: string;
   debut: string;
   titre: string;
+  nature: string;
   detail: string | null;
+  utilisateur: string | null;
   lieu: Ligne["lieu"];
   borne: Ligne["borne"];
   evenement: Ligne["evenement"];
@@ -92,7 +97,7 @@ const hm = (iso: string) => heure.format(new Date(iso));
 const jourParis = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date(iso));
 
 const seule = (l: Ligne): Element => ({
-  cle: l.cle, type: l.type, ton: l.ton, date: l.date, debut: l.date, titre: l.titre, detail: l.detail, lieu: l.lieu, borne: l.borne, evenement: l.evenement, fois: 1,
+  cle: l.cle, type: l.type, ton: l.ton, date: l.date, debut: l.date, titre: l.titre, nature: l.nature ?? TYPES[l.type].libelle, detail: l.detail, utilisateur: l.utilisateur, lieu: l.lieu, borne: l.borne, evenement: l.evenement, fois: 1,
 });
 
 /**
@@ -136,8 +141,79 @@ function regrouper(lignes: Ligne[], vue: Vue): Element[] {
     const rate = Boolean(g.etapes.ECHEC) && !(g.etapes.INSTALLE && g.etapes.INSTALLE > g.etapes.ECHEC!);
     g.ton = rate ? "critique" : g.etapes.INSTALLE || g.etapes.TELECHARGE ? "ok" : "info";
     if (!rate) g.echec = null;
+    g.nature = rate ? "Téléchargements en échec" : g.etapes.INSTALLE ? "Événements installés sur les bornes" : g.etapes.TELECHARGE ? "Événements téléchargés" : "Téléchargements en cours";
   }
   return liste;
+}
+
+/** Résumé d'un jour : une nature (« Modifications · Lieux »), son nombre, et ce qu'elle contient. */
+interface Nature {
+  cle: string;
+  libelle: string;
+  type: Type;
+  ton: Ton;
+  date: string;
+  debut: string;
+  /** Nombre de faits : un téléchargement compte pour un, une répétition pour toutes ses fois */
+  nombre: number;
+  elements: Element[];
+}
+const GRAVITE: Record<Ton, number> = { info: 0, ok: 1, attention: 2, critique: 3 };
+
+function parNature(elements: Element[]): Nature[] {
+  const natures = new Map<string, Nature>();
+  for (const e of elements) {
+    const cle = `${e.type}|${e.nature}`;
+    const n = natures.get(cle);
+    if (!n) natures.set(cle, { cle, libelle: e.nature, type: e.type, ton: e.ton, date: e.date, debut: e.debut, nombre: e.fois, elements: [e] });
+    else {
+      n.nombre += e.fois;
+      n.elements.push(e);
+      if (e.debut < n.debut) n.debut = e.debut;
+      if (GRAVITE[e.ton] > GRAVITE[n.ton]) n.ton = e.ton;
+    }
+  }
+  return [...natures.values()];
+}
+
+/** « C113 (La Ruche), S12 (Le Hangar) et 3 autres » : où ça s'est passé, en bref. */
+function ouEnBref(elements: Element[]): string | null {
+  const noms = [...new Set(elements.map((e) => (e.borne ? `${e.borne.identifiant}${e.lieu ? ` (${e.lieu.enseigne})` : ""}` : (e.lieu?.enseigne ?? ""))).filter(Boolean))];
+  if (!noms.length) return null;
+  return noms.length > 3 ? `${noms.slice(0, 2).join(", ")} et ${noms.length - 2} autres` : noms.join(", ");
+}
+
+/** Une nature du résumé : repliée par défaut, se déplie sur ses lignes. */
+function LigneNature({ n }: { n: Nature }) {
+  const ou = ouEnBref(n.elements);
+  // Qui : la nature regroupe toutes les personnes ; leurs noms sont rappelés ici, et ligne par ligne une fois déplié
+  const personnes = [...new Set(n.elements.map((e) => e.utilisateur).filter((u): u is string => Boolean(u)))];
+  const qui = personnes.length ? `par ${personnes.length > 3 ? `${personnes.slice(0, 2).join(", ")} et ${personnes.length - 2} autres` : personnes.join(", ")}` : null;
+  const plage = hm(n.debut) !== hm(n.date) ? `de ${hm(n.debut)} à ${hm(n.date)}` : `à ${hm(n.date)}`;
+  return (
+    <li>
+      <details className="group">
+        <summary className="grid cursor-pointer list-none grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-3 px-4 py-3 text-sm hover:bg-surface-2/60 [&::-webkit-details-marker]:hidden">
+          <span className={`flex h-7 w-7 items-center justify-center rounded-full ${TONS[n.ton]}`}>
+            <Icone type={n.type} />
+          </span>
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-x-2">
+              <span className="font-medium text-ink">{n.libelle}</span>
+              <span className="tabular rounded-full bg-ink px-2 py-0.5 text-[0.7rem] font-bold text-white">{n.nombre}</span>
+            </span>
+            <span className="mt-0.5 block truncate text-xs text-ink-muted">{[plage, qui, ou].filter(Boolean).join(" · ")}</span>
+          </span>
+          <span aria-hidden className="text-ink-muted transition-transform group-open:rotate-90">›</span>
+        </summary>
+        <ol className="divide-y divide-line border-t border-line bg-surface-2/40">
+          {n.elements.map((e) => (
+            <LigneTimeline key={e.cle} e={e} />
+          ))}
+        </ol>
+      </details>
+    </li>
+  );
 }
 
 const etatFinal = (e: Element): { libelle: string; classe: string } => {
@@ -245,7 +321,7 @@ function Historique() {
         </div>
         {/* Résumé : mêmes natures regroupées avec leur nombre ; Détail : une ligne par enregistrement */}
         <div className="inline-flex rounded-lg bg-surface-2 p-1" role="tablist" aria-label="Vue de la timeline">
-          <button type="button" role="tab" aria-selected={vue === "resume"} className={onglet(vue === "resume")} title="Ce qui est de même nature est regroupé, avec son nombre" onClick={() => setVue("resume")}>
+          <button type="button" role="tab" aria-selected={vue === "resume"} className={onglet(vue === "resume")} title="Par jour, une ligne par nature (créations, modifications, publications…) avec son nombre ; cliquer pour déplier" onClick={() => setVue("resume")}>
             Résumé
           </button>
           <button type="button" role="tab" aria-selected={vue === "detail"} className={onglet(vue === "detail")} title="Une ligne par enregistrement, sans regroupement" onClick={() => setVue("detail")}>
@@ -271,9 +347,7 @@ function Historique() {
                 <span aria-hidden className="h-px flex-1 bg-line" />
               </h2>
               <ol className="carte divide-y divide-line overflow-hidden">
-                {j.elements.map((e) => (
-                  <LigneTimeline key={e.cle} e={e} />
-                ))}
+                {vue === "resume" ? parNature(j.elements).map((n) => <LigneNature key={n.cle} n={n} />) : j.elements.map((e) => <LigneTimeline key={e.cle} e={e} />)}
               </ol>
             </section>
           ))}
