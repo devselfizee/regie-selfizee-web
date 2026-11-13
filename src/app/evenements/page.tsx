@@ -23,7 +23,8 @@ interface EvenementListe {
   publieeLe: string | null;
   modifieDepuisPublication: boolean;
   creeLe: string;
-  medias: { recus: number; telecharges: number; dernier: string | null };
+  /** reliesVente : séances dont la photo retrouve sa vente (même photo_uuid) */
+  medias: { recus: number; telecharges: number; reliesVente: number; dernier: string | null };
 }
 
 interface ListeEvenements {
@@ -100,6 +101,7 @@ function Evenements() {
                   <th className="py-2 pr-3 font-medium">Publication</th>
                   <th className="py-2 pr-3 text-right font-medium">Médias reçus</th>
                   <th className="py-2 pr-3 text-right font-medium">Photos visibles</th>
+                  <th className="py-2 pr-3 text-right font-medium" title="Séances dont la photo retrouve sa vente (même identifiant PikCloud)">Reliées à une vente</th>
                   <th className="py-2 pr-3 font-medium">Dernier média</th>
                   <th />
                 </tr>
@@ -128,6 +130,7 @@ function Evenements() {
                     </td>
                     <td className="py-2 pr-3 text-right">{nombre(e.medias.recus)}</td>
                     <td className={`py-2 pr-3 text-right ${e.medias.recus > e.medias.telecharges ? "text-bad" : ""}`}>{nombre(e.medias.telecharges)}</td>
+                    <td className="py-2 pr-3 text-right">{nombre(e.medias.reliesVente)}</td>
                     <td className="py-2 pr-3">{e.medias.dernier ? depuis(e.medias.dernier) : "—"}</td>
                     <td className="py-2 text-right">
                       <Link href={`/lieux/${e.lieu.id}?onglet=configuration`} className="text-xs text-accent hover:underline">Configuration</Link>
