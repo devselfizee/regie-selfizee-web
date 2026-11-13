@@ -66,6 +66,8 @@ function Historique() {
     queryFn: ({ pageParam }) => api<PageHistorique>(`/historique${qs({ ...filtres, avant: pageParam })}`),
     initialPageParam: "",
     getNextPageParam: (derniere) => derniere.suivant ?? undefined,
+    // L'ancienne liste reste affichée pendant qu'un filtre charge : la barre des types ne disparaît plus (focus gardé)
+    placeholderData: (precedent) => precedent,
   });
   const permis = historique.data?.pages[0]?.typesPermis ?? [];
   const lignes = historique.data?.pages.flatMap((p) => p.lignes) ?? [];

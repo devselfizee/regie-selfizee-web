@@ -194,6 +194,12 @@ export function GrilleMedias({ liste, page, setPage, vide, avecLieu = false }: {
     setAOuvrir(sens > 0 ? "premier" : "dernier");
     setPage(autre);
   };
+  // Page voisine en échec : on n'attend plus (sinon une fiche s'ouvrirait toute seule au prochain chargement)
+  const enEchec = liste.isError;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (enEchec) setAOuvrir(null);
+  }, [enEchec]);
   useEffect(() => {
     if (!aOuvrir || !medias.length) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -271,7 +277,10 @@ export function GrilleMedias({ liste, page, setPage, vide, avecLieu = false }: {
       {ouvert && (
         <DetailMedia
           uuid={ouvert}
-          onFermer={() => setOuvert(null)}
+          onFermer={() => {
+            setOuvert(null);
+            setAOuvrir(null);
+          }}
           precedent={rang > 0 || page > 1 ? () => voisin(-1) : undefined}
           suivant={rang >= 0 && (rang < medias.length - 1 || page < pages) ? () => voisin(1) : undefined}
           position={rang >= 0 && liste.data ? `${(page - 1) * PAR_PAGE + rang + 1} / ${nombre(liste.data.total)}` : undefined}

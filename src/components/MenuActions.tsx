@@ -30,14 +30,16 @@ export function MenuActions({ libelle, actions, declencheur, className }: { libe
     const echap = (e: KeyboardEvent) => e.key === "Escape" && fermer();
     document.addEventListener("mousedown", dehors);
     document.addEventListener("keydown", echap);
-    window.addEventListener("scroll", fermer, true);
+    // Faire défiler le menu lui-même (écran bas) ne le ferme pas
+    const defile = (e: Event) => !(e.target instanceof Node && menu.current?.contains(e.target)) && fermer();
+    window.addEventListener("scroll", defile, true);
     window.addEventListener("resize", fermer);
     // Le premier choix prend le focus, pour le clavier
     menu.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
     return () => {
       document.removeEventListener("mousedown", dehors);
       document.removeEventListener("keydown", echap);
-      window.removeEventListener("scroll", fermer, true);
+      window.removeEventListener("scroll", defile, true);
       window.removeEventListener("resize", fermer);
     };
   }, [ouvert]);

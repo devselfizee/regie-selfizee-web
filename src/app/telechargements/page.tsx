@@ -63,8 +63,9 @@ function regrouper(lignes: Ligne[]): Telechargement[] {
     const cle = `${l.borne.id}|${l.code}|${l.version}`;
     const t = new Date(l.date).getTime();
     let g = ouverts.get(cle);
-    // Trop loin dans le temps, ou une demande alors que celle du groupe est déjà vue : un autre téléchargement
-    if (g && (g.plusAncienne - t > 2 * 3_600_000 || (l.etat === "DEMANDE" && g.etapes.DEMANDE))) g = undefined;
+    // Trop loin dans le temps, ou le groupe a déjà sa demande (sa ligne la plus ancienne, les lignes arrivant de la
+    // plus récente à la plus ancienne) : tout ce qui suit appartient à un téléchargement précédent
+    if (g && (g.plusAncienne - t > 2 * 3_600_000 || g.etapes.DEMANDE)) g = undefined;
     if (!g) {
       g = { cle: `${cle}|${l.id}`, derniere: l, etapes: {}, echec: null, plusAncienne: t };
       ouverts.set(cle, g);

@@ -30,7 +30,9 @@ function Chargeur({ lieuId, compositionId, eid }: { lieuId: number; compositionI
   const chemins = cheminsEvenement(lieuId, eid);
   const nouveau = compositionId === "nouveau";
   const cleFiche = ["evenement-lieu", lieuId, eid ?? "habituel"];
-  const fiche = useQuery({ queryKey: cleFiche, queryFn: () => api<FicheEvenementLieu>(chemins.api) });
+  // Comme le cadre : jamais relue en arrière-plan pendant qu'on dessine (une relecture en échec au retour sur l'onglet
+  // remplaçait le studio par l'écran d'erreur, dessin perdu)
+  const fiche = useQuery({ queryKey: cleFiche, queryFn: () => api<FicheEvenementLieu>(chemins.api), refetchOnWindowFocus: false, refetchOnReconnect: false });
   // Pas encore de cadre pour cette composition : on part de zéro
   const cadre = useQuery({
     queryKey: ["cadre-evenement", chemins.api, compositionId],
@@ -51,7 +53,8 @@ function Chargeur({ lieuId, compositionId, eid }: { lieuId: number; compositionI
   const retour = (
     <Link href={chemins.page} className="bouton-second">← Fiche événement</Link>
   );
-  if (fiche.error || (!nouveau && cadre.error)) {
+  // Une erreur n'efface le studio que s'il n'y a rien à montrer : avec une fiche déjà chargée, on continue
+  if ((fiche.error && !fiche.data) || (!nouveau && cadre.error)) {
     return (
       <div className="mx-auto max-w-xl space-y-4 p-10">
         <Erreur erreur={fiche.error ?? cadre.error} />
