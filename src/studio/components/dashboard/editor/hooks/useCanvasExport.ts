@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { CUSTOM_PROPS, EXPORT_MULTIPLIER } from "../types";
 import { buildBlobMap, fixBlobUrls, fetchWithTimeout } from "../canvas/canvasUtils";
 import { toast } from "../../Toast";
-import { apiUrl, ENVOI_IMAGES_STUDIO } from "@/studio/lib/api";
+import { apiUrl, envoyerImageStudio } from "@/studio/lib/api";
 
 const PRINT_MARGIN = 20;
 
@@ -658,20 +658,8 @@ export function useCanvasExport({
 
       // Safety net: ensure no data:image/... URL slips into canvasState.
       // Upload any remaining base64 source to the backend and replace with URL.
-      const uploadDataUrl = async (dataUrl: string): Promise<string | null> => {
-        if (!ENVOI_IMAGES_STUDIO) return null; // Régie : les images restent en data URL dans le dessin
-        try {
-          const res = await fetch(apiUrl("/api/uploads/image"), {
-            credentials: "include",
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ dataUrl }),
-          });
-          if (!res.ok) return null;
-          const data = await res.json();
-          return data.url || null;
-        } catch { return null; }
-      };
+      // Régie : envoi à l'API Régie (fichier dans le volume des médias) ; null en cas d'échec (reste en data URL)
+      const uploadDataUrl = envoyerImageStudio;
       // Strip backend domain from URLs so the JSON stays portable.
       // At load time, restoreCanvasState prepends the backend domain.
       const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";

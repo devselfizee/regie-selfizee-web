@@ -6,12 +6,22 @@
  * All calls are same-origin so no special fetch options are needed.
  */
 
+import { api } from "@/lib/api";
+
 /**
- * Régie : pas de serveur d'images derrière le studio (/editor-api/uploads/image n'existe pas). Les images importées ou
- * générées restent en data URL dans le dessin du cadre, enregistré tel quel par l'API Régie. L'envoi tenté par le studio
- * de Kalifun répondait 404 à chaque image (bruit dans la console et faux signalements ticket-flow) : il est coupé.
+ * Régie : les images du studio (importées, générées, fonds) sont envoyées à l'API Régie (POST /api/studio/images), qui
+ * les range en fichiers dans le volume des médias et rend leur adresse publique : le dessin du cadre garde cette adresse
+ * au lieu de l'image en base64 (comme le backend de l'éditeur de selfizee-booth-ui). En cas d'échec : null, l'image
+ * reste en data URL et le cadre s'enregistre quand même.
  */
-export const ENVOI_IMAGES_STUDIO = false;
+export async function envoyerImageStudio(dataUrl: string): Promise<string | null> {
+  try {
+    const r = await api<{ url: string }>("/studio/images", { method: "POST", json: { dataUrl } });
+    return r.url || null;
+  } catch {
+    return null;
+  }
+}
 
 /** Default fetch options for API calls with cookie auth */
 export const apiFetchOptions: RequestInit = {

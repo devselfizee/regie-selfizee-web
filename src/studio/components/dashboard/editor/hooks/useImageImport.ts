@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "../../Toast";
-import { apiUrl, apiFetchOptions, ENVOI_IMAGES_STUDIO } from "@/studio/lib/api";
+import { apiUrl, envoyerImageStudio } from "@/studio/lib/api";
 import { logStudioError } from "@/studio/lib/studioLog";
 
 const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
@@ -19,17 +19,11 @@ async function uploadAndSwapImageSrc(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   canvas: any,
 ) {
-  if (!ENVOI_IMAGES_STUDIO) return; // Régie : l'image reste en data URL dans le dessin
   try {
-    const res = await fetch(apiUrl("/api/uploads/image"), {
-      ...apiFetchOptions,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dataUrl }),
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const displayUrl = resolveServedUrl(data.url);
+    // Régie : envoi à l'API Régie (fichier dans le volume des médias), adresse absolue en retour
+    const url = await envoyerImageStudio(dataUrl);
+    if (!url) return;
+    const displayUrl = resolveServedUrl(url);
     // Only swap if the image is still on the canvas — the user may have
     // removed it before the upload finished.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
