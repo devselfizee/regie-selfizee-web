@@ -19,6 +19,7 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/lieux", libelle: "Lieux", perm: "pages.lieux.view" },
   { href: "/bornes", libelle: "Bornes", perm: "pages.bornes.view" },
   { href: "/telechargements", libelle: "Téléchargements", perm: "bornes.view" },
+  { href: "/historique", libelle: "Historique", perm: "bornes.view" },
   { href: "/analyses", libelle: "Analyses", perm: PERM_ANALYSES },
   { href: "/paiements", libelle: "Paiements", perm: "pages.paiements.view" },
   { href: "/reversements", libelle: "Commissions", perm: "pages.commissions.view" },
