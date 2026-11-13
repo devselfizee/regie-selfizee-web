@@ -9,6 +9,7 @@ import { depuisCents, versCents } from "@/lib/commissions";
 import { Gate, PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
+import { BoutonSupprimer } from "@/components/BoutonSupprimer";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { preset, PRESETS, useReferentiel } from "@/components/Filtres";
 
@@ -47,6 +48,7 @@ function Fiche({ id }: { id: number }) {
         actions={
           <>
             <Link href="/bornes" className="bouton-second">← Toutes les bornes</Link>
+            <BoutonSupprimer chemin={`/bornes/${id}`} quoi="la borne" nom={b.identifiant} retour="/bornes" />
             <button className="bouton" onClick={() => setEdition(true)}>Modifier la borne</button>
           </>
         }

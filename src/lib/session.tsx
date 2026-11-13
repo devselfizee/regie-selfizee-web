@@ -12,6 +12,8 @@ export interface Moi {
   prenom: string;
   /** Lieu rattaché (partenaire) : son périmètre quand il n'a pas le droit de voir tous les lieux */
   lieuId: number | null;
+  /** Admin de la plateforme : seul à pouvoir supprimer un lieu ou une borne */
+  superAdmin?: boolean;
 }
 
 const SessionContext = createContext<Moi | null>(null);

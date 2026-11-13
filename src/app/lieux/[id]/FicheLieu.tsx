@@ -23,6 +23,7 @@ import { ConfigurationLieu } from "@/components/ConfigurationLieu";
 import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
 import { PageSouvenirLieu } from "@/components/PageSouvenirLieu";
 import { AccesLieu } from "@/components/AccesLieu";
+import { BoutonSupprimer } from "@/components/BoutonSupprimer";
 import type { Alerte } from "@/lib/api";
 import { AlertesLieu, Bloc, CarteSoirees, FaceAuxAutres, FormulesVendues, heuresAvecVentes, JoursSemaineBarres, LegendeCourbe, MeilleuresDates, TuilesLieu, useStatsFicheLieu } from "@/components/StatistiquesLieu";
 
@@ -74,6 +75,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             {voitVentes && a("ventes.export") && (
               <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ du: periode.du, au: periode.au, lieuId: id }) }]} />
             )}
+            <BoutonSupprimer chemin={`/lieux/${id}`} quoi="le lieu" nom={l.enseigne} retour="/lieux" />
             <Gate perm="lieux.edit">
               <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>
             </Gate>
