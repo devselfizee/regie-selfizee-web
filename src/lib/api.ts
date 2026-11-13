@@ -1082,6 +1082,9 @@ export interface MediaResume {
   nbTirages: number | null;
   test: boolean;
   statut: "ABSENT" | "A_TELECHARGER" | "TELECHARGE" | "ERREUR" | "PURGE";
+  /** Fichier supprimé : à la demande de l'invité (RGPD) ou après la durée de conservation ; null : raison non notée */
+  purgeMotif?: "RGPD" | "CONSERVATION" | null;
+  purgeLe?: string | null;
   jsonRecu: boolean;
   taille: number | null;
   recuLe: string;

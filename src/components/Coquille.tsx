@@ -32,6 +32,8 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     liens: [
       { href: "/lieux", libelle: "Lieux", icone: "MapPin", perm: "pages.lieux.view" },
       { href: "/bornes", libelle: "Bornes", icone: "Monitor", perm: "pages.bornes.view" },
+      // Journal des événements chargés par les bornes, auto ou manuel (retour du 13/11)
+      { href: "/telechargements", libelle: "Téléchargements", icone: "Download", perm: "bornes.view" },
       // Comportements, par heure, segments, géographique : une page à onglets (retour de Sébastien du 12/11)
       { href: "/analyses", libelle: "Analyses", icone: "ChartColumn", perm: PERM_ANALYSES },
       // Journal des bornes et erreurs d'import : techniques, rangés dans « Suivi technique » de la page Bornes

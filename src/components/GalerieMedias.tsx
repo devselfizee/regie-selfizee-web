@@ -21,8 +21,20 @@ const STATUTS: Record<MediaResume["statut"], string> = {
   A_TELECHARGER: "En attente de téléchargement",
   TELECHARGE: "Reçu",
   ERREUR: "Téléchargement en erreur",
-  PURGE: "Fichier purgé",
+  PURGE: "Fichier supprimé",
 };
+
+/** Pourquoi le fichier n'est plus là, en clair (retour du 13/11 : « Fichier purgé » ne disait rien). */
+function suppression(m: Pick<MediaResume, "purgeMotif" | "purgeLe">): { court: string; long: string } {
+  const le = m.purgeLe ? ` le ${dateHeure(m.purgeLe)}` : "";
+  if (m.purgeMotif === "RGPD") {
+    return { court: "Supprimé à la demande de l'invité", long: `Photo supprimée${le} à la demande de l'invité, depuis la plateforme RGPD ou le lien « Supprimer mes photos ». Le fichier est effacé définitivement.` };
+  }
+  if (m.purgeMotif === "CONSERVATION") {
+    return { court: "Supprimé (durée de conservation)", long: `Photo supprimée automatiquement${le} : la durée de conservation des médias est dépassée. Le fichier est effacé définitivement.` };
+  }
+  return { court: "Fichier supprimé", long: "Fichier supprimé : durée de conservation dépassée, ou demande de l'invité (RGPD). Il est effacé définitivement." };
+}
 
 const octets = (n: number | null) => (n === null ? "—" : n < 1024 * 1024 ? `${Math.round(n / 1024)} Ko` : `${(n / 1024 / 1024).toFixed(1)} Mo`);
 
@@ -277,7 +289,7 @@ function Vignette({ m }: { m: MediaResume }) {
   return (
     <span className="flex aspect-square w-full flex-col items-center justify-center gap-1 text-ink-muted">
       <span aria-hidden className="text-3xl">{m.video ? "▶" : m.statut === "TELECHARGE" ? "🖼" : "⏳"}</span>
-      <span className="px-2 text-center text-[0.7rem]">{m.video && m.statut === "TELECHARGE" ? "Vidéo" : STATUTS[m.statut]}</span>
+      <span className="px-2 text-center text-[0.7rem]">{m.video && m.statut === "TELECHARGE" ? "Vidéo" : m.statut === "PURGE" ? suppression(m).court : STATUTS[m.statut]}</span>
     </span>
   );
 }
@@ -350,7 +362,9 @@ function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: s
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_16rem]">
             <div className="flex min-h-64 items-center justify-center rounded-md bg-surface-2">
               {m.statut !== "TELECHARGE" ? (
-                <p className="p-6 text-center text-sm text-ink-muted">{STATUTS[m.statut]}{m.derniereErreur ? ` : ${m.derniereErreur}` : ""}</p>
+                <p className="max-w-sm p-6 text-center text-sm text-ink-muted">
+                  {m.statut === "PURGE" ? suppression(m).long : `${STATUTS[m.statut]}${m.derniereErreur ? ` : ${m.derniereErreur}` : ""}`}
+                </p>
               ) : erreurFichier ? (
                 <Erreur erreur={erreurFichier} />
               ) : !url ? (
@@ -363,6 +377,16 @@ function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: s
               )}
             </div>
             <dl className="space-y-2 text-sm">
+              <Ligne l="Lieu">
+                {m.lieu ? (
+                  <Link href={`/lieux/${m.lieu.id}?onglet=photos`} className="text-accent hover:underline">
+                    {m.lieu.enseigne}
+                    {m.lieu.ville ? `, ${m.lieu.ville}` : ""}
+                  </Link>
+                ) : (
+                  <span className="text-warn-ink">Inconnu</span>
+                )}
+              </Ligne>
               <Ligne l="Événement">{m.evenement ? libelleEvenement(m.evenement) : <span className="text-warn-ink">Inconnu ({m.codeEvent})</span>}</Ligne>
               <Ligne l="Borne">{m.borne}</Ligne>
               <Ligne l="Prise de vue">{dateHeure(m.datePhoto)}</Ligne>
@@ -429,7 +453,8 @@ function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: s
               <span className="hidden text-xs text-ink-muted sm:inline">Flèches du clavier pour passer d&apos;un média à l&apos;autre</span>
             </span>
           )}
-          {m && m.statut !== "TELECHARGE" && relance && (
+          {/* Un fichier supprimé ne se retélécharge pas */}
+          {m && m.statut !== "TELECHARGE" && m.statut !== "PURGE" && relance && (
             <button type="button" className="bouton-second" disabled={relancer.isPending} onClick={() => relancer.mutate()} title="Remet le fichier en attente : le téléchargement repart tout de suite">
               {relancer.isPending ? "Relance…" : "Relancer le téléchargement"}
             </button>
