@@ -178,7 +178,7 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
       ) : !liste.data ? (
         <Chargement />
       ) : liste.data.medias.length === 0 ? (
-        <Vide>{total === 0 ? `Aucun média reçu pour ${evenementId ? "cet événement" : "ce lieu"}. Ils arrivent de PikCloud quelques minutes après chaque séance sur la borne.` : "Aucun média ne correspond à ces filtres."}</Vide>
+        <Vide>{total === 0 ? `Aucun média reçu pour ${evenementId ? "cet événement" : "ce lieu"}. Ils arrivent quelques minutes après chaque séance sur la borne.` : "Aucun média ne correspond à ces filtres."}</Vide>
       ) : (
         <>
           <ul className={`grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6 ${liste.isPlaceholderData ? "opacity-60" : ""}`}>

@@ -45,7 +45,7 @@ function Contenu({ id, eid }: { id: number; eid?: number }) {
                 {" "}· code <span className="font-mono font-semibold tracking-wider">{evenement.code}</span>
               </>
             )}
-            {" "}· les séances faites sur la borne avec cet événement, synchronisées depuis PikCloud quelques minutes après chaque prise de vue.
+            {" "}· les séances faites sur la borne avec cet événement.
           </p>
         </div>
         <Link href={pageEvenement(id, eid)} className="bouton-second">

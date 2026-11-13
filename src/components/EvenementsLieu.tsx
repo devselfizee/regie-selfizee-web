@@ -330,7 +330,7 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                     <MenuActions
                       libelle="Actions sur l'événement par défaut"
                       actions={[
-                        { libelle: "Galerie", aide: "Photos et vidéos reçues de PikCloud", href: `${pageEvenement(lieuId)}/galerie` },
+                        { libelle: "Galerie", aide: "Photos et vidéos des séances", href: `${pageEvenement(lieuId)}/galerie` },
                         ...(peutModifier ? [{ libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie({ eid: null, nom: "Événement par défaut" }) }] : []),
                       ]}
                     />
@@ -362,7 +362,7 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                     <MenuActions
                       libelle={`Actions sur ${e.nom}`}
                       actions={[
-                        { libelle: "Galerie", aide: "Photos et vidéos reçues de PikCloud", href: `${pageEvenement(lieuId, e.id)}/galerie` },
+                        { libelle: "Galerie", aide: "Photos et vidéos des séances", href: `${pageEvenement(lieuId, e.id)}/galerie` },
                         ...(peutModifier
                           ? [
                               { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },

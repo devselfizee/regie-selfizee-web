@@ -233,7 +233,7 @@ function Editeur({ lieuId, eid, enseigne, fiche, programmes }: { lieuId: number;
         </div>
         <div className="flex flex-col items-end gap-2">
           <div className="flex flex-wrap items-center justify-end gap-2">
-            <Link href={`${chemins.page}/galerie`} className="bouton-second" title="Les photos et vidéos des séances de cet événement, reçues de PikCloud">Galerie</Link>
+            <Link href={`${chemins.page}/galerie`} className="bouton-second" title="Les photos et vidéos des séances de cet événement">Galerie</Link>
             <button type="button" className="bouton-second" disabled={zipEnCours} onClick={telechargerZip} title="Le zip de l'événement : config.json, cadres et éléments du kit">
               {zipEnCours ? "Préparation…" : "Télécharger"}
             </button>
