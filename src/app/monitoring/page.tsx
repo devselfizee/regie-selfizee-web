@@ -7,7 +7,7 @@ import { PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { libelleErreurBorne } from "@/lib/erreursBorne";
-import { tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
+import { ChoixParc, parcBorne, tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
 
 // Monitoring live (demande de Sébastien, 02/11/2026) : en un écran, ce qui marche et ce qui ne marche pas.
 // Une borne doit être allumée quand son lieu est ouvert (horaires, saison et fermetures de la fiche).
@@ -32,6 +32,7 @@ export default function PageMonitoring() {
 function Monitoring() {
   const { data, error, isPending, isFetching } = useSupervision();
   const [detail, setDetail] = useState<BorneSupervisee | null>(null);
+  const [parc, setParc] = useState("SELFIZEE");
   // Blocs repliés (retour de Sébastien : il y en aura beaucoup) ; « Éteintes, lieu fermé » replié par défaut, mémorisé
   const [replies, setReplies] = useState<Set<string>>(() => {
     try {
@@ -56,7 +57,7 @@ function Monitoring() {
   if (error) return <Erreur erreur={error} />;
   if (isPending) return <Chargement />;
 
-  const bornes = data.bornes.filter((b) => b.lieu || b.enLigne);
+  const bornes = data.bornes.filter((b) => (b.lieu || b.enLigne) && (!parc || parcBorne(b) === parc));
   // Le lieu ouvre plus tard dans la journée d'exploitation (jusqu'à 6 h demain) : la borne doit être allumée ce jour
   const finJournee = new Date(data.debutJournee).getTime() + 86_400_000;
   const ouvreCeJour = (b: BorneSupervisee) => b.lieuOuvert || (!!b.prochaineOuverture && new Date(b.prochaineOuverture).getTime() < finJournee);
@@ -78,10 +79,11 @@ function Monitoring() {
       <EnTete
         titre="Monitoring live"
         sousTitre={`Mis à jour ${dateHeure(data.maintenant)}${isFetching ? " · actualisation…" : ""} · toutes les 30 s · journée depuis ${dateHeure(data.debutJournee)}`}
+        actions={<ChoixParc valeur={parc} onChange={setParc} />}
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Chiffre libelle="Connectées" valeur={nombre(connectees.length)} detail={`sur ${nombre(bornes.length)} bornes en lieu`} ton="text-good" />
+        <Chiffre libelle="Connectées" valeur={nombre(connectees.length)} detail={`sur ${nombre(bornes.length)} bornes${parc ? " du parc" : ""}`} ton="text-good" />
         <Chiffre libelle="À régler" valeur={nombre(aRegler.length)} detail="éteintes alors que le lieu est ouvert, ou en erreur" ton={aRegler.length ? "text-bad" : "text-good"} />
         <Chiffre libelle="CA de la journée" valeur={euros(ca)} detail="TTC, toutes bornes" />
         <Chiffre libelle="Commandes de la journée" valeur={nombre(ventes)} detail="ventes payées" />

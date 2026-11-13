@@ -5,7 +5,7 @@ import { useState } from "react";
 import { dateHeure, depuis, nombre, prochainement } from "@/lib/format";
 import { PageGuard } from "@/lib/perms";
 import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
-import { tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
+import { ChoixParc, parcBorne, tonPapier, useSupervision, type BorneSupervisee } from "@/components/Supervision";
 
 // État du papier de chaque borne (demande de Sébastien, 02/11/2026) : de la moins fournie à la plus fournie,
 // avec l'âge de l'information et la prochaine fois où la borne doit servir (horaires du lieu).
@@ -28,6 +28,7 @@ function Papier() {
   const { data, error, isPending } = useSupervision();
   const [q, setQ] = useState("");
   const [seuil, setSeuil] = useState("");
+  const [parc, setParc] = useState("SELFIZEE");
   const [ouvertAujourdhui, setOuvertAujourdhui] = useState(false);
   if (error) return <Erreur erreur={error} />;
   if (isPending) return <Chargement />;
@@ -39,7 +40,7 @@ function Papier() {
   const max = seuil ? Number(seuil) : null;
 
   // Bornes en lieu ; sans relevé de papier en dernier
-  const enLieu = data.bornes.filter((b) => b.lieu);
+  const enLieu = data.bornes.filter((b) => b.lieu && (!parc || parcBorne(b) === parc));
   const bornes = enLieu
     .filter((b) => !recherche || plat(`${b.lieu!.enseigne} ${b.lieu!.ville ?? ""} ${b.identifiant}`).includes(recherche))
     .filter((b) => max === null || (b.papier !== null && b.papier.restant < max))
@@ -51,6 +52,7 @@ function Papier() {
       <EnTete titre="État papier" sousTitre="Tirages restants dans chaque imprimante, de la moins fournie à la plus fournie. Relevé : le dernier signe de vie qui a donné le niveau." />
 
       <div className="mb-4 flex flex-wrap items-end justify-end gap-3">
+        <ChoixParc valeur={parc} onChange={setParc} />
         <label className="block">
           <span className="etiquette">Recherche</span>
           <input className="champ !w-48" placeholder="Lieu, ville, n° de borne…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -70,7 +72,7 @@ function Papier() {
       </div>
 
       {!enLieu.length ? (
-        <Vide>Aucune borne installée dans un lieu.</Vide>
+        <Vide>Aucune borne installée dans un lieu{parc ? " de ce parc" : ""}.</Vide>
       ) : !bornes.length ? (
         <Vide>Aucune borne pour ces filtres.</Vide>
       ) : (
