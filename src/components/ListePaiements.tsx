@@ -447,6 +447,7 @@ function TableauPaiements({ lignes, ht, onRecap, onRembourser }: { lignes: Vente
                     {!aucuneAction && <Badge ton={statut.ton}>{statut.libelle}</Badge>}
                     {v.encaissement === "INCERTAIN" && <Badge ton="warn">À rapprocher</Badge>}
                     {v.carteTest && <Badge ton="warn">Test · {v.carteTest}</Badge>}
+                    {v.codesRemise?.map((code) => <Badge key={code} ton="neutre">Code {code}</Badge>)}
                     {(v.gratuite || aucuneAction) && (
                       <Badge ton="neutre">Sans action{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>
                     )}

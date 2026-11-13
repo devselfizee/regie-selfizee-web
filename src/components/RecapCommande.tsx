@@ -128,6 +128,23 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
           <Info libelle="Carte">{v.carteFin ? <span className="font-mono">•••• {v.carteFin}</span> : <span className="text-ink-muted">—</span>}</Info>
           <Info libelle="N° d'autorisation">{v.referenceMonetique ? <span className="font-mono">{v.referenceMonetique}</span> : <span className="text-ink-muted">—</span>}</Info>
           <Info libelle="N° de séquence">{v.referenceSequence ? <span className="font-mono">{v.referenceSequence}</span> : <span className="text-ink-muted">—</span>}</Info>
+          {v.codesUtilises.length > 0 && (
+            <div className="col-span-2">
+              <Info libelle={v.codesUtilises.length > 1 ? "Codes de remise" : "Code de remise"}>
+                {v.codesUtilises.map((c, i) => (
+                  <span key={c.code}>
+                    {i > 0 && " · "}
+                    {c.id ? (
+                      <Link className="font-mono hover:underline" href={`/codes?q=${c.code}&id=${c.id}`}>{c.code}</Link>
+                    ) : (
+                      <span className="font-mono">{c.code}</span>
+                    )}
+                    <span className="text-ink-muted"> ({c.remise})</span>
+                  </span>
+                ))}
+              </Info>
+            </div>
+          )}
           <div className="col-span-2">
             <Info libelle="Transaction">
               <span className="font-mono text-xs">{v.transactionIdModule}</span>

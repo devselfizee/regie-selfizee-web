@@ -820,6 +820,8 @@ export interface Vente {
   photoUrl: string | null;
   /** Nom de la carte de test (Paramètres) : vente hors chiffres réels ; null pour une vraie vente */
   carteTest: string | null;
+  /** Codes de remise utilisés pour la vente (envoyé avec elle ou utilisé pendant sa séance) */
+  codesRemise?: string[];
 }
 
 /** Carte bancaire de test (Paramètres) et ce qui a été payé avec */
@@ -836,6 +838,8 @@ export interface CarteTest {
 
 /** Récapitulatif d'une commande (GET /ventes/:id) */
 export interface RecapVente extends Vente {
+  /** Codes de remise de la vente et leur remise (id 0 : code inconnu de la Régie) */
+  codesUtilises:{ id: number; code: string; remise: string }[];
   montantHtCents: number;
   /** Média de la séance (table medias, par photo_uuid) : null sans média ou sans le droit de voir les médias */
   media?: { uuid: string; vignette: string | null; video: boolean } | null;

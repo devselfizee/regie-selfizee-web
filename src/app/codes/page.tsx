@@ -5,7 +5,8 @@ import { Suspense, useDeferredValue, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type LieuListe } from "@/lib/api";
-import { date, dateHeure, jour, nombre } from "@/lib/format";
+import { date, dateHeure, euros, jour, nombre } from "@/lib/format";
+import { STATUTS_PAIEMENT } from "@/components/RecapCommande";
 import { Gate, PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
@@ -69,13 +70,14 @@ export default function PageCodesRemise() {
 
 function Codes() {
   const parametres = useSearchParams();
-  const [q, setQ] = useState("");
+  // ?q=&id= : lien depuis le récapitulatif d'une vente (code utilisé)
+  const [q, setQ] = useState(() => parametres.get("q") ?? "");
   const [lieuId, setLieuId] = useState(() => parametres.get("lieuId") ?? "");
   const [lotId, setLotId] = useState(() => parametres.get("lotId") ?? "");
   const [statut, setStatut] = useState("");
   const [page, setPage] = useState(1);
   const [creation, setCreation] = useState(false);
-  const [detail, setDetail] = useState<number | null>(null);
+  const [detail, setDetail] = useState<number | null>(() => Number(parametres.get("id")) || null);
   // Sélection (un, plusieurs ou tous les codes du filtre) pour supprimer un lot créé par erreur
   const [choisis, setChoisis] = useState<Set<number>>(new Set());
   const client = useQueryClient();
@@ -397,6 +399,8 @@ interface Detail extends CodeRemise {
     | { type: "manuel"; le: string; par: { prenom: string | null; nom: string | null } | null; nbCodes: number }
     | { type: "carte_a_gratter"; le: string; grattee: string | null; codeEvent: string; evenement: string | null; lieu: { id: number; enseigne: string } | null; photoUuid: string };
   utilisations: { id: string; horodatage: string; demandees: number; accordees: number; utilisationId: string | null; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null }[];
+  /** Ventes faites avec ce code : code_remise envoyé par la borne, ou séance d'une utilisation */
+  ventes: { id: string; transactionIdModule: string; horodatage: string; statut: string; montantTtcCents: number; nbTirages: number; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null }[];
 }
 
 function DetailCode({ id }: { id: number }) {
@@ -474,6 +478,41 @@ function DetailCode({ id }: { id: number }) {
           </table>
         ) : (
           <p className="text-ink-muted">Pas encore utilisé.</p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="mb-1 text-xs font-medium text-ink-2">Ventes avec ce code ({c.ventes.length})</h3>
+        {c.ventes.length ? (
+          <table className="w-full">
+            <thead className="text-left text-xs text-ink-2">
+              <tr>
+                <th className="py-1.5 pr-3 font-medium">Date</th>
+                <th className="py-1.5 pr-3 font-medium">Borne · lieu</th>
+                <th className="py-1.5 pr-3 font-medium">Vente</th>
+                <th className="py-1.5 text-right font-medium">Montant</th>
+              </tr>
+            </thead>
+            <tbody className="tabular">
+              {c.ventes.map((v) => (
+                <tr key={v.id} className="border-t border-line">
+                  <td className="py-1.5 pr-3">
+                    <Link className="text-accent hover:underline" href={`/paiements?q=${encodeURIComponent(v.transactionIdModule)}`}>{dateHeure(v.horodatage)}</Link>
+                  </td>
+                  <td className="py-1.5 pr-3">{v.borne.identifiant}{v.lieu ? ` · ${v.lieu.enseigne}` : ""}</td>
+                  <td className="py-1.5 pr-3">
+                    {v.nbTirages} impression{v.nbTirages > 1 ? "s" : ""}
+                    <span className="text-xs text-ink-2"> · {STATUTS_PAIEMENT[v.statut]?.libelle ?? v.statut}</span>
+                  </td>
+                  <td className="py-1.5 text-right">{euros(v.montantTtcCents)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="text-ink-muted">
+            Aucune vente reliée{c.utilisations.length ? " : la borne n'a envoyé ni le code avec la vente, ni la séance dans l'utilisation" : ""}.
+          </p>
         )}
       </div>
 
