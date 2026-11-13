@@ -41,7 +41,8 @@ function ListeLieux() {
   const [departement, setDepartement] = useState("");
   const [antenneId, setAntenneId] = useState("");
   const [gammeId, setGammeId] = useState("");
-  const [parc, setParc] = useState("");
+  // Notre parc par défaut (demande de Sébastien du 13/11)
+  const [parc, setParc] = useState("SELFIZEE");
   // Liste ou carte (retour de Sébastien) ; analyse du parc (maquette lieux.html), avec le droit de voir les ventes
   const demande = useSearchParams().get("onglet");
   const [vue, choisirVue] = useState<"liste" | "carte" | "analyse">(demande === "carte" || demande === "analyse" ? demande : "liste");

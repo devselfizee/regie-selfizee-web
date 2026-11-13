@@ -50,13 +50,15 @@ function Bornes() {
   // Recherche (borne ou lieu) et filtre par gamme (retour de Sébastien)
   const [recherche, setRecherche] = useState("");
   const [gammeId, setGammeId] = useState("");
-  const [parc, setParc] = useState("");
+  // Notre parc par défaut (demande de Sébastien du 13/11)
+  const [parc, setParc] = useState("SELFIZEE");
   const { data: ref } = useReferentiel();
   const q = recherche.trim().toLowerCase();
   const visibles = (data ?? []).filter(
     (b) =>
       (!gammeId || String(b.gamme.id) === gammeId) &&
-      (!parc || b.lieuActuel?.parc === parc) &&
+      // Sans lieu (en stock, à l’atelier) : une borne Selfizee
+      (!parc || (b.lieuActuel?.parc ?? "SELFIZEE") === parc) &&
       (!q || b.identifiant.toLowerCase().includes(q) || (b.lieuActuel ? `${b.lieuActuel.enseigne} ${b.lieuActuel.ville ?? ""}`.toLowerCase().includes(q) : false))
   );
 
