@@ -326,10 +326,13 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                 <td className="px-3 py-2.5"><TarifsCourts grille={defaut.reglages.tarifs} herite={defaut.reglages.tarifs.herite} /></td>
                 <td className="px-3 py-2.5"><PublicationDefaut d={defaut} /></td>
                 <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
-                  {peutModifier && defaut.enregistre && (
+                  {defaut.enregistre && (
                     <MenuActions
                       libelle="Actions sur l'événement par défaut"
-                      actions={[{ libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie({ eid: null, nom: "Événement par défaut" }) }]}
+                      actions={[
+                        { libelle: "Galerie", aide: "Photos et vidéos reçues de PikCloud", href: `${pageEvenement(lieuId)}/galerie` },
+                        ...(peutModifier ? [{ libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie({ eid: null, nom: "Événement par défaut" }) }] : []),
+                      ]}
                     />
                   )}
                 </td>
@@ -356,20 +359,23 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                   <td className="px-3 py-2.5"><TarifsCourts grille={e.tarifs} herite={e.tarifsHerites} /></td>
                   <td className="px-3 py-2.5"><Publication e={e} maintenant={maintenant} /></td>
                   <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
-                    {peutModifier && (
-                      <MenuActions
-                        libelle={`Actions sur ${e.nom}`}
-                        actions={[
-                          { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },
-                          { libelle: "Utiliser comme événement par défaut", aide: "Le par défaut reprend son contenu et garde son code", onClick: () => setVersDefaut(e) },
-                          {
-                            libelle: "Supprimer",
-                            danger: true,
-                            onClick: () => confirm(`Supprimer l'événement « ${e.nom} » et ses cadres ? Son code ne fonctionnera plus.`) && supprimer.mutate(e.id),
-                          },
-                        ]}
-                      />
-                    )}
+                    <MenuActions
+                      libelle={`Actions sur ${e.nom}`}
+                      actions={[
+                        { libelle: "Galerie", aide: "Photos et vidéos reçues de PikCloud", href: `${pageEvenement(lieuId, e.id)}/galerie` },
+                        ...(peutModifier
+                          ? [
+                              { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },
+                              { libelle: "Utiliser comme événement par défaut", aide: "Le par défaut reprend son contenu et garde son code", onClick: () => setVersDefaut(e) },
+                              {
+                                libelle: "Supprimer",
+                                danger: true,
+                                onClick: () => confirm(`Supprimer l'événement « ${e.nom} » et ses cadres ? Son code ne fonctionnera plus.`) && supprimer.mutate(e.id),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </td>
                 </tr>
               );
