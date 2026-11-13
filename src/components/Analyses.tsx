@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useDroits } from "@/lib/perms";
+import { useMoi } from "@/lib/session";
 
 // Pages d'analyse : une seule entrée « Analyses » dans le menu, puis des onglets (retour de Sébastien du 12/11)
 export const PAGES_ANALYSES = [
@@ -19,10 +20,14 @@ export const PERM_ANALYSES = "analyses";
 export const estPageAnalyses = (chemin: string) =>
   chemin === "/analyses" || PAGES_ANALYSES.some((p) => chemin === p.href || chemin.startsWith(`${p.href}/`));
 
-/** Droit d'une entrée de menu, « Analyses » comprise */
+/** Entrée de menu réservée aux super admins (ADMIN_EMAILS côté API), pas une clé Konitys */
+export const PERM_SUPER_ADMIN = "super_admin";
+
+/** Droit d'une entrée de menu, « Analyses » et entrées des super admins comprises */
 export function useVoitMenu() {
   const a = useDroits();
-  return (perm: string) => (perm === PERM_ANALYSES ? PAGES_ANALYSES.some((p) => a(p.perm)) : a(perm));
+  const moi = useMoi();
+  return (perm: string) => (perm === PERM_ANALYSES ? PAGES_ANALYSES.some((p) => a(p.perm)) : perm === PERM_SUPER_ADMIN ? !!moi.superAdmin : a(perm));
 }
 
 /** Onglets en haut des pages d'analyse */

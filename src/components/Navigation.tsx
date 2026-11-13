@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { keycloak } from "@/lib/auth";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
-import { estPageAnalyses, PERM_ANALYSES, useVoitMenu } from "./Analyses";
+import { estPageAnalyses, PERM_ANALYSES, PERM_SUPER_ADMIN, useVoitMenu } from "./Analyses";
 
 // Liens filtrés selon les droits Konitys (une clé pages.<x>.view par entrée)
 const LIENS: { href: string; libelle: string; perm: string }[] = [
@@ -26,6 +26,7 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/prospects", libelle: "Prospects", perm: "pages.prospects.view" },
   { href: "/utilisateurs", libelle: "Utilisateurs", perm: "pages.utilisateurs.view" },
   { href: "/parametres", libelle: "Paramètres", perm: "pages.parametres.view" },
+  { href: "/evenements", libelle: "Événements", perm: PERM_SUPER_ADMIN },
 ];
 
 /** `sousEntete` : sous l'en-tête de la plateforme (téléphone), la barre se colle juste en dessous. */

@@ -9,7 +9,7 @@ import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
 import { chargerPlateforme, PLATEFORME_URL, useTicketsPlateforme, type Plateforme, type Racine18 } from "@/lib/plateforme";
 import { Navigation } from "./Navigation";
-import { estPageAnalyses, OngletsAnalyses, PERM_ANALYSES, useVoitMenu } from "./Analyses";
+import { estPageAnalyses, OngletsAnalyses, PERM_ANALYSES, PERM_SUPER_ADMIN, useVoitMenu } from "./Analyses";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- composants React 18 chargés à l'exécution */
 
@@ -54,6 +54,8 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     liens: [
       { href: "/utilisateurs", libelle: "Utilisateurs", icone: "Users", perm: "pages.utilisateurs.view" },
       { href: "/parametres", libelle: "Paramètres", icone: "Settings", perm: "pages.parametres.view" },
+      // Tous les événements de borne, tous lieux confondus : super admins seulement (13/11)
+      { href: "/evenements", libelle: "Événements", icone: "CalendarDays", perm: PERM_SUPER_ADMIN },
     ],
   },
 ];
