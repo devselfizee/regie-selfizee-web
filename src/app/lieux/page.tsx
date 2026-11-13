@@ -103,8 +103,9 @@ function ListeLieux() {
 
       {!analyse && (
       <>
+      {/* Sept filtres de même largeur sur une ligne (retour du 13/11 : la recherche était trop longue) */}
       <div className="mb-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
-        <label className="sm:col-span-3 lg:col-span-2">
+        <label>
           <span className="etiquette">Recherche</span>
           <input id="lieux-recherche" className="champ" placeholder="Enseigne, raison sociale, ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
         </label>
@@ -148,7 +149,7 @@ function ListeLieux() {
             ))}
           </select>
         </label>
-        <label className="lg:col-start-7 lg:row-start-1">
+        <label>
           <span className="etiquette">Statut</span>
           <select id="lieux-statut" className="champ" value={statut} onChange={(e) => setStatut(e.target.value)}>
             <option value="">Tous (hors prospects)</option>

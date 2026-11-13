@@ -93,7 +93,8 @@ function Bornes() {
       {isPending && !error && <Chargement />}
       {data && !data.length && <Vide>Aucune borne enregistrée.</Vide>}
       {data && data.length > 0 && (
-        <div className="mb-4 grid gap-3 sm:grid-cols-[2fr_1fr_1fr]">
+        // Filtres à droite, de même largeur (retour du 13/11)
+        <div className="mb-4 flex flex-wrap justify-end gap-3 [&>label]:w-full sm:[&>label]:w-48">
           <label className="block">
             <span className="etiquette">Recherche</span>
             <input id="bornes-recherche" className="champ" placeholder="N° de borne (S220), lieu, ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
