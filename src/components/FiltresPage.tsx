@@ -80,12 +80,20 @@ export function useFiltresPage(cleInitiale = "jour") {
 
 export type FiltresPageEtat = ReturnType<typeof useFiltresPage>;
 
-/** Parc, lieu et période, sur la ligne du titre de la page */
-export function FiltresPage({ f, prefixe, onPeriode }: { f: FiltresPageEtat; prefixe: string; onPeriode?: () => void }) {
+/** Granularité de la courbe selon la durée de la période */
+export const granulariteAuto = (du: string, au: string): "jour" | "semaine" | "mois" => {
+  const jours = (new Date(au).getTime() - new Date(du).getTime()) / 86_400_000 + 1;
+  return jours <= 31 ? "jour" : jours <= 120 ? "semaine" : "mois";
+};
+
+/** Parc, lieu et période, sur la ligne du titre de la page ; sansLieu : la période seule (fiche lieu) */
+export function FiltresPage({ f, prefixe, onPeriode, sansLieu = false }: { f: FiltresPageEtat; prefixe: string; onPeriode?: () => void; sansLieu?: boolean }) {
   const { etat, set } = f;
-  const lieux = useQuery({ queryKey: ["lieux", "tdb"], queryFn: () => api<LieuListe[]>("/lieux"), staleTime: 5 * 60_000 });
+  const lieux = useQuery({ queryKey: ["lieux", "tdb"], queryFn: () => api<LieuListe[]>("/lieux"), staleTime: 5 * 60_000, enabled: !sansLieu });
   return (
     <>
+      {!sansLieu && (
+        <>
       <select id={`${prefixe}-parc`} aria-label="Parc" className="champ !w-auto" value={etat.parc} onChange={(e) => set({ parc: e.target.value })} disabled={!!etat.lieuId}>
         <option value="SELFIZEE">Parc Selfizee</option>
         <option value="CLIENT">Parc client</option>
@@ -99,6 +107,8 @@ export function FiltresPage({ f, prefixe, onPeriode }: { f: FiltresPageEtat; pre
           onChange={(lieuId) => set({ lieuId })}
         />
       </div>
+        </>
+      )}
       <select
         id={`${prefixe}-periode`}
         aria-label="Période"

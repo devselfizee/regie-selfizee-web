@@ -7,7 +7,7 @@ import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
 import { Gate, useDroits } from "@/lib/perms";
 import { date, dateHeure, JOURS_SEMAINE, nombre, parametreUrl, telephoneLisible } from "@/lib/format";
-import { Filtres, filtresParDefaut, type ValeursFiltres } from "@/components/Filtres";
+import { FiltresPage, granulariteAuto, useFiltresPage } from "@/components/FiltresPage";
 import { GraphiqueCA } from "@/components/GraphiqueCA";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { SectionCommissions } from "@/components/SectionCommissions";
@@ -30,14 +30,15 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   // Droits Konitys (Admin Panel) : onglets et boutons
   const a = useDroits();
   const voitVentesRole = a("ventes.view");
-  const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
+  // Période comme sur le tableau de bord, sur la ligne du titre (retour de Sébastien du 13/11)
+  const periode = useFiltresPage("30j");
   const [ht, setHt] = usePreferenceHt();
   // « evenements » : ancien nom de l'onglet Configuration (liens déjà partagés)
   const demande = ongletInitial === "evenements" ? "configuration" : ongletInitial;
   const [onglet, setOnglet] = useState<Onglet>(ONGLETS.some((o) => o.cle === demande) ? (demande as Onglet) : "stats");
   const lieu = useQuery({ queryKey: ["lieu", id], queryFn: () => api<LieuFiche>(`/lieux/${id}`) });
-  // Le lieu est déjà choisi : pas de filtre de parc
-  const query = qs({ ...filtres, parc: undefined });
+  // Le lieu est déjà choisi : ni parc ni lieu ; la courbe se découpe selon la durée
+  const query = qs({ du: periode.du, au: periode.au, granularite: granulariteAuto(periode.du, periode.au) });
   const stats = useQuery({
     queryKey: ["stats-lieu", id, query],
     queryFn: () => api<StatsLieu>(`/stats/lieux/${id}${query}`),
@@ -69,8 +70,9 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         actions={
           <>
             {["stats", "comportement", "ventes"].includes(ongletActif) && voitVentes && <BasculeHt ht={ht} onChange={setHt} />}
+            {["stats", "comportement"].includes(ongletActif) && voitVentes && <FiltresPage f={periode} prefixe="fiche" sansLieu />}
             {voitVentes && a("ventes.export") && (
-              <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ ...filtres, parc: undefined, lieuId: id }) }]} />
+              <MenuExport exports={[{ libelle: "Ventes du lieu", chemin: "/export/transactions", requete: qs({ du: periode.du, au: periode.au, lieuId: id }) }]} />
             )}
             <Gate perm="lieux.edit">
               <Link href={`/lieux/${id}/modifier`} className="bouton">Modifier la fiche</Link>
@@ -107,7 +109,6 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
 
       {ongletActif === "stats" && voitVentes && (
         <>
-          <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
           {stats.error && <Erreur erreur={stats.error} />}
           {stats.isPending && !stats.error && <Chargement />}
           {stats.data && <Statistiques s={stats.data} lieuId={id} l={l} ht={ht} requete={query} />}
@@ -118,13 +119,12 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {/* Comportement des invités, à part des statistiques (retour de Sébastien) ; la prévision du mois est dans Statistiques (maquette du 10/11) */}
       {ongletActif === "comportement" && voitVentes && (
         <div>
-          <Filtres valeurs={filtres} onChange={setFiltres} filtresLieu={false} />
           {stats.data && (
             <div className="mb-6">
               <ActiviteSansVente k={stats.data.kpis.courant} />
             </div>
           )}
-          <Comportement lieuId={id} requete={qs({ du: filtres.du, au: filtres.au })} />
+          <Comportement lieuId={id} requete={qs({ du: periode.du, au: periode.au })} />
         </div>
       )}
 
