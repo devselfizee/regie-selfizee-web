@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { api, qs, type LieuFiche, type StatsLieu } from "@/lib/api";
+import { api, qs, type LieuFiche, type ResumeMedias, type StatsLieu } from "@/lib/api";
 import { MenuExport } from "@/components/BoutonExport";
 import { Gate, useDroits } from "@/lib/perms";
 import { date, dateHeure, JOURS_SEMAINE, nombre, parametreUrl, telephoneLisible } from "@/lib/format";
@@ -54,6 +54,13 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
     enabled: a("alertes.ventes_view") || a("alertes.techniques_view"),
   });
 
+  // Onglet Photos : seulement si le lieu a des photos (retour du 13/11) ; même requête que la galerie, partagée
+  const photos = useQuery({
+    queryKey: ["medias-resume", id],
+    queryFn: () => api<ResumeMedias>(`/lieux/${id}/medias/resume`),
+    enabled: a("medias.view") && !!lieu.data && lieu.data.statut !== "PROSPECT",
+  });
+
   if (lieu.error) return <Erreur erreur={lieu.error} />;
   if (!lieu.data) return <Chargement />;
   const l = lieu.data;
@@ -61,7 +68,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = a("commissions.view");
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "photos" ? !prospect && a("medias.view") : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "photos" ? !prospect && a("medias.view") && (photos.data?.total ?? 0) > 0 : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
