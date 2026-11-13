@@ -80,7 +80,7 @@ function Historique() {
   return (
     <>
       <EnTete
-        titre="Historique"
+        titre="Timeline"
         sousTitre={`Tout ce qui s'est passé · ${f.du === f.au ? `le ${jour(f.du)}` : `du ${jour(f.du)} au ${jour(f.au)}`}${historique.isFetching ? " · mise à jour…" : ""}`}
         actions={
           <>
@@ -184,7 +184,7 @@ function Historique() {
                 {historique.isFetchingNextPage ? "Chargement…" : "Charger la suite"}
               </button>
             ) : (
-              <p className="text-xs text-ink-muted">Fin de l&apos;historique sur cette période.</p>
+              <p className="text-xs text-ink-muted">Fin de la timeline sur cette période.</p>
             )}
           </div>
         </div>

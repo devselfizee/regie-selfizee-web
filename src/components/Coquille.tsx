@@ -25,7 +25,7 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
       { href: "/papier", libelle: "État papier", icone: "Printer", perm: "pages.papier.view" },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", perm: "pages.alertes.view" },
       // Chronologie de tout : téléchargements, publications, actions, alertes, bornes (retour du 14/11)
-      { href: "/historique", libelle: "Historique", icone: "History", perm: "bornes.view" },
+      { href: "/historique", libelle: "Timeline", icone: "History", perm: "bornes.view" },
       // Mentions : dans la cloche de la plateforme (notifications), plus de page dédiée
     ],
   },
