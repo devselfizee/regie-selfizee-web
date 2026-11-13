@@ -350,7 +350,10 @@ function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: s
                 {m.vente ? (
                   <>
                     {euros(m.vente.montantTtcCents)} · {libelleMoyen(m.vente.moyenPaiement, m.vente.statut)} · {m.vente.statut.toLowerCase()}
-                    <span className="block text-xs text-ink-muted">{dateHeure(m.vente.horodatage)}</span>
+                    <span className="block text-xs text-ink-muted">
+                      {dateHeure(m.vente.horodatage)}
+                      {m.vente.approximatif && <span title="Sans identifiant de séance : le paiement de cette borne juste après la prise de vue"> · rapprochée par l&apos;heure</span>}
+                    </span>
                   </>
                 ) : m.photoUuid ? (
                   <span className="text-ink-muted">Aucune vente</span>

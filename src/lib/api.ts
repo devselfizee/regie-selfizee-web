@@ -1123,7 +1123,8 @@ export interface MediaDetail extends MediaResume {
   derniereErreur: string | null;
   /** JSON de la séance : ABSENT (PikCloud n'a envoyé que la photo), A_TELECHARGER, TELECHARGE ou ERREUR */
   dataStatut?: "ABSENT" | "A_TELECHARGER" | "TELECHARGE" | "ERREUR";
-  vente: { id: string; horodatage: string; statut: string; montantTtcCents: number; moyenPaiement: string; nbTirages: number; produitLibelle: string | null } | null;
+  /** Par photo_uuid, ou à défaut le paiement de la même borne juste après la prise de vue (approximatif) */
+  vente: { id: string; horodatage: string; statut: string; montantTtcCents: number; moyenPaiement: string; nbTirages: number; produitLibelle: string | null; approximatif?: boolean } | null;
   parcours: { id: string; issue: string; dureeS: number; tirages: number } | null;
 }
 
