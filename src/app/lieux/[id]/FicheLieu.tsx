@@ -294,15 +294,16 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
 }
 
 type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration" | "souvenir";
+// Ordre demandé par Sébastien le 13/11
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
-  { cle: "comportement", libelle: "Comportement" },
   { cle: "ventes", libelle: "Ventes" },
   { cle: "infos", libelle: "Informations" },
-  { cle: "suivi", libelle: "Suivi" },
-  { cle: "commissions", libelle: "Commissions" },
   // La borne du lieu : infos et tarif repris par chaque événement, puis les événements
   { cle: "configuration", libelle: "Configuration" },
+  { cle: "suivi", libelle: "Suivi" },
+  { cle: "commissions", libelle: "Commissions" },
+  { cle: "comportement", libelle: "Comportements" },
   // Ce que les invités font de la page de leur QR : entonnoir et contacts opt-in lieu
   { cle: "souvenir", libelle: "Page souvenir" },
 ];
