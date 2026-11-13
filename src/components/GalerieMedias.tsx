@@ -355,7 +355,14 @@ function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: s
                 ) : m.photoUuid ? (
                   <span className="text-ink-muted">Aucune vente</span>
                 ) : (
-                  <span className="text-ink-muted">JSON de séance pas encore reçu</span>
+                  // Sans le JSON de la séance, pas de photo_uuid : ni vente, ni parcours, ni page souvenir (retour de Seb du 13/11)
+                  <span className="text-ink-muted">
+                    {m.dataStatut === "ERREUR"
+                      ? `JSON de la séance illisible ou introuvable chez PikCloud${m.derniereErreur ? ` : ${m.derniereErreur}` : ""}`
+                      : m.dataStatut === "A_TELECHARGER"
+                        ? "JSON de la séance annoncé par PikCloud, téléchargement en cours"
+                        : "PikCloud n'a envoyé que la photo, pas le JSON de la séance : la vente ne peut pas être retrouvée"}
+                  </span>
                 )}
               </Ligne>
               {m.parcours && <Ligne l="Parcours invité">{m.parcours.issue} · {m.parcours.dureeS} s</Ligne>}

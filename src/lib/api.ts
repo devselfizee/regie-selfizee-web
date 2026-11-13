@@ -1121,6 +1121,8 @@ export interface MediaDetail extends MediaResume {
   sha256: string | null;
   telechargeLe: string | null;
   derniereErreur: string | null;
+  /** JSON de la séance : ABSENT (PikCloud n'a envoyé que la photo), A_TELECHARGER, TELECHARGE ou ERREUR */
+  dataStatut?: "ABSENT" | "A_TELECHARGER" | "TELECHARGE" | "ERREUR";
   vente: { id: string; horodatage: string; statut: string; montantTtcCents: number; moyenPaiement: string; nbTirages: number; produitLibelle: string | null } | null;
   parcours: { id: string; issue: string; dureeS: number; tirages: number } | null;
 }
