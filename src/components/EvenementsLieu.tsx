@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useState, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
 import { euros, jour } from "@/lib/format";
 import { usePerm } from "@/lib/perms";
-import { affiche, duAu, etatPublication, instants, maintenantParis, periode, type Periode } from "@/lib/programmation";
+import { affiche, duAu, etatPublication, instants, maintenantParis, periode } from "@/lib/programmation";
 import { Badge, Erreur } from "./Etat";
 import { MenuActions } from "./MenuActions";
 import { Modale } from "./Modale";
@@ -146,52 +146,55 @@ export function Publication({ e, maintenant }: { e: EvenementPonctuel; maintenan
   const etat = etatPublication(e, maintenant);
   if (etat === "brouillon") return <Badge ton="neutre">Brouillon</Badge>;
   if (etat === "jamais") return <Badge ton="warn">Jamais publié</Badge>;
-  const le = e.publieeLe ? new Date(e.publieeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" }) : "";
+  return <EtatPublie version={e.version} publieeLe={e.publieeLe} modifie={e.modifieDepuisPublication} />;
+}
+
+/** « Publié » ou « À publier » (modifié depuis) ; version et date au survol. */
+function EtatPublie({ version, publieeLe, modifie }: { version: number; publieeLe: string | null; modifie: boolean }) {
+  const le = publieeLe ? new Date(publieeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" }) : "";
+  const detail = `Version ${version} publiée le ${le}${modifie ? " · modifié depuis, à republier" : ""}`;
   return (
-    <span className="flex flex-wrap items-center gap-1">
-      <Badge ton="ok">Publié · v{e.version} du {le}</Badge>
-      {e.modifieDepuisPublication && <Badge ton="warn">Modifications non publiées</Badge>}
+    <span title={detail} className="w-fit">
+      {modifie ? <Badge ton="warn">À publier</Badge> : <Badge ton="ok">Publié</Badge>}
     </span>
   );
 }
 
 type Filtre = "avenir" | "passes" | "tous";
-const MOTS: Record<Periode, string> = { "en-cours": "en cours", "a-venir": "à venir", passe: "passé" };
 const sansAccents = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-const moisFmt = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" });
-const mois = (ymd: string) => moisFmt.format(new Date(`${ymd.slice(0, 7)}-01T00:00:00Z`));
 const COLONNES = 5;
-const TITRE_GROUPE = "px-3 pt-5 pb-2 text-left text-xs font-semibold tracking-wider text-ink-2 uppercase";
+const LIGNE = "cursor-pointer border-b border-line/60 hover:bg-surface-2";
+const CODE = "ml-2 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold whitespace-nowrap text-ink-2";
 
-/** Tarifs pratiqués, sur une ligne : « 3,50 € · ★ dès 2 : 3,00 € · dès 3 : 2,50 € · +1 pote : 2,00 € ». */
+/**
+ * Tarifs pratiqués, en court : les prix des paliers (« 3,50 · 3,00 · 2,50 € », celui mis en avant en couleur) ; le
+ * détail (paliers, +1 pour un pote, origine) au survol.
+ */
 export function TarifsCourts({ grille: g, herite }: { grille: GrilleTarifs; herite: boolean }) {
-  const cases = g.paliers.map((p) => ({ cle: `${p.de}`, libelle: p.de === 1 ? null : `dès ${p.de}`, prix: euros(p.prixCents), avant: g.palierMisEnAvant === p.de }));
-  if (g.plusUnCents) cases.push({ cle: "pote", libelle: "+1 pote", prix: euros(g.plusUnCents), avant: false });
+  const detail = [
+    ...g.paliers.map((p) => `${p.de === 1 ? "1 tirage" : `dès ${p.de}`} : ${euros(p.prixCents)}${g.palierMisEnAvant === p.de ? " (mis en avant)" : ""}`),
+    ...(g.plusUnCents ? [`+1 pour un pote : ${euros(g.plusUnCents)}`] : []),
+    herite ? "tarifs du lieu" : "tarifs propres à l'événement",
+  ].join(" · ");
+  const prix = (c: number) => (c / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return (
-    <span className="flex items-center gap-x-2 text-xs whitespace-nowrap" title={herite ? "Tarifs du lieu" : "Tarifs propres à l'événement"}>
-      {cases.map((c, i) => (
-        <span key={c.cle} className="whitespace-nowrap">
-          {i > 0 && <span aria-hidden className="mr-2 text-ink-muted">·</span>}
-          {c.libelle && <span className={c.avant ? "font-semibold text-accent" : "text-ink-2"}>{c.avant ? `★ ${c.libelle}` : c.libelle} : </span>}
-          <span className="tabular font-semibold">{c.prix}</span>
+    <span className="tabular text-sm whitespace-nowrap" title={detail}>
+      {g.paliers.map((p, i) => (
+        <span key={p.de}>
+          {i > 0 && <span className="text-ink-muted"> · </span>}
+          <span className={g.palierMisEnAvant === p.de ? "font-semibold text-accent" : ""}>{prix(p.prixCents)}</span>
         </span>
-      ))}
-      {herite && <span className="text-ink-muted">(lieu)</span>}
+      ))}{" "}
+      €
     </span>
   );
 }
 
 /** État de publication de l'événement par défaut. */
 function PublicationDefaut({ d }: { d: FicheEvenementLieu }) {
-  if (!d.enregistre) return <Badge ton="warn">Pas encore enregistré</Badge>;
+  if (!d.enregistre) return <Badge ton="warn">Pas enregistré</Badge>;
   if (d.version === 0) return <Badge ton="warn">Jamais publié</Badge>;
-  const le = d.publieeLe ? new Date(d.publieeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" }) : "";
-  return (
-    <span className="flex flex-wrap items-center gap-1">
-      <Badge ton="ok">Publié · v{d.version} du {le}</Badge>
-      {d.modifieDepuisPublication && <Badge ton="warn">Modifications non publiées</Badge>}
-    </span>
-  );
+  return <EtatPublie version={d.version} publieeLe={d.publieeLe} modifie={d.modifieDepuisPublication} />;
 }
 
 /**
@@ -256,12 +259,11 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
   const visibles = (q ? liste.filter((e) => sansAccents(`${e.nom} ${e.code}`).includes(q)) : filtre === "avenir" ? aVenir : filtre === "passes" ? passes : liste)
     .slice()
     .sort((a, b) => (filtre === "passes" && !q ? -1 : 1) * instants(a).debut.localeCompare(instants(b).debut));
-  const groupes: { mois: string; evenements: EvenementPonctuel[] }[] = [];
-  for (const e of visibles) {
-    const m = mois(e.dateDebut);
-    if (groupes.at(-1)?.mois !== m) groupes.push({ mois: m, evenements: [] });
-    groupes.at(-1)!.evenements.push(e);
-  }
+  const router = useRouter();
+  // La ligne entière ouvre l'événement (sauf un clic sur un lien, un bouton ou le menu)
+  const ouvrir = (ev: MouseEvent, page: string) => {
+    if (!(ev.target as HTMLElement).closest("a, button, [role=menu]")) router.push(page);
+  };
   const copier = (e: EvenementPonctuel) => setCopie({ eid: e.id, nom: e.nom, dateDebut: e.dateDebut, dateFin: e.dateFin, heureDebut: e.heureDebut, heureFin: e.heureFin });
 
   return (
@@ -304,99 +306,74 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
           <thead>
             <tr className="text-left text-xs text-ink-2">
               <th className="px-3 py-3 font-medium">Événement</th>
-              <th className="px-3 py-3 font-medium">Du … au …</th>
-              <th className="px-3 py-3 font-medium">Tarifs pratiqués</th>
+              <th className="px-3 py-3 font-medium">Quand</th>
+              <th className="px-3 py-3 font-medium">Tarifs</th>
               <th className="px-3 py-3 font-medium">Publication</th>
               <th className="px-3"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
             {!q && (
-              <>
-                <tr>
-                  <th colSpan={COLONNES} scope="colgroup" className={TITRE_GROUPE}>Par défaut</th>
-                </tr>
-                <tr className="bg-[#0E9F8A]/[0.06]">
-                  <td className="rounded-l-lg border-l-4 border-l-[#0E9F8A] px-3 py-2.5 whitespace-nowrap">
-                    <Link href={pageEvenement(lieuId)} className="font-semibold text-accent underline underline-offset-2 hover:opacity-80">Par défaut</Link>
-                    {defaut.code && <span className="ml-2 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold" title="Code à taper sur la borne">{defaut.code}</span>}
-                  </td>
-                  <td className="px-3 py-2.5 whitespace-nowrap">
-                    <span className="text-ink-2" title="Affiché quand aucun événement personnalisé n'est programmé">Hors programmation</span>
-                    {defautAffiche && <span className="ml-1.5 font-semibold">en ce moment</span>}
-                  </td>
-                  <td className="px-3 py-2.5"><TarifsCourts grille={defaut.reglages.tarifs} herite={defaut.reglages.tarifs.herite} /></td>
-                  <td className="px-3 py-2.5"><PublicationDefaut d={defaut} /></td>
-                  <td className="rounded-r-lg px-3 py-2.5">
-                    <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                      <Link href={pageEvenement(lieuId)} className="font-medium text-accent hover:underline">Ouvrir →</Link>
-                      {peutModifier && defaut.enregistre ? (
-                        <MenuActions
-                          libelle="Actions sur l'événement par défaut"
-                          actions={[{ libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie({ eid: null, nom: "Événement par défaut" }) }]}
-                        />
-                      ) : (
-                        <span className="w-8" />
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              </>
+              <tr className={`${LIGNE} bg-[#0E9F8A]/[0.06]`} onClick={(ev) => ouvrir(ev, pageEvenement(lieuId))}>
+                <td className="rounded-l-lg border-l-4 border-l-[#0E9F8A] px-3 py-2.5 whitespace-nowrap">
+                  <Link href={pageEvenement(lieuId)} className="font-semibold text-ink hover:text-accent">Par défaut</Link>
+                  {defaut.code && <span className={CODE} title="Code à taper sur la borne">{defaut.code}</span>}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  <span className="text-ink-2" title="Affiché quand aucun événement personnalisé n'est programmé">Hors programmation</span>
+                  {defautAffiche && <span className="ml-1.5 font-semibold">· en ce moment</span>}
+                </td>
+                <td className="px-3 py-2.5"><TarifsCourts grille={defaut.reglages.tarifs} herite={defaut.reglages.tarifs.herite} /></td>
+                <td className="px-3 py-2.5"><PublicationDefaut d={defaut} /></td>
+                <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
+                  {peutModifier && defaut.enregistre && (
+                    <MenuActions
+                      libelle="Actions sur l'événement par défaut"
+                      actions={[{ libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => setCopie({ eid: null, nom: "Événement par défaut" }) }]}
+                    />
+                  )}
+                </td>
+              </tr>
             )}
             <tr>
-              <th colSpan={COLONNES} scope="colgroup" className={TITRE_GROUPE}>
-                {q ? "Recherche" : `Personnalisés · ${filtre === "avenir" ? "en cours et à venir" : filtre === "passes" ? "passés" : "tous"}`}
+              <th colSpan={COLONNES} scope="colgroup" className="px-3 pt-4 pb-1.5 text-left text-xs font-medium text-ink-muted">
+                {q ? "Résultats de la recherche" : "Personnalisés"}
               </th>
             </tr>
-            {groupes.map((g) => (
-              <Fragment key={g.mois}>
-                <tr>
-                  <th colSpan={COLONNES} scope="colgroup" className="px-3 pt-3 pb-1.5 text-left text-xs font-medium text-ink-muted first-letter:uppercase">{g.mois}</th>
+            {visibles.map((e) => {
+              const p = periode(e, maintenant);
+              return (
+                <tr key={e.id} className={LIGNE} onClick={(ev) => ouvrir(ev, pageEvenement(lieuId, e.id))}>
+                  <td className="rounded-l-lg px-3 py-2.5">
+                    <Link href={pageEvenement(lieuId, e.id)} className="font-medium text-ink hover:text-accent">{e.nom}</Link>
+                    <span className={CODE} title="Code à taper sur la borne">{e.code}</span>
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap">
+                    <span className="tabular">{duAu(e)}</span>
+                    {p === "en-cours" && <span className="ml-1.5 font-semibold">· en cours</span>}
+                    {p === "passe" && <span className="ml-1.5 text-ink-muted">· passé</span>}
+                  </td>
+                  <td className="px-3 py-2.5"><TarifsCourts grille={e.tarifs} herite={e.tarifsHerites} /></td>
+                  <td className="px-3 py-2.5"><Publication e={e} maintenant={maintenant} /></td>
+                  <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
+                    {peutModifier && (
+                      <MenuActions
+                        libelle={`Actions sur ${e.nom}`}
+                        actions={[
+                          { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },
+                          { libelle: "Utiliser comme événement par défaut", aide: "Le par défaut reprend son contenu et garde son code", onClick: () => setVersDefaut(e) },
+                          {
+                            libelle: "Supprimer",
+                            danger: true,
+                            onClick: () => confirm(`Supprimer l'événement « ${e.nom} » et ses cadres ? Son code ne fonctionnera plus.`) && supprimer.mutate(e.id),
+                          },
+                        ]}
+                      />
+                    )}
+                  </td>
                 </tr>
-                {g.evenements.map((e, i) => {
-                  const p = periode(e, maintenant);
-                  const fond = i % 2 ? "bg-surface-2" : "";
-                  return (
-                    <tr key={e.id} className={fond}>
-                      <td className="rounded-l-lg px-3 py-2.5">
-                        <Link href={pageEvenement(lieuId, e.id)} className="font-medium text-accent underline underline-offset-2 hover:opacity-80">{e.nom}</Link>
-                        <span className="ml-2 rounded-md bg-surface-2 px-2 py-0.5 font-mono text-xs font-bold whitespace-nowrap" title="Code à taper sur la borne">{e.code}</span>
-                      </td>
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className="tabular">{duAu(e)}</span>{" "}
-                        <span className={p === "en-cours" ? "ml-1 font-semibold" : "ml-1 text-ink-muted"}>{MOTS[p]}</span>
-                      </td>
-                      <td className="px-3 py-2.5"><TarifsCourts grille={e.tarifs} herite={e.tarifsHerites} /></td>
-                      <td className="px-3 py-2.5"><Publication e={e} maintenant={maintenant} /></td>
-                      <td className="rounded-r-lg px-3 py-2.5">
-                        <div className="flex items-center justify-end gap-4 whitespace-nowrap">
-                          {p === "passe" && peutModifier && (
-                            <button type="button" className="font-medium text-accent hover:underline" aria-haspopup="dialog" onClick={() => copier(e)}>Dupliquer</button>
-                          )}
-                          <Link href={pageEvenement(lieuId, e.id)} className="font-medium text-accent hover:underline">Ouvrir →</Link>
-                          {peutModifier ? (
-                            <MenuActions
-                              libelle={`Actions sur ${e.nom}`}
-                              actions={[
-                                { libelle: "Dupliquer", aide: "Mêmes cadres, tarifs et options", onClick: () => copier(e) },
-                                { libelle: "Utiliser comme événement par défaut", aide: "Le par défaut reprend son contenu et garde son code", onClick: () => setVersDefaut(e) },
-                                {
-                                  libelle: "Supprimer",
-                                  danger: true,
-                                  onClick: () => confirm(`Supprimer l'événement « ${e.nom} » et ses cadres ? Son code ne fonctionnera plus.`) && supprimer.mutate(e.id),
-                                },
-                              ]}
-                            />
-                          ) : (
-                            <span className="w-8" />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </Fragment>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
