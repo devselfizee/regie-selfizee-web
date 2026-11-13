@@ -301,6 +301,7 @@ function Formulaire({ lieu, refs, statut }: { lieu?: LieuFiche; refs: Referentie
         {select("parc", "Parc", [
           { value: "SELFIZEE", label: "Parc Selfizee" },
           { value: "CLIENT", label: "Parc client (location financière) : ses bornes et ses ventes sortent des stats Selfizee" },
+          { value: "TEST", label: "Parc test : lieu et bornes d'essai, hors de toutes les statistiques" },
         ], true)}
         {select("papierSurPlace", "Changement du papier", [
           { value: "NON", label: "Par Selfizee (technicien)" },

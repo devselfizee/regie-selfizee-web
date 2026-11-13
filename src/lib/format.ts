@@ -118,7 +118,7 @@ export const GRATUITES: Record<string, string> = {
 };
 
 /** Parc d'un lieu ou d'une borne (les stats montrent le parc Selfizee par défaut) */
-export const PARCS: Record<string, string> = { SELFIZEE: "Parc Selfizee", CLIENT: "Parc client" };
+export const PARCS: Record<string, string> = { SELFIZEE: "Parc Selfizee", CLIENT: "Parc client", TEST: "Parc test" };
 
 /**
  * Met un paramètre dans l'adresse sans recharger la page (onglet, étape, rubrique) :

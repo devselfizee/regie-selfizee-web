@@ -172,7 +172,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             )}
             <Info l="Vacances scolaires">{l.zoneScolaire ? (l.zoneScolaire === "CORSE" ? "Corse" : `Zone ${l.zoneScolaire}`) : <span className="text-ink-muted">code postal manquant</span>}</Info>
             <Info l="Papier">{l.papierSurPlace ? "Changé sur place par le lieu" : "Changé par Selfizee"}</Info>
-            <Info l="Parc">{l.parc === "CLIENT" ? "Parc client (location financière)" : "Parc Selfizee"}</Info>
+            <Info l="Parc">{l.parc === "CLIENT" ? "Parc client (location financière)" : l.parc === "TEST" ? "Parc test (hors des statistiques)" : "Parc Selfizee"}</Info>
             <Info l="Standing">{l.standing?.libelle ?? "—"}</Info>
             <Info l="Clientèle">{l.clienteles.map((c) => c.libelle).join(", ") || "—"}</Info>
             <Info l="Capacité">{l.capaciteAccueil ? nombre(l.capaciteAccueil) : "—"}</Info>

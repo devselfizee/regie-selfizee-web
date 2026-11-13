@@ -8,6 +8,7 @@ import { useDroits } from "@/lib/perms";
 export const PAGES_ANALYSES = [
   { href: "/comportements", libelle: "Comportements", perm: "pages.comportements.view" },
   { href: "/par-heure", libelle: "Par heure", perm: "pages.comportements.view" },
+  { href: "/analyses/paiements", libelle: "Paiements", perm: "pages.paiements.view" },
   { href: "/analyse", libelle: "Segments", perm: "pages.analyse.view" },
   { href: "/lieux/carte", libelle: "Géographique", perm: "pages.analyse_geo.view" },
 ];

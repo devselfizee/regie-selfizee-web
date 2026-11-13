@@ -111,6 +111,7 @@ function Bornes() {
               <option value="">Tous</option>
               <option value="SELFIZEE">Parc Selfizee</option>
               <option value="CLIENT">Parc client</option>
+              <option value="TEST">Parc test</option>
             </select>
           </label>
         </div>
@@ -148,6 +149,7 @@ function Bornes() {
                     <div className="text-xs text-ink-muted">
                       {b.gamme.libelle} · {STATUTS[b.statut] ?? b.statut}
                       {b.lieuActuel?.parc === "CLIENT" && " · parc client"}
+                      {b.lieuActuel?.parc === "TEST" && " · parc test"}
                       {b.logicielVersion && ` · v${b.logicielVersion}`}
                     </div>
                   </td>

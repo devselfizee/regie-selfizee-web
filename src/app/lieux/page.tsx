@@ -136,6 +136,7 @@ function ListeLieux() {
             <option value="">Tous</option>
             <option value="SELFIZEE">Parc Selfizee</option>
             <option value="CLIENT">Parc client</option>
+            <option value="TEST">Parc test</option>
           </select>
         </label>
         <label>
@@ -195,7 +196,7 @@ function ListeLieux() {
                     {l.departement && <div className="text-xs text-ink-muted">{libelleDepartement(l.departement)}</div>}
                   </td>
                   <td className="px-4 py-3 text-ink-2">{l.antenne?.libelle ?? <span className="text-ink-muted">—</span>}</td>
-                  <td className="px-4 py-3">{l.parc === "CLIENT" ? <Badge ton="neutre">Client</Badge> : <span className="text-ink-2">Selfizee</span>}</td>
+                  <td className="px-4 py-3">{l.parc === "CLIENT" ? <Badge ton="neutre">Client</Badge> : l.parc === "TEST" ? <Badge ton="warn">Test</Badge> : <span className="text-ink-2">Selfizee</span>}</td>
                   <td className="px-4 py-3 text-ink-2">
                     {l.typeLieu.libelle}
                     {l.saisonnalite === "SAISONNIER" && <span className="text-ink-muted"> · saisonnier</span>}

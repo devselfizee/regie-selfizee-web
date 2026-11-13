@@ -129,6 +129,7 @@ export function Filtres({
             <select className="champ" value={valeurs.parc ?? ""} onChange={(e) => set({ parc: e.target.value || undefined })}>
               <option value="SELFIZEE">Parc Selfizee</option>
               <option value="CLIENT">Parc client</option>
+              <option value="TEST">Parc test</option>
               <option value="">Tout</option>
             </select>
           </label>

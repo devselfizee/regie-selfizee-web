@@ -186,6 +186,7 @@ export function AnalyseLieux() {
           <select id="analyse-lieux-parc" className="champ" value={parc} onChange={(e) => setParc(e.target.value)}>
             <option value="SELFIZEE">Parc Selfizee</option>
             <option value="CLIENT">Parc client</option>
+            <option value="TEST">Parc test</option>
             <option value="">Tout</option>
           </select>
         </label>

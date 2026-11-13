@@ -202,6 +202,7 @@ export function ListePaiements({ lieuIdFixe, initial, ht: htFiche }: { lieuIdFix
             <select id="paiements-parc" className="champ" value={f.parc} onChange={(e) => changer("parc")(e.target.value)}>
               <option value="SELFIZEE">Selfizee</option>
               <option value="CLIENT">Client</option>
+              <option value="TEST">Test</option>
               <option value="">Tout</option>
             </select>
           </label>

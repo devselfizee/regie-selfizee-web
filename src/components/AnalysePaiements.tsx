@@ -6,10 +6,10 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, qs } from "@/lib/api";
 import { eurosRond, jour, nombre, pct } from "@/lib/format";
 import { Chargement, EnTete, Erreur, Section } from "./Etat";
-import { Filtres, filtresParDefaut, type ValeursFiltres } from "./Filtres";
+import { FiltresPage, useFiltresPage } from "./FiltresPage";
 import { KpiCouleur } from "./KpiCouleur";
 
-// Page Paiements, onglet Analyse (maquette paiements.html) : ce qui se passe entre l'appui sur « Payer » et le tirage.
+// Analyses → Paiements (maquette paiements.html) : ce qui se passe entre l'appui sur « Payer » et le tirage.
 // Unité : la demande de paiement, une par séance. Chiffres calculés par l'API (/stats/paiements-analyse).
 
 // ─── Types (miroir de api/src/stats/analysePaiements.ts) ───
@@ -99,10 +99,10 @@ const pluriel = (n: number, mot: string) => `${nombre(n)} ${mot}${n > 1 ? "s" : 
 const tranche = (h: number) => `${h} h – ${(h + 2) % 24} h`;
 
 export function AnalysePaiements() {
-  const [filtres, setFiltres] = useState<ValeursFiltres>(filtresParDefaut);
+  // Mêmes filtres que le tableau de bord, sur la ligne du titre (retour de Sébastien du 13/11)
+  const f = useFiltresPage("30j");
   const [borneId, setBorneId] = useState("");
-  // La granularité ne sert pas ici
-  const requete = qs({ ...filtres, granularite: undefined, borneId });
+  const requete = qs({ du: f.du, au: f.au, lieuId: f.lieuId, parc: f.parc, borneId: borneId || undefined });
   const { data, error, isPending, isFetching } = useQuery({
     queryKey: ["paiements-analyse", requete],
     queryFn: () => api<AnalyseDesPaiements>(`/stats/paiements-analyse${requete}`),
@@ -112,9 +112,10 @@ export function AnalysePaiements() {
   return (
     <>
       <EnTete
-        titre="Paiements"
-        sousTitre={`Du ${jour(filtres.du)} au ${jour(filtres.au)}${isFetching ? " · mise à jour…" : ""}`}
+        titre="Analyse des paiements"
+        sousTitre={`${f.du === f.au ? `Le ${jour(f.du)}` : `Du ${jour(f.du)} au ${jour(f.au)}`}${isFetching ? " · mise à jour…" : ""}`}
         actions={
+          <div className="flex flex-wrap items-center justify-end gap-2">
           <label>
             <span className="sr-only">Borne</span>
             <select className="champ !w-auto" value={borneId} onChange={(e) => setBorneId(e.target.value)}>
@@ -124,9 +125,10 @@ export function AnalysePaiements() {
               ))}
             </select>
           </label>
+          <FiltresPage f={f} prefixe="ap" />
+          </div>
         }
       />
-      <Filtres valeurs={filtres} onChange={setFiltres} />
       {error ? <Erreur erreur={error} /> : isPending ? <Chargement /> : <Contenu data={data} />}
     </>
   );

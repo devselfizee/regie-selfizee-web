@@ -103,6 +103,7 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
             {v.carteTest && <Badge ton="warn">Carte de test · {v.carteTest} : hors chiffres</Badge>}
             {gratuite && <Badge ton="neutre">Sans action{v.gratuite ? ` — ${GRATUITES[v.gratuite] ?? v.gratuite.toLowerCase()}` : ""}</Badge>}
             {v.lieu?.parc === "CLIENT" && <Badge ton="neutre">Parc client</Badge>}
+            {v.lieu?.parc === "TEST" && <Badge ton="warn">Parc test</Badge>}
           </div>
         </div>
 

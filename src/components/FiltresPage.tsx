@@ -97,6 +97,7 @@ export function FiltresPage({ f, prefixe, onPeriode, sansLieu = false }: { f: Fi
       <select id={`${prefixe}-parc`} aria-label="Parc" className="champ !w-auto" value={etat.parc} onChange={(e) => set({ parc: e.target.value })} disabled={!!etat.lieuId}>
         <option value="SELFIZEE">Parc Selfizee</option>
         <option value="CLIENT">Parc client</option>
+        <option value="TEST">Parc test</option>
         <option value="">Tous les parcs</option>
       </select>
       <div className="w-72 max-w-full">

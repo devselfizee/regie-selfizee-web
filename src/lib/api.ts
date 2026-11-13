@@ -304,7 +304,7 @@ export interface BorneListe {
 }
 
 /** Parc Selfizee, ou parc d'un client en location financière */
-export type Parc = "SELFIZEE" | "CLIENT";
+export type Parc = "SELFIZEE" | "CLIENT" | "TEST";
 
 export interface ErreurImport {
   id: string;

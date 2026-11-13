@@ -1,11 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { PageGuard } from "@/lib/perms";
-import { parametreUrl } from "@/lib/format";
 import { ListePaiements } from "@/components/ListePaiements";
-import { AnalysePaiements } from "@/components/AnalysePaiements";
 
 export default function PagePaiements() {
   return (
@@ -17,35 +15,15 @@ export default function PagePaiements() {
   );
 }
 
-const ONGLETS = [
-  { cle: "liste", libelle: "Liste" },
-  { cle: "analyse", libelle: "Analyse" },
-] as const;
-type Onglet = (typeof ONGLETS)[number]["cle"];
-
-// ?cartes=test&q=1234 : lien depuis Paramètres → Cartes de test ; ?onglet=analyse : onglet Analyse
+// ?cartes=test&q=1234 : lien depuis Paramètres → Cartes de test. L'analyse est dans Analyses → Paiements (retour du 13/11) :
+// ?onglet=analyse (anciens liens) y mène.
 function Paiements() {
   const p = useSearchParams();
-  const [onglet, setOnglet] = useState<Onglet>(p.get("onglet") === "analyse" ? "analyse" : "liste");
-  return (
-    <>
-      <nav className="mb-4 flex gap-1 border-b border-line" aria-label="Vues des paiements">
-        {ONGLETS.map((o) => (
-          <button
-            key={o.cle}
-            type="button"
-            aria-current={onglet === o.cle ? "page" : undefined}
-            onClick={() => {
-              setOnglet(o.cle);
-              parametreUrl("onglet", o.cle === "liste" ? null : o.cle);
-            }}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${onglet === o.cle ? "border-accent text-accent" : "border-transparent text-ink-2 hover:text-ink"}`}
-          >
-            {o.libelle}
-          </button>
-        ))}
-      </nav>
-      {onglet === "liste" ? <ListePaiements initial={{ q: p.get("q") ?? undefined, cartes: p.get("cartes") ?? undefined }} /> : <AnalysePaiements />}
-    </>
-  );
+  const router = useRouter();
+  const analyse = p.get("onglet") === "analyse";
+  useEffect(() => {
+    if (analyse) router.replace("/analyses/paiements");
+  }, [analyse, router]);
+  if (analyse) return null;
+  return <ListePaiements initial={{ q: p.get("q") ?? undefined, cartes: p.get("cartes") ?? undefined }} />;
 }
