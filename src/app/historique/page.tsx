@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { api, qs, type LieuListe } from "@/lib/api";
 import { jour } from "@/lib/format";
@@ -10,13 +10,23 @@ import { Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
 import { ChoixLieu } from "@/components/ChoixLieu";
 import { PERIODES, useFiltresPage } from "@/components/FiltresPage";
 
-// Historique de la Régie (retour du 14/11) : une seule chronologie, du plus récent au plus ancien, de tout ce qui est
-// déjà enregistré : téléchargements d'événements par les bornes, publications, actions des utilisateurs, alertes,
-// envois refusés des bornes. Filtres par type (cases), lieu et période. L'API fusionne les sources à la lecture et
-// rend la suite par curseur (« Charger la suite ») : pas de total, la page reste rapide quel que soit le volume.
+// Timeline de la Régie : une seule chronologie, du plus récent au plus ancien, de tout ce qui est déjà enregistré
+// (téléchargements d'événements par les bornes, publications, actions des utilisateurs, alertes, envois refusés des
+// bornes). Filtres par type, lieu et période. L'API fusionne les sources à la lecture et rend la suite par curseur.
+//
+// Deux vues (retour du 14/11, « encore le bazar ») :
+// - Résumé (par défaut) : ce qui est de même nature est regroupé, avec son nombre. Les étapes d'un téléchargement
+//   (demandé, envoyé, téléchargé, installé) tiennent sur UNE ligne avec son état ; une même chose qui se répète dans la
+//   journée (une borne refusée toutes les cinq minutes, dix modifications du même lieu) tient sur une ligne, avec
+//   « × 12 » et la plage horaire.
+// - Détail : une ligne par enregistrement, sans regroupement.
+// Colonnes fixes : heure, icône du type (couleur : fait, à regarder, problème), quoi, puis où à droite : la borne ET
+// son lieu (« C113 » seul ne dit rien).
 
 type Type = "telechargement" | "publication" | "utilisateur" | "alerte" | "borne";
 type Ton = "info" | "ok" | "attention" | "critique";
+type Etape = "DEMANDE" | "ENVOYE" | "TELECHARGE" | "INSTALLE" | "ECHEC";
+type Vue = "resume" | "detail";
 interface Ligne {
   cle: string;
   type: Type;
@@ -28,6 +38,7 @@ interface Ligne {
   borne: { id: number | null; identifiant: string } | null;
   utilisateur: string | null;
   evenement: { id: number; lieuId: number; parDefaut: boolean; nom: string | null; code: string } | null;
+  telechargement?: { etat: Etape; code: string; version: number; declencheur: "AUTO" | "MANUEL" | null; message: string | null };
 }
 interface PageHistorique {
   lignes: Ligne[];
@@ -35,17 +46,122 @@ interface PageHistorique {
   typesPermis: Type[];
 }
 
-const TYPES: Record<Type, { libelle: string; pastille: string; aide: string }> = {
-  telechargement: { libelle: "Téléchargements", pastille: "bg-accent/10 text-accent", aide: "Événements demandés, envoyés, téléchargés ou installés par les bornes" },
-  publication: { libelle: "Publications", pastille: "bg-ok-bg text-ok-ink", aide: "Événements publiés pour les bornes" },
-  utilisateur: { libelle: "Actions des utilisateurs", pastille: "bg-surface-2 text-ink-2", aide: "Créations, modifications et suppressions faites dans la Régie" },
-  alerte: { libelle: "Alertes", pastille: "bg-warn-bg text-warn-ink", aide: "Alertes relevées sur les lieux et les bornes" },
-  borne: { libelle: "Bornes", pastille: "bg-crit-bg text-crit-ink", aide: "Envois des bornes refusés ou en partie rejetés" },
+/** Ce que la page affiche : une ligne, ou plusieurs lignes regroupées. */
+interface Element {
+  cle: string;
+  type: Type;
+  ton: Ton;
+  /** La plus récente et la plus ancienne des lignes regroupées */
+  date: string;
+  debut: string;
+  titre: string;
+  detail: string | null;
+  lieu: Ligne["lieu"];
+  borne: Ligne["borne"];
+  evenement: Ligne["evenement"];
+  fois: number;
+  /** Téléchargement regroupé : heure de chaque étape vue, code et version, déclencheur, message d'échec */
+  etapes?: Partial<Record<Etape, string>>;
+  declencheur?: "AUTO" | "MANUEL" | null;
+  echec?: string | null;
+}
+
+const TYPES: Record<Type, { libelle: string; court: string; point: string; aide: string }> = {
+  telechargement: { libelle: "Téléchargements", court: "Téléchargement", point: "bg-accent", aide: "Événements demandés, téléchargés ou installés par les bornes" },
+  publication: { libelle: "Publications", court: "Publication", point: "bg-[#0E9F8A]", aide: "Événements publiés pour les bornes" },
+  utilisateur: { libelle: "Actions des utilisateurs", court: "Action d'un utilisateur", point: "bg-ink-2", aide: "Créations, modifications et suppressions faites dans la Régie" },
+  alerte: { libelle: "Alertes", court: "Alerte", point: "bg-[#D97706]", aide: "Alertes relevées sur les lieux et les bornes" },
+  borne: { libelle: "Bornes", court: "Envoi d'une borne", point: "bg-crit-ink", aide: "Envois des bornes refusés ou en partie rejetés" },
 };
-const POINTS: Record<Ton, string> = { info: "bg-accent", ok: "bg-[#0E9F8A]", attention: "bg-[#D97706]", critique: "bg-crit-ink" };
-const LIMITE = 40;
+const TONS: Record<Ton, string> = {
+  info: "bg-accent/10 text-accent",
+  ok: "bg-ok-bg text-ok-ink",
+  attention: "bg-warn-bg text-warn-ink",
+  critique: "bg-crit-bg text-crit-ink",
+};
+const ETAPES: { etat: Etape; libelle: string }[] = [
+  { etat: "DEMANDE", libelle: "Demandé" },
+  { etat: "ENVOYE", libelle: "Envoyé" },
+  { etat: "TELECHARGE", libelle: "Téléchargé" },
+  { etat: "INSTALLE", libelle: "Installé" },
+];
+const LIMITE = 100;
+const HEURE = 3_600_000;
 const heure = new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" });
+const hm = (iso: string) => heure.format(new Date(iso));
 const jourParis = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Paris" }).format(new Date(iso));
+
+const seule = (l: Ligne): Element => ({
+  cle: l.cle, type: l.type, ton: l.ton, date: l.date, debut: l.date, titre: l.titre, detail: l.detail, lieu: l.lieu, borne: l.borne, evenement: l.evenement, fois: 1,
+});
+
+/**
+ * Lignes (de la plus récente à la plus ancienne) → éléments affichés, dans le même ordre. Vue Détail : une ligne par
+ * enregistrement. Vue Résumé : les étapes d'un téléchargement ensemble, et ce qui se répète dans la journée ensemble.
+ */
+function regrouper(lignes: Ligne[], vue: Vue): Element[] {
+  if (vue === "detail") return lignes.map(seule);
+  const ouverts = new Map<string, Element>();
+  const liste: Element[] = [];
+  for (const l of lignes) {
+    const t = new Date(l.date).getTime();
+    const tel = l.telechargement;
+    const cle = tel
+      ? `tel|${l.borne?.identifiant ?? ""}|${tel.code}|${tel.version}`
+      : `${jourParis(l.date)}|${l.type}|${l.titre}|${l.borne?.identifiant ?? ""}|${l.lieu?.id ?? ""}|${l.detail ?? ""}`;
+    let g = ouverts.get(cle);
+    // Téléchargement : au-delà de 2 h, ou la demande (sa première étape) déjà vue : c'est un téléchargement précédent
+    if (g && tel && (new Date(g.debut).getTime() - t > 2 * HEURE || g.etapes?.DEMANDE)) g = undefined;
+    if (!g) {
+      g = seule(l);
+      if (tel) {
+        const nom = l.evenement ? (l.evenement.parDefaut ? "Événement par défaut" : (l.evenement.nom ?? "Événement")) : "Événement inconnu de la Régie";
+        Object.assign(g, { titre: `${nom} · ${tel.code} v${tel.version}`, detail: null, etapes: {}, declencheur: tel.declencheur, echec: null });
+      }
+      ouverts.set(cle, g);
+      liste.push(g);
+    } else {
+      g.debut = l.date;
+      if (!tel) g.fois++;
+    }
+    if (tel && g.etapes) {
+      g.etapes[tel.etat] ??= l.date;
+      g.declencheur ??= tel.declencheur;
+      if (tel.etat === "ECHEC") g.echec ??= tel.message ?? "Échec signalé par la borne";
+    }
+  }
+  // Téléchargements : couleur d'après l'état final (un échec suivi d'une installation réussie : c'est installé)
+  for (const g of liste) {
+    if (!g.etapes) continue;
+    const rate = Boolean(g.etapes.ECHEC) && !(g.etapes.INSTALLE && g.etapes.INSTALLE > g.etapes.ECHEC!);
+    g.ton = rate ? "critique" : g.etapes.INSTALLE || g.etapes.TELECHARGE ? "ok" : "info";
+    if (!rate) g.echec = null;
+  }
+  return liste;
+}
+
+const etatFinal = (e: Element): { libelle: string; classe: string } => {
+  if (e.ton === "critique") return { libelle: "Échec", classe: TONS.critique };
+  if (e.etapes?.INSTALLE) return { libelle: "Installé", classe: TONS.ok };
+  if (e.etapes?.TELECHARGE) return { libelle: "Téléchargé", classe: TONS.ok };
+  return { libelle: "En cours", classe: TONS.info };
+};
+
+/** Icône du type, 16 px, au trait. */
+function Icone({ type }: { type: Type }) {
+  const traits: Record<Type, ReactNode> = {
+    telechargement: <path d="M8 2.5v7m0 0L5 6.7m3 2.8 3-2.8M3 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" />,
+    publication: <path d="M8 10.5v-7m0 0L5 6.3m3-2.8 3 2.8M3 11.5v1a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1" />,
+    utilisateur: <path d="M8 8a2.6 2.6 0 1 0 0-5.2A2.6 2.6 0 0 0 8 8Zm-4.8 5.3c.5-2 2.4-3.3 4.8-3.3s4.3 1.3 4.8 3.3" />,
+    alerte: <path d="M8 2.6 1.9 13h12.2L8 2.6Zm0 4.2v3m0 1.7v.1" />,
+    borne: <path d="M4.5 2.5h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Zm1.7 3.7 3.6 3.6m0-3.6L6.2 9.8" />,
+  };
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      {traits[type]}
+    </svg>
+  );
+}
 
 export default function PageHistoriqueRegie() {
   return (
@@ -59,6 +175,7 @@ function Historique() {
   const f = useFiltresPage("7j");
   // Types cochés ; vide : tous ceux que l'utilisateur a le droit de voir
   const [types, setTypes] = useState<Type[]>([]);
+  const [vue, setVue] = useState<Vue>("resume");
   const lieux = useQuery({ queryKey: ["lieux", "tdb"], queryFn: () => api<LieuListe[]>("/lieux"), staleTime: 5 * 60_000 });
   const filtres = { du: f.du, au: f.au, lieuId: f.etat.lieuId, types: types.join(","), limite: LIMITE };
   const historique = useInfiniteQuery({
@@ -71,13 +188,16 @@ function Historique() {
   });
   const permis = historique.data?.pages[0]?.typesPermis ?? [];
   const lignes = historique.data?.pages.flatMap((p) => p.lignes) ?? [];
-  const jours: { jour: string; lignes: Ligne[] }[] = [];
-  for (const l of lignes) {
-    const j = jourParis(l.date);
-    if (jours.at(-1)?.jour !== j) jours.push({ jour: j, lignes: [] });
-    jours.at(-1)!.lignes.push(l);
+  const jours: { jour: string; elements: Element[]; lignes: number }[] = [];
+  for (const e of regrouper(lignes, vue)) {
+    const j = jourParis(e.date);
+    if (jours.at(-1)?.jour !== j) jours.push({ jour: j, elements: [], lignes: 0 });
+    jours.at(-1)!.elements.push(e);
   }
   const basculer = (t: Type) => setTypes((actuels) => (actuels.includes(t) ? actuels.filter((x) => x !== t) : [...actuels, t]));
+  const puce = (actif: boolean) =>
+    `inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium transition-colors ${actif ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-ink-2 hover:text-ink"}`;
+  const onglet = (actif: boolean) => `rounded-md px-3 py-1 text-sm font-medium transition-colors ${actif ? "bg-surface text-ink shadow-sm" : "text-ink-2 hover:text-ink"}`;
 
   return (
     <>
@@ -106,31 +226,33 @@ function Historique() {
         }
       />
 
-      {/* Types : rien de coché = tout ; un clic limite l'historique aux types cochés */}
-      {permis.length > 1 && (
-        <div className="mb-5 flex flex-wrap items-center gap-2" role="group" aria-label="Types d'événements">
-          <button
-            type="button"
-            aria-pressed={types.length === 0}
-            onClick={() => setTypes([])}
-            className={`rounded-full border px-3 py-1 text-sm font-medium ${types.length === 0 ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
-          >
-            Tout
-          </button>
-          {permis.map((t) => (
-            <button
-              key={t}
-              type="button"
-              aria-pressed={types.includes(t)}
-              title={TYPES[t].aide}
-              onClick={() => basculer(t)}
-              className={`rounded-full border px-3 py-1 text-sm font-medium ${types.includes(t) ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-ink-2 hover:text-ink"}`}
-            >
-              {TYPES[t].libelle}
-            </button>
-          ))}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        {/* Types : rien de coché = tout ; un clic limite la timeline aux types cochés. La pastille reprend la couleur du type. */}
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Types d'événements">
+          {permis.length > 1 && (
+            <>
+              <button type="button" aria-pressed={types.length === 0} onClick={() => setTypes([])} className={puce(types.length === 0)}>
+                Tout
+              </button>
+              {permis.map((t) => (
+                <button key={t} type="button" aria-pressed={types.includes(t)} title={TYPES[t].aide} onClick={() => basculer(t)} className={puce(types.includes(t))}>
+                  <span aria-hidden className={`h-2 w-2 rounded-full ${TYPES[t].point}`} />
+                  {TYPES[t].libelle}
+                </button>
+              ))}
+            </>
+          )}
         </div>
-      )}
+        {/* Résumé : mêmes natures regroupées avec leur nombre ; Détail : une ligne par enregistrement */}
+        <div className="inline-flex rounded-lg bg-surface-2 p-1" role="tablist" aria-label="Vue de la timeline">
+          <button type="button" role="tab" aria-selected={vue === "resume"} className={onglet(vue === "resume")} title="Ce qui est de même nature est regroupé, avec son nombre" onClick={() => setVue("resume")}>
+            Résumé
+          </button>
+          <button type="button" role="tab" aria-selected={vue === "detail"} className={onglet(vue === "detail")} title="Une ligne par enregistrement, sans regroupement" onClick={() => setVue("detail")}>
+            Détail
+          </button>
+        </div>
+      </div>
 
       {historique.error ? (
         <Erreur erreur={historique.error} />
@@ -139,43 +261,18 @@ function Historique() {
       ) : lignes.length === 0 ? (
         <Vide>Rien sur cette période avec ces filtres.</Vide>
       ) : (
-        <div className="space-y-6">
+        <div className={`space-y-6 ${historique.isPlaceholderData ? "opacity-60" : ""}`}>
           {jours.map((j) => (
             <section key={j.jour}>
-              <h2 className="mb-2 flex items-center gap-3 text-xs font-semibold tracking-wider text-ink-2 uppercase">
-                {new Date(`${j.jour}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}
+              <h2 className="mb-2 flex items-baseline gap-3">
+                <span className="text-sm font-semibold text-ink first-letter:uppercase">
+                  {new Date(`${j.jour}T12:00:00Z`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}
+                </span>
                 <span aria-hidden className="h-px flex-1 bg-line" />
               </h2>
-              {/* Rail vertical : un point de couleur par ligne (vert : fait, orange : à regarder, rouge : problème) */}
-              <ol className="carte relative px-4 py-2 before:absolute before:top-4 before:bottom-4 before:left-[5.6rem] before:w-px before:bg-line">
-                {j.lignes.map((l) => (
-                  <li key={l.cle} className="relative grid grid-cols-[3.2rem_1.6rem_minmax(0,1fr)] items-start gap-x-2 py-2 text-sm">
-                    <span className="tabular pt-0.5 text-ink-muted">{heure.format(new Date(l.date))}</span>
-                    <span className="flex justify-center pt-1.5">
-                      <span aria-hidden className={`relative z-10 h-2.5 w-2.5 rounded-full ring-4 ring-surface ${POINTS[l.ton]}`} />
-                    </span>
-                    <div className="min-w-0">
-                      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold whitespace-nowrap ${TYPES[l.type].pastille}`}>{TYPES[l.type].libelle}</span>
-                        <span className="font-medium">{l.titre}</span>
-                      </p>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
-                        {l.borne &&
-                          (l.borne.id ? (
-                            <Link href={`/bornes/${l.borne.id}`} className="rounded bg-ink px-1.5 py-0.5 font-bold text-white hover:opacity-85">{l.borne.identifiant}</Link>
-                          ) : (
-                            <span className="rounded bg-surface-2 px-1.5 py-0.5 font-bold text-ink-2" title="Borne inconnue de la Régie">{l.borne.identifiant}</span>
-                          ))}
-                        {l.lieu && <Link href={`/lieux/${l.lieu.id}`} className="font-medium text-ink-2 hover:text-accent">{l.lieu.enseigne}</Link>}
-                        {l.evenement && (
-                          <Link href={l.evenement.parDefaut ? `/lieux/${l.evenement.lieuId}/evenement` : `/lieux/${l.evenement.lieuId}/evenement/${l.evenement.id}`} className="hover:text-accent">
-                            Ouvrir l&apos;événement →
-                          </Link>
-                        )}
-                        {l.detail && <span className={l.ton === "critique" ? "text-crit-ink" : ""}>{l.detail}</span>}
-                      </p>
-                    </div>
-                  </li>
+              <ol className="carte divide-y divide-line overflow-hidden">
+                {j.elements.map((e) => (
+                  <LigneTimeline key={e.cle} e={e} />
                 ))}
               </ol>
             </section>
@@ -192,5 +289,84 @@ function Historique() {
         </div>
       )}
     </>
+  );
+}
+
+/** Une ligne : heure · icône · quoi (titre, puis précisions en petit) · où (borne et son lieu), à droite sur grand écran. */
+function LigneTimeline({ e }: { e: Element }) {
+  const final = e.etapes ? etatFinal(e) : null;
+  const plage = e.fois > 1 ? (hm(e.debut) !== hm(e.date) ? `De ${hm(e.debut)} à ${hm(e.date)}` : null) : null;
+  return (
+    <li className="grid grid-cols-[2.75rem_1.75rem_minmax(0,1fr)] items-start gap-x-3 px-4 py-2.5 text-sm hover:bg-surface-2/60 md:grid-cols-[2.75rem_1.75rem_minmax(0,1fr)_minmax(0,18rem)]">
+      <time dateTime={e.date} className="tabular pt-1 text-xs text-ink-muted">
+        {hm(e.date)}
+      </time>
+      <span className={`flex h-7 w-7 items-center justify-center rounded-full ${TONS[e.ton]}`} title={TYPES[e.type].court}>
+        <Icone type={e.type} />
+      </span>
+
+      <div className="min-w-0">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 leading-6">
+          <span className="font-medium text-ink">{e.titre}</span>
+          {e.fois > 1 && (
+            <span className="rounded-full bg-ink px-2 py-0.5 text-[0.7rem] font-bold text-white" title={`${e.fois} fois ce jour-là`}>× {e.fois}</span>
+          )}
+          {final && <span className={`rounded-full px-2 py-0.5 text-[0.7rem] font-semibold ${final.classe}`}>{final.libelle}</span>}
+          {e.declencheur === "AUTO" && (
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-2" title="Mise à jour automatique : l'événement vient du programme de la borne">Auto</span>
+          )}
+          {e.declencheur === "MANUEL" && (
+            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[0.7rem] font-semibold text-ink-2" title="Code tapé à la main sur la borne">Manuel</span>
+          )}
+        </p>
+        {e.etapes ? (
+          <>
+            {/* Étapes du téléchargement, dans l'ordre, avec l'heure de celles qui ont eu lieu */}
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-ink-muted">
+              {ETAPES.map((s, i) => (
+                <span key={s.etat} className={`inline-flex items-center gap-1.5 ${e.etapes![s.etat] ? "text-ink-2" : "opacity-50"}`}>
+                  {i > 0 && <span aria-hidden>›</span>}
+                  {s.libelle}
+                  {e.etapes![s.etat] && <span className="tabular">{hm(e.etapes![s.etat]!)}</span>}
+                </span>
+              ))}
+            </p>
+            {e.echec && <p className="mt-0.5 text-xs text-crit-ink">{e.echec}</p>}
+          </>
+        ) : (
+          (e.detail || plage) && (
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {plage && <span className="font-medium text-ink-2">{plage}</span>}
+              {plage && e.detail && " · "}
+              {e.detail && <span className={e.ton === "critique" ? "text-crit-ink" : ""}>{e.detail}</span>}
+            </p>
+          )
+        )}
+      </div>
+
+      {/* Où : sous le texte sur petit écran, colonne de droite sinon. La borne est toujours suivie de son lieu. */}
+      <div className="col-start-3 mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted md:col-start-4 md:mt-0 md:justify-end md:pt-1">
+        {e.borne &&
+          (e.borne.id ? (
+            <Link href={`/bornes/${e.borne.id}`} className="rounded bg-ink px-1.5 py-0.5 font-bold text-white hover:opacity-85">{e.borne.identifiant}</Link>
+          ) : (
+            <span className="rounded bg-surface-2 px-1.5 py-0.5 font-bold text-ink-2" title="Borne inconnue de la Régie">{e.borne.identifiant}</span>
+          ))}
+        {e.lieu ? (
+          <Link href={`/lieux/${e.lieu.id}`} className="truncate font-medium text-ink-2 hover:text-accent">{e.lieu.enseigne}</Link>
+        ) : (
+          e.borne && <span className="italic">{e.borne.id ? "Installée dans aucun lieu" : "Borne inconnue de la Régie"}</span>
+        )}
+        {e.evenement && (
+          <Link
+            href={e.evenement.parDefaut ? `/lieux/${e.evenement.lieuId}/evenement` : `/lieux/${e.evenement.lieuId}/evenement/${e.evenement.id}`}
+            className="whitespace-nowrap hover:text-accent"
+            title="Ouvrir l'événement"
+          >
+            Événement →
+          </Link>
+        )}
+      </div>
+    </li>
   );
 }
