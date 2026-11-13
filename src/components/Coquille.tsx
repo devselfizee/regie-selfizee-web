@@ -20,6 +20,8 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     liens: [
       { href: "/", libelle: "Tableau de bord", icone: "LayoutDashboard", perm: "pages.tableau_de_bord.view" },
       { href: "/monitoring", libelle: "Live monitoring", icone: "Activity", perm: "pages.monitoring.view" },
+      // Dernières photos de tous les lieux (retour du 13/11)
+      { href: "/photos", libelle: "Photos", icone: "Images", perm: "medias.view" },
       { href: "/papier", libelle: "État papier", icone: "Printer", perm: "pages.papier.view" },
       { href: "/alertes", libelle: "Alertes", icone: "Bell", perm: "pages.alertes.view" },
       // Mentions : dans la cloche de la plateforme (notifications), plus de page dédiée

@@ -20,6 +20,7 @@ import { ListePaiements } from "@/components/ListePaiements";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
+import { GalerieMedias } from "@/components/GalerieMedias";
 import { CodesRemiseLieu } from "@/components/CodesRemiseLieu";
 import { PageSouvenirLieu } from "@/components/PageSouvenirLieu";
 import { AccesLieu } from "@/components/AccesLieu";
@@ -60,7 +61,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = a("commissions.view");
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "photos" ? !prospect && a("medias.view") : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -138,6 +139,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {ongletActif === "commissions" && <SectionCommissions lieuId={id} />}
 
       {ongletActif === "configuration" && <ConfigurationLieu lieuId={id} />}
+
+      {ongletActif === "photos" && <GalerieMedias lieuId={id} />}
 
       {ongletActif === "souvenir" && <PageSouvenirLieu lieuId={id} />}
 
@@ -295,7 +298,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration" | "souvenir";
+type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration" | "photos" | "souvenir";
 // Ordre demandé par Sébastien le 13/11
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
@@ -303,6 +306,8 @@ const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "infos", libelle: "Informations" },
   // La borne du lieu : infos et tarif repris par chaque événement, puis les événements
   { cle: "configuration", libelle: "Configuration" },
+  // Toutes les galeries du lieu (tous ses événements), retour du 13/11
+  { cle: "photos", libelle: "Photos" },
   { cle: "suivi", libelle: "Suivi" },
   { cle: "commissions", libelle: "Commissions" },
   { cle: "comportement", libelle: "Comportements" },

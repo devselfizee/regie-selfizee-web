@@ -1090,12 +1090,16 @@ export interface MediaResume {
   vignette: string | null;
   /** Séance payée (ventes acceptées, hors cartes de test) : total encaissé ; dans la liste de la galerie seulement */
   venteSeance?: { montantTtcCents: number; paiements: number; moyenPaiement: string } | null;
+  /** Lieu du média (liste de la galerie et page « Photos ») */
+  lieu?: { id: number; enseigne: string; ville: string | null } | null;
 }
 
 export interface PageMedias {
   total: number;
   /** Séances payées et montant encaissé sur les filtres choisis (hors filtre « vente ») */
   ventes: { seancesPayees: number; montantTtcCents: number };
+  /** Types de média présents sur les filtres (choix du filtre « Type ») */
+  types: string[];
   page: number;
   parPage: number;
   medias: MediaResume[];

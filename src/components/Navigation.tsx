@@ -13,6 +13,7 @@ import { estPageAnalyses, PERM_ANALYSES, PERM_SUPER_ADMIN, useVoitMenu } from ".
 const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/", libelle: "Tableau de bord", perm: "pages.tableau_de_bord.view" },
   { href: "/monitoring", libelle: "Live monitoring", perm: "pages.monitoring.view" },
+  { href: "/photos", libelle: "Photos", perm: "medias.view" },
   { href: "/papier", libelle: "État papier", perm: "pages.papier.view" },
   { href: "/alertes", libelle: "Alertes", perm: "pages.alertes.view" },
   { href: "/lieux", libelle: "Lieux", perm: "pages.lieux.view" },

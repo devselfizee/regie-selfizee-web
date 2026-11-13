@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { api, fichierProtege, libelleTypeMedia, qs, telecharger, type MediaDetail, type MediaResume, type PageMedias, type ResumeMedias } from "@/lib/api";
 import { Badge, Chargement, Erreur, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
@@ -13,7 +14,7 @@ import { dateHeure, euros, libelleMoyen, nombre } from "@/lib/format";
 // le jeton à l'ouverture (fichierProtege), jamais par un lien direct. Comme sur BoothPay (retour du 12/11) : les
 // séances payées sont marquées et filtrables, et on passe d'un média à l'autre avec les flèches du clavier.
 
-const PAR_PAGE = 48;
+export const PAR_PAGE = 48;
 
 const STATUTS: Record<MediaResume["statut"], string> = {
   ABSENT: "Pas encore annoncé",
@@ -44,9 +45,6 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
   const [tests, setTests] = useState(false);
   const [vente, setVente] = useState("");
   const [page, setPage] = useState(1);
-  const [ouvert, setOuvert] = useState<string | null>(null);
-  // Média à ouvrir une fois la page voisine chargée (flèches au bord d'une page)
-  const [aOuvrir, setAOuvrir] = useState<"premier" | "dernier" | null>(null);
 
   const resume = useQuery({ queryKey: ["medias-resume", lieuId], queryFn: () => api<ResumeMedias>(`/lieux/${lieuId}/medias/resume`) });
   const filtres = { evenement, type, du, au, tests: tests ? "1" : "", vente, page, parPage: PAR_PAGE };
@@ -68,26 +66,6 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
   });
 
   const r = resume.data;
-  const pages = liste.data ? Math.max(1, Math.ceil(liste.data.total / PAR_PAGE)) : 1;
-
-  // Média voisin du média ouvert (flèches du clavier) : sur la page, sinon sur la page d'à côté
-  const medias = useMemo(() => (liste.isPlaceholderData ? [] : (liste.data?.medias ?? [])), [liste.isPlaceholderData, liste.data]);
-  const rang = ouvert ? medias.findIndex((m) => m.uuid === ouvert) : -1;
-  const voisin = (sens: -1 | 1) => {
-    if (rang < 0) return;
-    const cible = medias[rang + sens];
-    if (cible) return setOuvert(cible.uuid);
-    const autre = page + sens;
-    if (autre < 1 || autre > pages) return;
-    setAOuvrir(sens > 0 ? "premier" : "dernier");
-    setPage(autre);
-  };
-  useEffect(() => {
-    if (!aOuvrir || !medias.length) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOuvert((aOuvrir === "premier" ? medias[0] : medias[medias.length - 1]).uuid);
-    setAOuvrir(null);
-  }, [aOuvrir, medias]);
   const aRelancer = r ? r.enAttente + r.enErreur : 0;
   // Depuis la fiche événement : le compte de cet événement seulement (les types et la dernière séance sont ceux du lieu)
   const total = r ? (evenementId ? (r.parEvenement.find((e) => e.id === evenementId)?.total ?? 0) : r.total) : 0;
@@ -165,6 +143,54 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
         </label>
       </div>
 
+      <GrilleMedias
+        liste={liste}
+        page={page}
+        setPage={setPage}
+        vide={total === 0 ? `Aucun média reçu pour ${evenementId ? "cet événement" : "ce lieu"}. Ils arrivent quelques minutes après chaque séance sur la borne.` : "Aucun média ne correspond à ces filtres."}
+      />
+    </div>
+  );
+}
+
+/**
+ * Grille de médias commune à la galerie d'un lieu et à la page « Photos » (tous lieux) : ventes sur les filtres,
+ * vignettes (payée, test), pages, et la fiche d'un média avec les flèches du clavier (y compris d'une page à l'autre).
+ * `avecLieu` : le lieu sous chaque vignette (page tous lieux).
+ */
+export function GrilleMedias({ liste, page, setPage, vide, avecLieu = false }: {
+  liste: UseQueryResult<PageMedias>;
+  page: number;
+  setPage: (p: number) => void;
+  vide: ReactNode;
+  avecLieu?: boolean;
+}) {
+  const [ouvert, setOuvert] = useState<string | null>(null);
+  // Média à ouvrir une fois la page voisine chargée (flèches au bord d'une page)
+  const [aOuvrir, setAOuvrir] = useState<"premier" | "dernier" | null>(null);
+  const pages = liste.data ? Math.max(1, Math.ceil(liste.data.total / PAR_PAGE)) : 1;
+
+  // Média voisin du média ouvert (flèches du clavier) : sur la page, sinon sur la page d'à côté
+  const medias = useMemo(() => (liste.isPlaceholderData ? [] : (liste.data?.medias ?? [])), [liste.isPlaceholderData, liste.data]);
+  const rang = ouvert ? medias.findIndex((m) => m.uuid === ouvert) : -1;
+  const voisin = (sens: -1 | 1) => {
+    if (rang < 0) return;
+    const cible = medias[rang + sens];
+    if (cible) return setOuvert(cible.uuid);
+    const autre = page + sens;
+    if (autre < 1 || autre > pages) return;
+    setAOuvrir(sens > 0 ? "premier" : "dernier");
+    setPage(autre);
+  };
+  useEffect(() => {
+    if (!aOuvrir || !medias.length) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setOuvert((aOuvrir === "premier" ? medias[0] : medias[medias.length - 1]).uuid);
+    setAOuvrir(null);
+  }, [aOuvrir, medias]);
+
+  return (
+    <>
       {liste.data && (
         <p className="text-sm text-ink-2">
           <span className="font-semibold tabular text-ink">{nombre(liste.data.ventes.seancesPayees)}</span> séance{liste.data.ventes.seancesPayees > 1 ? "s" : ""} payée
@@ -178,7 +204,7 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
       ) : !liste.data ? (
         <Chargement />
       ) : liste.data.medias.length === 0 ? (
-        <Vide>{total === 0 ? `Aucun média reçu pour ${evenementId ? "cet événement" : "ce lieu"}. Ils arrivent quelques minutes après chaque séance sur la borne.` : "Aucun média ne correspond à ces filtres."}</Vide>
+        <Vide>{vide}</Vide>
       ) : (
         <>
           <ul className={`grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6 ${liste.isPlaceholderData ? "opacity-60" : ""}`}>
@@ -205,7 +231,12 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
                   )}
 
                 </button>
-                <p className="mt-1 truncate text-xs text-ink-muted">{m.datePhoto ? dateHeure(m.datePhoto) : "Date inconnue"}</p>
+                {avecLieu && m.lieu && (
+                  <Link href={`/lieux/${m.lieu.id}?onglet=photos`} className="mt-1 block truncate text-xs font-medium text-ink hover:text-accent" title={m.lieu.ville ? `${m.lieu.enseigne}, ${m.lieu.ville}` : m.lieu.enseigne}>
+                    {m.lieu.enseigne}
+                  </Link>
+                )}
+                <p className={`${avecLieu ? "" : "mt-1 "}truncate text-xs text-ink-muted`}>{m.datePhoto ? dateHeure(m.datePhoto) : "Date inconnue"}</p>
               </li>
             ))}
           </ul>
@@ -234,7 +265,7 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
           position={rang >= 0 && liste.data ? `${(page - 1) * PAR_PAGE + rang + 1} / ${nombre(liste.data.total)}` : undefined}
         />
       )}
-    </div>
+    </>
   );
 }
 
