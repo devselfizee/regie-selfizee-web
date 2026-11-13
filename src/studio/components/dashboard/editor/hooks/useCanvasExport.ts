@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { CUSTOM_PROPS, EXPORT_MULTIPLIER } from "../types";
 import { buildBlobMap, fixBlobUrls, fetchWithTimeout } from "../canvas/canvasUtils";
 import { toast } from "../../Toast";
-import { apiUrl } from "@/studio/lib/api";
+import { apiUrl, ENVOI_IMAGES_STUDIO } from "@/studio/lib/api";
 
 const PRINT_MARGIN = 20;
 
@@ -659,6 +659,7 @@ export function useCanvasExport({
       // Safety net: ensure no data:image/... URL slips into canvasState.
       // Upload any remaining base64 source to the backend and replace with URL.
       const uploadDataUrl = async (dataUrl: string): Promise<string | null> => {
+        if (!ENVOI_IMAGES_STUDIO) return null; // Régie : les images restent en data URL dans le dessin
         try {
           const res = await fetch(apiUrl("/api/uploads/image"), {
             credentials: "include",

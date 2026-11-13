@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "../../Toast";
-import { apiUrl, apiFetchOptions } from "@/studio/lib/api";
+import { apiUrl, apiFetchOptions, ENVOI_IMAGES_STUDIO } from "@/studio/lib/api";
 import { logStudioError } from "@/studio/lib/studioLog";
 
 const BACKEND_BASE = process.env.NEXT_PUBLIC_STUDIO_BACKEND_URL || "";
@@ -19,6 +19,7 @@ async function uploadAndSwapImageSrc(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   canvas: any,
 ) {
+  if (!ENVOI_IMAGES_STUDIO) return; // Régie : l'image reste en data URL dans le dessin
   try {
     const res = await fetch(apiUrl("/api/uploads/image"), {
       ...apiFetchOptions,
