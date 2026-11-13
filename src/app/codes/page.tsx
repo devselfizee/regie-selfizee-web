@@ -392,6 +392,10 @@ function FormulaireLot({ lieux, onCree }: { lieux: LieuListe[]; onCree: (lotId: 
 }
 
 interface Detail extends CodeRemise {
+  /** Quand et comment le code a été généré : à la main (lot) ou gagné à la carte à gratter de la page souvenir */
+  origine:
+    | { type: "manuel"; le: string; par: { prenom: string | null; nom: string | null } | null; nbCodes: number }
+    | { type: "carte_a_gratter"; le: string; grattee: string | null; codeEvent: string; evenement: string | null; lieu: { id: number; enseigne: string } | null; photoUuid: string };
   utilisations: { id: string; horodatage: string; demandees: number; accordees: number; utilisationId: string | null; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null }[];
 }
 
@@ -418,7 +422,28 @@ function DetailCode({ id }: { id: number }) {
           {c.lieu ? <Link className="hover:underline" href={`/lieux/${c.lieu.id}`}>{c.lieu.enseigne}</Link> : "—"} · {c.seulementLieu && c.lieu ? "valable dans ce lieu seulement" : "valable sur toutes les bornes"}
         </dd>
         <dt className="text-ink-2">Valable jusqu&apos;au</dt><dd>{jour(c.expireLe)}</dd>
-        <dt className="text-ink-2">Lot</dt><dd>#{c.lotId}{c.libelle ? ` ${c.libelle}` : ""} · créé le {date(c.creeLe)}</dd>
+        <dt className="text-ink-2">Lot</dt><dd>#{c.lotId}{c.libelle ? ` ${c.libelle}` : ""}</dd>
+        <dt className="text-ink-2">Généré</dt>
+        <dd>
+          {c.origine.type === "carte_a_gratter" ? (
+            <>
+              le {dateHeure(c.origine.le)}, gagné à la carte à gratter de la page souvenir
+              <span className="block text-xs text-ink-2">
+                Séance de l&apos;événement {c.origine.codeEvent}
+                {c.origine.evenement && ` (${c.origine.evenement})`}
+                {c.origine.lieu && <> · <Link className="hover:underline" href={`/lieux/${c.origine.lieu.id}`}>{c.origine.lieu.enseigne}</Link></>}
+                {" · "}
+                {c.origine.grattee ? `carte grattée le ${dateHeure(c.origine.grattee)}` : "carte pas encore grattée"}
+              </span>
+            </>
+          ) : (
+            <>
+              le {dateHeure(c.origine.le)}, à la main dans Codes de remise
+              {c.origine.par && ` par ${[c.origine.par.prenom, c.origine.par.nom].filter(Boolean).join(" ")}`}
+              <span className="block text-xs text-ink-2">lot de {nombre(c.origine.nbCodes)} code{c.origine.nbCodes > 1 ? "s" : ""}</span>
+            </>
+          )}
+        </dd>
       </dl>
 
       <div>
