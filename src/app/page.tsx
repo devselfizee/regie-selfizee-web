@@ -228,6 +228,7 @@ function Contenu({
                 <thead className="text-left text-xs text-ink-2">
                   <tr>
                     <th className="py-2 pr-3 font-medium">Quand</th>
+                    <th className="w-12 py-2 pr-3" aria-label="Photo" />
                     <th className="py-2 pr-3 font-medium">Lieu · borne</th>
                     <th className="py-2 pr-3 font-medium">Achat</th>
                     <th className="py-2 text-right font-medium">{suffixe}</th>
@@ -237,6 +238,14 @@ function Contenu({
                   {data.dernieresVentes.map((v) => (
                     <tr key={v.id} className="border-t border-line">
                       <td className="py-2 pr-3 whitespace-nowrap text-ink-2">{jourHeureCourt(v.horodatage)}</td>
+                      <td className="py-1.5 pr-3">
+                        {v.photoUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- vignette (data URL) de la séance
+                          <img src={v.photoUrl} alt="" loading="lazy" className="h-10 w-10 rounded object-cover" />
+                        ) : (
+                          <span className="block h-10 w-10 rounded bg-surface-2" aria-hidden />
+                        )}
+                      </td>
                       <td className="py-2 pr-3">
                         <Link className="hover:underline" href={`/lieux/${v.lieuId}`}>{v.lieu}</Link>
                         <span className="text-ink-muted"> · {v.borne}</span>

@@ -147,6 +147,8 @@ export interface StatsGlobales {
     lieuId: number;
     lieu: string;
     borne: string;
+    /** Vignette de la séance (medias.view), null sans photo reçue de PikCloud */
+    photoUrl: string | null;
   }[];
   /** Réservé admin : commissions des périodes calculées comprises dans la période */
   commissions: { montantCents: number; nbPeriodes: number; nbAValider: number } | null;
