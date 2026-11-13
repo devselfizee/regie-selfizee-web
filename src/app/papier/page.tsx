@@ -50,14 +50,14 @@ function Papier() {
     <>
       <EnTete titre="État papier" sousTitre="Tirages restants dans chaque imprimante, de la moins fournie à la plus fournie. Relevé : le dernier signe de vie qui a donné le niveau." />
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="mb-4 flex flex-wrap items-end justify-end gap-3">
         <label className="block">
           <span className="etiquette">Recherche</span>
-          <input className="champ !w-72" placeholder="Lieu, ville, n° de borne…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className="champ !w-48" placeholder="Lieu, ville, n° de borne…" value={q} onChange={(e) => setQ(e.target.value)} />
         </label>
         <label className="block">
           <span className="etiquette">Tirages restants</span>
-          <select className="champ !w-44" value={seuil} onChange={(e) => setSeuil(e.target.value)}>
+          <select className="champ !w-48" value={seuil} onChange={(e) => setSeuil(e.target.value)}>
             <option value="">Tous</option>
             {SEUILS.map((s) => <option key={s} value={s}>moins de {s}</option>)}
           </select>

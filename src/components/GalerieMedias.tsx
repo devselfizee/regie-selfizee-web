@@ -118,9 +118,9 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
         </p>
       )}
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-wrap items-end justify-end gap-3">
         {!evenementId && (
-          <label className="block">
+          <label className="block w-48">
             <span className="etiquette">Événement</span>
             <select id="galerie-evenement" className="champ" value={evenement} onChange={(e) => changer(setEvenement)(e.target.value)}>
               <option value="">Tous</option>
@@ -132,7 +132,7 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
             </select>
           </label>
         )}
-        <label className="block">
+        <label className="block w-48">
           <span className="etiquette">Type</span>
           <select id="galerie-type" className="champ" value={type} onChange={(e) => changer(setType)(e.target.value)}>
             <option value="">Tous</option>
@@ -143,15 +143,15 @@ export function GalerieMedias({ lieuId, evenementId }: { lieuId: number; eveneme
             ))}
           </select>
         </label>
-        <label className="block">
+        <label className="block w-48">
           <span className="etiquette">Du</span>
           <input type="date" className="champ" value={du} onChange={(e) => changer(setDu)(e.target.value)} />
         </label>
-        <label className="block">
+        <label className="block w-48">
           <span className="etiquette">Au</span>
           <input type="date" className="champ" value={au} onChange={(e) => changer(setAu)(e.target.value)} />
         </label>
-        <label className="block">
+        <label className="block w-48">
           <span className="etiquette">Ventes</span>
           <select id="galerie-vente" className="champ" value={vente} onChange={(e) => changer(setVente)(e.target.value)}>
             <option value="">Toutes les séances</option>

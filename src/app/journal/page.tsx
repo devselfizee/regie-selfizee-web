@@ -89,7 +89,7 @@ function Journal() {
         titre="Journal des bornes"
         sousTitre="Tout ce que les bornes envoient à la Régie, accepté ou refusé, avec le contenu reçu. Pour vérifier qu'une borne transmet bien."
       />
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="mb-4 flex flex-wrap items-end justify-end gap-3">
         <div className="flex gap-1 rounded-lg bg-surface-2 p-1" role="group" aria-label="Affichage">
           {(
             [
@@ -104,11 +104,11 @@ function Journal() {
           ))}
         </div>
         {onglet !== "erreurs" && (
-        <label className="block">
+        <label className="block w-48">
           <span className="etiquette">Borne ou lieu</span>
           <input
             id="journal-borne"
-            className="champ w-48"
+            className="champ"
             placeholder="ex. S221, Satori"
             value={borne}
             onChange={(e) => {
@@ -120,7 +120,7 @@ function Journal() {
         )}
         {onglet === "envois" && (
           <>
-            <label className="block">
+            <label className="block w-48">
               <span className="etiquette">Type</span>
               <select id="journal-type" className="champ" value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
                 <option value="">Tous</option>
@@ -132,7 +132,7 @@ function Journal() {
                 <option value="CONFIG">Zip de l&apos;événement</option>
               </select>
             </label>
-            <label className="block">
+            <label className="block w-48">
               <span className="etiquette">Résultat</span>
               <select id="journal-statut" className="champ" value={statut} onChange={(e) => { setStatut(e.target.value); setPage(1); }}>
                 <option value="">Tous</option>

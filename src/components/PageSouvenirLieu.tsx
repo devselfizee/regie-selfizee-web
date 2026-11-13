@@ -53,8 +53,8 @@ export function PageSouvenirLieu({ lieuId }: { lieuId: number }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="block">
+      <div className="flex flex-wrap items-end justify-end gap-3">
+        <label className="block w-48">
           <span className="etiquette">Période</span>
           <select className="champ" value={periode} onChange={(e) => setPeriode(e.target.value as Periode)}>
             {Object.entries(PERIODES).map(([v, l]) => (
@@ -63,7 +63,7 @@ export function PageSouvenirLieu({ lieuId }: { lieuId: number }) {
           </select>
         </label>
         {r.evenements.length > 1 && (
-          <label className="block">
+          <label className="block w-48">
             <span className="etiquette">Événement</span>
             <select className="champ" value={evenement} onChange={(e) => setEvenement(e.target.value ? Number(e.target.value) : "")}>
               <option value="">Tous</option>
