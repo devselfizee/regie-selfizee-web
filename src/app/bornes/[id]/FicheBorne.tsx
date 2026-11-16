@@ -9,6 +9,7 @@ import { depuisCents, versCents } from "@/lib/commissions";
 import { Gate, PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
+import { JournalTelechargements } from "@/components/JournalTelechargements";
 import { FormAffectation, FormRetrait, type BornePourAffectation } from "@/components/AffectationBorne";
 import { BoutonSupprimer } from "@/components/BoutonSupprimer";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
@@ -102,6 +103,14 @@ function Fiche({ id }: { id: number }) {
           <p className="mt-2 text-xs text-ink-muted">
             Les ventes sont rattachées au lieu où la borne était à leur date : corriger une date les recalcule (statistiques et commissions).
           </p>
+        </Section>
+        <Section titre="Téléchargements d'événements">
+          <JournalTelechargements
+            filtres={{ borneId: id }}
+            limite={20}
+            sansBorne
+            vide={<>Aucun téléchargement d&apos;événement par cette borne depuis 180 jours (durée gardée par le journal).</>}
+          />
         </Section>
       </div>
       <Modale titre={`Modifier ${b.identifiant}`} ouverte={edition} onFermer={() => setEdition(false)}>
