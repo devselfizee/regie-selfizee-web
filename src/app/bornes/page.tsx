@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type BorneListe, type LieuListe } from "@/lib/api";
+import { api, type BorneListe } from "@/lib/api";
+import { FormAffectation, FormRetrait } from "@/components/AffectationBorne";
 import { dateHeure, depuis } from "@/lib/format";
 import { useReferentiel } from "@/components/Filtres";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "@/components/Etat";
@@ -220,14 +221,6 @@ function Bornes() {
   );
 }
 
-/** "2026-10-05T14:30" (heure locale du navigateur) → ISO avec fuseau */
-const versIso = (local: string) => new Date(local).toISOString();
-const maintenantLocal = () => {
-  const d = new Date();
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0, 16);
-};
-
 function MessageErreur({ erreur }: { erreur: Error | null }) {
   return erreur ? <p role="alert" className="text-sm text-bad">{erreur.message}</p> : null;
 }
@@ -294,78 +287,6 @@ function FormBorne({ onCree }: { onCree: (identifiant: string, cle: string) => v
   );
 }
 
-function FormAffectation({ borne, onFini }: { borne: BorneListe; onFini: () => void }) {
-  const client = useQueryClient();
-  const { data: lieux } = useQuery({ queryKey: ["lieux", ""], queryFn: () => api<LieuListe[]>("/lieux") });
-  const [lieuId, setLieuId] = useState("");
-  const [debut, setDebut] = useState(maintenantLocal);
-  const affecter = useMutation({
-    mutationFn: () => api("/affectations", { method: "POST", json: { borneId: borne.id, lieuId: Number(lieuId), debut: versIso(debut) } }),
-    onSuccess: () => {
-      client.invalidateQueries();
-      onFini();
-    },
-  });
-
-  return (
-    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); affecter.mutate(); }}>
-      <label className="block">
-        <span className="etiquette">Lieu *</span>
-        <select className="champ" required value={lieuId} onChange={(e) => setLieuId(e.target.value)}>
-          <option value="">—</option>
-          {lieux?.filter((l) => l.id !== borne.lieuActuel?.id).map((l) => (
-            <option key={l.id} value={l.id}>{l.enseigne}{l.ville ? ` (${l.ville})` : ""}</option>
-          ))}
-        </select>
-      </label>
-      {borne.ventesSansLieu && (
-        <div className="rounded-md bg-warn-bg p-3 text-sm text-warn-ink">
-          <strong>{borne.ventesSansLieu.nb} vente{borne.ventesSansLieu.nb > 1 ? "s" : ""} sans lieu</strong> du {dateHeure(borne.ventesSansLieu.du)} au{" "}
-          {dateHeure(borne.ventesSansLieu.au)}. Pour les rattacher à ce lieu, la borne doit y être arrivée avant la première.
-          <button type="button" className="mt-1 block font-medium underline" onClick={() => setDebut(localDe(borne.ventesSansLieu!.du, true))}>
-            Commencer le jour de la première vente
-          </button>
-        </div>
-      )}
-      <label className="block">
-        <span className="etiquette">À partir du *</span>
-        <input className="champ" type="datetime-local" required value={debut} onChange={(e) => setDebut(e.target.value)} />
-      </label>
-      <p className="text-xs text-ink-2">
-        {borne.lieuActuel && <>L&apos;affectation à <strong>{borne.lieuActuel.enseigne}</strong> sera clôturée à cette date. </>}
-        Les ventes déjà reçues après cette date seront rattachées au nouveau lieu, avec les statistiques et les commissions.
-      </p>
-      <MessageErreur erreur={affecter.error} />
-      <button className="bouton" disabled={affecter.isPending}>Valider</button>
-    </form>
-  );
-}
-
-function FormRetrait({ borne, onFini }: { borne: BorneListe; onFini: () => void }) {
-  const client = useQueryClient();
-  const [fin, setFin] = useState(maintenantLocal);
-  const retirer = useMutation({
-    mutationFn: () => api(`/affectations/${borne.affectationActuelle!.id}`, { method: "PATCH", json: { fin: versIso(fin) } }),
-    onSuccess: () => {
-      client.invalidateQueries();
-      onFini();
-    },
-  });
-  return (
-    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); retirer.mutate(); }}>
-      <p className="text-sm">
-        Retirer <strong>{borne.identifiant}</strong> de <strong>{borne.lieuActuel?.enseigne}</strong>. Les ventes reçues après cette date ne seront rattachées à aucun lieu (et signalées).
-      </p>
-      <label className="block">
-        <span className="etiquette">Date de retrait *</span>
-        <input className="champ" type="datetime-local" required value={fin} onChange={(e) => setFin(e.target.value)} />
-      </label>
-      <MessageErreur erreur={retirer.error} />
-      <button className="bouton" disabled={retirer.isPending}>Retirer la borne</button>
-    </form>
-  );
-}
-
 function RegenererCle({ borne, onFini }: { borne: BorneListe; onFini: (cle: string) => void }) {
   const client = useQueryClient();
   const regenerer = useMutation({
@@ -387,9 +308,3 @@ function RegenererCle({ borne, onFini }: { borne: BorneListe; onFini: (cle: stri
   );
 }
 
-/** Date ISO → valeur d'un champ datetime-local (heure locale) ; debutJour : à 00:00 */
-function localDe(iso: string, debutJour = false): string {
-  const d = new Date(iso);
-  const deux = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}T${debutJour ? "00:00" : `${deux(d.getHours())}:${deux(d.getMinutes())}`}`;
-}

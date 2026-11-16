@@ -1380,7 +1380,7 @@ function AdvancedSearchModal({ onClose, onSelect, initialQuery = "", initialTab 
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="bg-white rounded-2xl shadow-2xl w-[90vw] max-w-5xl h-[85vh] flex flex-col overflow-hidden">
         {/* Header: title + subtitle + close */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100">

@@ -9,6 +9,7 @@ import { depuisCents, versCents } from "@/lib/commissions";
 import { Gate, PageGuard } from "@/lib/perms";
 import { Badge, Chargement, EnTete, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
+import { FormAffectation, FormRetrait, type BornePourAffectation } from "@/components/AffectationBorne";
 import { BoutonSupprimer } from "@/components/BoutonSupprimer";
 import { axeCategorie, axeValeur, Graphique, type Jetons } from "@/components/Graphique";
 import { preset, PRESETS, useReferentiel } from "@/components/Filtres";
@@ -33,10 +34,18 @@ function Fiche({ id }: { id: number }) {
   const { data: b, error } = useQuery({ queryKey: ["borne", id], queryFn: () => api<BorneDetail>(`/bornes/${id}`) });
   const [edition, setEdition] = useState(false);
   const [dates, setDates] = useState<BorneDetail["affectations"][number] | null>(null);
+  const [lieu, setLieu] = useState<"affecter" | "retirer" | null>(null);
   if (error) return <Erreur erreur={error} />;
   if (!b) return <Chargement />;
   const actuelle = b.affectations.find((a) => !a.fin);
   const moduleActuel = b.modules.find((m) => !m.retireLe);
+  const pourAffectation: BornePourAffectation = {
+    id: b.id,
+    identifiant: b.identifiant,
+    lieuActuel: actuelle ? actuelle.lieu : null,
+    affectationActuelle: actuelle ? { id: actuelle.id } : null,
+    ventesSansLieu: b.ventesSansLieu,
+  };
 
   return (
     <>
@@ -57,12 +66,18 @@ function Fiche({ id }: { id: number }) {
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
         <Info libelle="Lieu actuel">
           {actuelle ? <Link className="hover:underline" href={`/lieux/${actuelle.lieu.id}`}>{actuelle.lieu.enseigne}</Link> : <Badge ton="warn">Non affectée</Badge>}
+          <Gate perm="bornes.edit">
+            <span className="mt-1 flex flex-wrap gap-x-3 text-xs font-normal">
+              <button type="button" className="text-accent hover:underline" onClick={() => setLieu("affecter")}>{actuelle ? "Déplacer" : "Affecter à un lieu"}</button>
+              {actuelle && <button type="button" className="text-accent hover:underline" onClick={() => setLieu("retirer")}>Retirer du lieu</button>}
+            </span>
+          </Gate>
         </Info>
         <Info libelle="Dernier signal">{depuis(b.dernierHeartbeat)}</Info>
         <Info libelle="Dernière vente">{depuis(b.derniereVente)}</Info>
       </div>
 
-      {b.ventesSansLieu && <VentesSansLieu borne={b} />}
+      {b.ventesSansLieu && <VentesSansLieu borne={b} onAffecter={() => setLieu("affecter")} />}
 
       <div className="space-y-6">
         <Gate perm="rentabilite.view">
@@ -91,6 +106,10 @@ function Fiche({ id }: { id: number }) {
       </div>
       <Modale titre={`Modifier ${b.identifiant}`} ouverte={edition} onFermer={() => setEdition(false)}>
         {edition && <FormEditionBorne borne={b} onFini={() => setEdition(false)} />}
+      </Modale>
+      <Modale titre={`${lieu === "retirer" ? "Retirer" : actuelle ? "Déplacer" : "Affecter"} ${b.identifiant}`} ouverte={lieu !== null} onFermer={() => setLieu(null)}>
+        {lieu === "affecter" && <FormAffectation borne={pourAffectation} onFini={() => setLieu(null)} />}
+        {lieu === "retirer" && <FormRetrait borne={pourAffectation} onFini={() => setLieu(null)} />}
       </Modale>
       <Modale titre="Dates dans le lieu" ouverte={dates !== null} onFermer={() => setDates(null)}>
         {dates && <FormDatesAffectation borneId={b.id} affectation={dates} onFini={() => setDates(null)} />}
@@ -610,7 +629,7 @@ function FormDatesAffectation({ borneId, affectation, onFini }: { borneId: numbe
  * Ventes reçues alors que la borne n'avait pas de lieu (remontées avant son affectation) :
  * les réintégrer en faisant commencer la présence dans le lieu le jour de la première.
  */
-function VentesSansLieu({ borne }: { borne: BorneDetail }) {
+function VentesSansLieu({ borne, onAffecter }: { borne: BorneDetail; onAffecter: () => void }) {
   const client = useQueryClient();
   const v = borne.ventesSansLieu!;
   const actuelle = borne.affectations.find((a) => !a.fin);
@@ -638,7 +657,9 @@ function VentesSansLieu({ borne }: { borne: BorneDetail }) {
       ) : actuelle ? (
         <p className="mt-1">Elles sont postérieures à l&apos;arrivée dans le lieu actuel : vérifiez la date de départ du lieu précédent dans l&apos;historique ci-dessous.</p>
       ) : (
-        <Link className="bouton mt-2 inline-flex" href={`/bornes?affecter=${borne.id}`}>Affecter la borne à son lieu</Link>
+        <Gate perm="bornes.edit">
+          <button type="button" className="bouton mt-2" onClick={onAffecter}>Affecter la borne à son lieu</button>
+        </Gate>
       )}
     </div>
   );

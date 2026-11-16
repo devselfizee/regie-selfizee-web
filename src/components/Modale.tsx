@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-/** Fenêtre modale native (<dialog>) : focus, Échap et fond gérés par le navigateur. */
+/** Fenêtre modale native (<dialog>) : focus, Échap et fond gérés par le navigateur ; un clic sur le fond la ferme. */
 export function Modale({
   titre,
   ouverte,
@@ -23,6 +23,16 @@ export function Modale({
   // L'événement « close » arrive aussi quand le parent ferme la modale (ex. pour en ouvrir une autre) :
   // dans ce cas il ne doit pas rappeler onFermer, qui fermerait la suivante.
   const ouverteRef = useRef(ouverte);
+  // Clic sur le fond : la cible est le <dialog> lui-même (son contenu le recouvre entièrement) et le point est hors de
+  // la fenêtre (pas sa barre de défilement). On vérifie aussi l'appui, pour ne pas fermer après une sélection de
+  // texte commencée dans la fenêtre et relâchée sur le fond.
+  const appuiFond = useRef(false);
+  const surFond = (e: React.MouseEvent<HTMLDialogElement>) => {
+    const d = ref.current;
+    if (!d || e.target !== d) return false;
+    const r = d.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
   useEffect(() => {
     ouverteRef.current = ouverte;
     const d = ref.current;
@@ -35,6 +45,11 @@ export function Modale({
     <dialog
       ref={ref}
       onClose={() => ouverteRef.current && onFermer()}
+      onMouseDown={(e) => { appuiFond.current = surFond(e); }}
+      onClick={(e) => {
+        if (appuiFond.current && surFond(e)) onFermer();
+        appuiFond.current = false;
+      }}
       className={`m-auto ${tresLarge ? "w-[min(72rem,calc(100vw-2rem))]" : large ? "w-[min(46rem,calc(100vw-2rem))]" : "w-[min(32rem,calc(100vw-2rem))]"} max-h-[calc(100vh-2rem)] overflow-y-auto rounded-lg border border-line bg-surface p-0 text-ink backdrop:bg-black/40`}
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
