@@ -1129,6 +1129,10 @@ export interface MediaDetail extends MediaResume {
   photoUuid: string | null;
   /** Page souvenir de la séance (QR imprimé) : base SOUVENIR_QR_BASE_URL + code d'événement + photo_uuid ; null sans JSON */
   pageSouvenir: string | null;
+  /** Achat numérique sans tirage (digital_only du JSON) */
+  numeriqueSeul: boolean;
+  /** E-mails de la séance : inscriptions (page souvenir, ou adresses tapées sur la borne) et leurs envois */
+  envois: { adresses: number; borne: number; envoyes: number; enAttente: number };
   dateSave: string | null;
   lieuId: number | null;
   sha256: string | null;

@@ -432,6 +432,15 @@ function DetailMedia({ uuid, onFermer, precedent, suivant, position }: { uuid: s
                   </span>
                 )}
               </Ligne>
+              {m.envois && m.envois.adresses > 0 && (
+                <Ligne l="E-mails">
+                  <span>
+                    {m.envois.envoyes} envoyé{m.envois.envoyes > 1 ? "s" : ""} sur {m.envois.adresses} adresse{m.envois.adresses > 1 ? "s" : ""}
+                    {m.envois.enAttente > 0 && ` · ${m.envois.enAttente} en attente`}
+                    {m.envois.borne > 0 && <span className="block text-xs text-ink-muted">{m.envois.borne} tapée{m.envois.borne > 1 ? "s" : ""} sur la borne</span>}
+                  </span>
+                </Ligne>
+              )}
               {m.parcours && <Ligne l="Parcours invité">{m.parcours.issue} · {m.parcours.dureeS} s</Ligne>}
 
               {m.pageSouvenir && (
