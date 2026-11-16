@@ -162,6 +162,8 @@ export interface StatsGlobales {
 
 export interface StatsLieu {
   periode: { du: string; au: string };
+  /** Les 10 dernières ventes du lieu sur la période (retour de Sébastien du 16/11) */
+  dernieresVentes: StatsGlobales["dernieresVentes"];
   granularite: Granularite;
   interventions: { jour: string; motif: string; borne: string }[];
   kpis: Comparaisons;

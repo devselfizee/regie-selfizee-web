@@ -41,7 +41,7 @@ export function CodesRemiseLieu({ lieuId }: { lieuId: number }) {
               <th className="py-2 pr-3 font-medium">Remise</th>
               <th className="py-2 pr-3 text-right font-medium">Codes</th>
               <th className="py-2 pr-3 text-right font-medium">Utilisés</th>
-              <th className="py-2 pr-3 text-right font-medium">Impressions restantes</th>
+              <th className="py-2 pr-3 text-right font-medium" title="Impressions offertes restantes, ou utilisations restantes des codes en %">Restant</th>
               <th className="py-2 font-medium">Valables jusqu&apos;au</th>
             </tr>
           </thead>

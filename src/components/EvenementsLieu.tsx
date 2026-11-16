@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type MouseEvent, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
-import { euros, jour } from "@/lib/format";
+import { depuis, euros, jour } from "@/lib/format";
 import { usePerm } from "@/lib/perms";
 import { affiche, duAu, etatPublication, instants, maintenantParis, periode } from "@/lib/programmation";
 import { Badge, Erreur } from "./Etat";
@@ -149,6 +149,47 @@ export function Publication({ e, maintenant }: { e: EvenementPonctuel; maintenan
   return <EtatPublie version={e.version} publieeLe={e.publieeLe} modifie={e.modifieDepuisPublication} />;
 }
 
+/** GET /lieux/:id/evenements/installations : dernière étape et dernière version installée, par code et par borne */
+export interface InstallationsLieu {
+  bornes: { id: number; identifiant: string }[];
+  parCode: Record<string, Record<string, { dernier: { etat: string; version: number; le: string; message: string | null } | null; installe: { version: number; le: string } | null }>>;
+}
+
+const ETAPES_INSTALLATION: Record<string, string> = { DEMANDE: "demandée", ENVOYE: "en téléchargement", TELECHARGE: "téléchargée, pas encore installée", ECHEC: "échec" };
+
+/**
+ * La version publiée est-elle arrivée sur chaque borne du lieu ? (retour de Sébastien du 16/11) D'après le journal
+ * des téléchargements : à jour, en cours, en échec, ancienne version, ou jamais téléchargé.
+ */
+function SurLesBornes({ code, version, installations }: { code: string | null; version: number; installations?: InstallationsLieu }) {
+  if (!code || version === 0 || !installations?.bornes.length) return null;
+  const parBorne = installations.parCode[code] ?? {};
+  return (
+    <ul className="mt-1 space-y-0.5 text-xs">
+      {installations.bornes.map((b) => {
+        const { dernier, installe } = parBorne[b.id] ?? { dernier: null, installe: null };
+        const aJour = installe && installe.version >= version;
+        // Étape plus récente que la dernière installation (téléchargement de la nouvelle version en cours, ou raté)
+        const enCours = dernier && dernier.etat !== "INSTALLE" && (!installe || dernier.le > installe.le) ? dernier : null;
+        const [ton, texte, titre] = aJour
+          ? (["text-good", `à jour (v${installe.version})`, `Installée ${depuis(installe.le)}`] as const)
+          : enCours?.etat === "ECHEC"
+            ? (["text-bad", `échec v${enCours.version}`, enCours.message ?? `Échec ${depuis(enCours.le)}`] as const)
+            : enCours
+              ? (["text-warn-ink", `v${enCours.version} ${ETAPES_INSTALLATION[enCours.etat] ?? enCours.etat.toLowerCase()}`, depuis(enCours.le)] as const)
+              : installe
+                ? (["text-warn-ink", `v${installe.version} installée, v${version} pas encore`, `v${installe.version} installée ${depuis(installe.le)}`] as const)
+                : (["text-ink-muted", "pas encore téléchargé", "Aucun téléchargement de cet événement par cette borne"] as const);
+        return (
+          <li key={b.id} className={ton} title={titre}>
+            <span className="font-medium">{b.identifiant}</span> · {texte}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 /** « Publié » ou « À publier » (modifié depuis) ; version et date au survol. */
 function EtatPublie({ version, publieeLe, modifie }: { version: number; publieeLe: string | null; modifie: boolean }) {
   const le = publieeLe ? new Date(publieeLe).toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit" }) : "";
@@ -240,6 +281,12 @@ function DevenirDefaut({ lieuId, e, onFermer }: { lieuId: number; e: EvenementPo
 export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[] }) {
   const client = useQueryClient();
   const peutModifier = usePerm("evenements.edit");
+  // Arrivée de chaque version sur les bornes du lieu, rafraîchie toutes les 30 s (on publie, puis on regarde la borne la charger)
+  const installations = useQuery({
+    queryKey: ["evenements-installations", lieuId],
+    queryFn: () => api<InstallationsLieu>(`/lieux/${lieuId}/evenements/installations`),
+    refetchInterval: 30_000,
+  });
   const [filtre, setFiltre] = useState<Filtre>("avenir");
   const [recherche, setRecherche] = useState("");
   const [creation, setCreation] = useState(false);
@@ -324,7 +371,10 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                   {defautAffiche && <span className="ml-1.5 font-semibold">· en ce moment</span>}
                 </td>
                 <td className="px-3 py-2.5"><TarifsCourts grille={defaut.reglages.tarifs} herite={defaut.reglages.tarifs.herite} /></td>
-                <td className="px-3 py-2.5"><PublicationDefaut d={defaut} /></td>
+                <td className="px-3 py-2.5">
+                  <PublicationDefaut d={defaut} />
+                  {defaut.enregistre && <SurLesBornes code={defaut.code} version={defaut.version} installations={installations.data} />}
+                </td>
                 <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
                   {defaut.enregistre && (
                     <MenuActions
@@ -357,7 +407,10 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
                     {p === "passe" && <span className="ml-1.5 text-ink-muted">· passé</span>}
                   </td>
                   <td className="px-3 py-2.5"><TarifsCourts grille={e.tarifs} herite={e.tarifsHerites} /></td>
-                  <td className="px-3 py-2.5"><Publication e={e} maintenant={maintenant} /></td>
+                  <td className="px-3 py-2.5">
+                    <Publication e={e} maintenant={maintenant} />
+                    {p !== "passe" && <SurLesBornes code={e.code} version={e.version} installations={installations.data} />}
+                  </td>
                   <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
                     <MenuActions
                       libelle={`Actions sur ${e.nom}`}

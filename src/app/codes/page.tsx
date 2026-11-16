@@ -55,7 +55,9 @@ interface PageCodes {
 }
 
 const remise = (c: Pick<CodeRemise, "type" | "pourcentage" | "quantite">) =>
-  c.type === "OFFERT" ? `${c.quantite} impression${c.quantite > 1 ? "s" : ""} offerte${c.quantite > 1 ? "s" : ""}` : `−${c.pourcentage} % sur ${c.quantite} impression${c.quantite > 1 ? "s" : ""}`;
+  c.type === "OFFERT"
+    ? `${c.quantite} impression${c.quantite > 1 ? "s" : ""} offerte${c.quantite > 1 ? "s" : ""}`
+    : `−${c.pourcentage} % sur la commande${c.quantite > 1 ? `, ${c.quantite} utilisations` : ""}`;
 
 export default function PageCodesRemise() {
   return (
@@ -353,8 +355,9 @@ function FormulaireLot({ lieux, onCree }: { lieux: LieuListe[]; onCree: (lotId: 
       </fieldset>
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="etiquette">Impressions par code *</span>
-          <input className="champ" type="number" min={1} max={100} required value={quantite} onChange={(e) => setQuantite(e.target.value)} />
+          {/* Remise en % : sur toute la commande, on choisit combien de fois le code sert (retour de Sébastien du 16/11) */}
+          <span className="etiquette">{type === "OFFERT" ? "Impressions par code *" : "Utilisations par code *"}</span>
+          <input className="champ" type="number" min={1} max={type === "OFFERT" ? 100 : 1000} required value={quantite} onChange={(e) => setQuantite(e.target.value)} />
         </label>
         {type === "POURCENTAGE" && (
           <label className="block">

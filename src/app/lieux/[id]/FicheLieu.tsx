@@ -17,6 +17,7 @@ import { JournalEvenements, superpositions, useContexteLieu, useEvenements } fro
 import { Comportement } from "@/components/Entonnoir";
 import { BasculeHt, htDepuisTtc, usePreferenceHt } from "@/components/BasculeHt";
 import { ListePaiements } from "@/components/ListePaiements";
+import { DernieresVentes } from "@/components/DernieresVentes";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
 import { ConfigurationLieu } from "@/components/ConfigurationLieu";
@@ -121,7 +122,23 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         <>
           {stats.error && <Erreur erreur={stats.error} />}
           {stats.isPending && !stats.error && <Chargement />}
-          {stats.data && <Statistiques s={stats.data} lieuId={id} l={l} ht={ht} requete={query} />}
+          {stats.data && (
+            <Statistiques
+              s={stats.data}
+              lieuId={id}
+              l={l}
+              ht={ht}
+              requete={query}
+              voirVentes={
+                ongletsVisibles.some((o) => o.cle === "ventes")
+                  ? () => {
+                      setOnglet("ventes");
+                      parametreUrl("onglet", "ventes");
+                    }
+                  : undefined
+              }
+            />
+          )}
         </>
       )}
 
@@ -333,7 +350,7 @@ function Info({ l, children }: { l: string; children: ReactNode }) {
 
 const GRANULARITES: Record<StatsLieu["granularite"], string> = { jour: "jour", semaine: "semaine", mois: "mois", annee: "année" };
 
-function Statistiques({ s: brut, lieuId, l, ht, requete }: { s: StatsLieu; lieuId: number; l: LieuFiche; ht: boolean; requete: string }) {
+function Statistiques({ s: brut, lieuId, l, ht, requete, voirVentes }: { s: StatsLieu; lieuId: number; l: LieuFiche; ht: boolean; requete: string; voirVentes?: () => void }) {
   // En HT : montants convertis à 20 % de TVA quand l'API ne donne que le TTC (le CA des KPI et de la courbe, lui, est exact)
   const s = ht ? enHt(brut) : brut;
   const suffixe = ht ? "HT" : "TTC";
@@ -381,6 +398,14 @@ function Statistiques({ s: brut, lieuId, l, ht, requete }: { s: StatsLieu; lieuI
       </Bloc>
 
       {prevision}
+
+      {/* Dernières ventes du lieu, avec un lien vers l'onglet Ventes (retour de Sébastien du 16/11) */}
+      <Bloc
+        titre="Dernières ventes"
+        actions={voirVentes && <button type="button" className="text-sm text-accent hover:underline" onClick={voirVentes}>Toutes les ventes</button>}
+      >
+        <DernieresVentes ventes={s.dernieresVentes ?? []} ht={ht} sansLieu />
+      </Bloc>
 
       {fiche.error && <Erreur erreur={fiche.error} />}
       {!f && !fiche.error && <Chargement />}
