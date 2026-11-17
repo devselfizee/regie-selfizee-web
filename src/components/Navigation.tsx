@@ -27,6 +27,8 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/rentabilite", libelle: "Rentabilité", perm: "pages.rentabilite.view" },
   { href: "/rapprochement", libelle: "Rapprochement", perm: "pages.rapprochement.view" },
   { href: "/prospects", libelle: "Prospects", perm: "pages.prospects.view" },
+  { href: "/apporteurs", libelle: "Apporteurs", perm: "pages.apporteurs.view" },
+  { href: "/mes-apports", libelle: "Mes apports", perm: "pages.mes_apports.view" },
   { href: "/utilisateurs", libelle: "Utilisateurs", perm: "pages.utilisateurs.view" },
   { href: "/parametres", libelle: "Paramètres", perm: "pages.parametres.view" },
   { href: "/evenements", libelle: "Événements", perm: PERM_SUPER_ADMIN },
@@ -39,11 +41,9 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
   const kc = keycloak();
   const a = useDroits();
   const voit = useVoitMenu();
-  // Sans la liste des lieux mais rattaché à un lieu (partenaire) : un menu réduit à « Mon lieu »
-  const liens =
-    !a("pages.lieux.view") && moi.lieuId
-      ? [{ href: `/lieux/${moi.lieuId}`, libelle: "Mon lieu" }]
-      : LIENS.filter((l) => voit(l.perm));
+  // Sans la liste des lieux mais rattaché à des lieux (client) : « Mon lieu », ou un lien par lieu
+  const mesLieux = !a("pages.lieux.view") ? moi.lieux.map((l) => ({ href: `/lieux/${l.id}`, libelle: moi.lieux.length === 1 ? "Mon lieu" : l.enseigne })) : [];
+  const liens = [...mesLieux, ...LIENS.filter((l) => voit(l.perm))];
   const { data: compteur } = useQuery({
     queryKey: ["alertes", "compteur"],
     queryFn: () => api<{ nouvelles: number; critiques: number }>("/alertes/compteur"),

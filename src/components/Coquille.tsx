@@ -53,7 +53,12 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
   },
   {
     libelle: "Commercial",
-    liens: [{ href: "/prospects", libelle: "Prospects", icone: "Target", perm: "pages.prospects.view" }],
+    liens: [
+      { href: "/prospects", libelle: "Prospects", icone: "Target", perm: "pages.prospects.view" },
+      // Apporteurs d'affaires (demande du 17/11) : leur gestion, et le point mensuel de chacun
+      { href: "/apporteurs", libelle: "Apporteurs", icone: "Handshake", perm: "pages.apporteurs.view" },
+      { href: "/mes-apports", libelle: "Mes apports", icone: "HandCoins", perm: "pages.mes_apports.view" },
+    ],
   },
   {
     libelle: "Administration",
@@ -153,7 +158,9 @@ export function Coquille({ children }: { children: ReactNode }) {
   const permis = new Set(SECTIONS.flatMap((s) => s.liens.map((l) => l.perm)).filter((p) => voit(p)));
   const cleDroits = [...permis].join("|");
   const voitAlertes = a("pages.alertes.view");
-  const monLieuSeul = !a("pages.lieux.view") && !!moi.lieuId;
+  // Sans la liste des lieux mais rattaché à des lieux (client) : une section « Mon lieu » / « Mes lieux » en tête
+  const mesLieux = !a("pages.lieux.view") ? moi.lieux : [];
+  const cleMesLieux = mesLieux.map((l) => `${l.id}:${l.enseigne}`).join("|");
 
   const { data: compteur } = useQuery({
     queryKey: ["alertes", "compteur"],
@@ -165,9 +172,10 @@ export function Coquille({ children }: { children: ReactNode }) {
   const nbAlertes = compteur?.nouvelles ?? 0;
   const sections = useMemo(() => {
     if (!plateforme) return [];
-    // Sans la liste des lieux mais rattaché à un lieu (partenaire) : un menu réduit à « Mon lieu »
-    if (monLieuSeul) return [{ label: "Mon lieu", items: [{ icon: plateforme.icone("MapPin"), label: "Mon lieu", path: `/lieux/${moi.lieuId}` }] }];
-    return SECTIONS.map((s) => ({
+    const sectionLieux = mesLieux.length
+      ? [{ label: mesLieux.length === 1 ? "Mon lieu" : "Mes lieux", items: mesLieux.map((l) => ({ icon: plateforme.icone("MapPin"), label: mesLieux.length === 1 ? "Mon lieu" : l.enseigne, path: `/lieux/${l.id}` })) }]
+      : [];
+    return sectionLieux.concat(SECTIONS.map((s) => ({
       label: s.libelle,
       items: s.liens
         .filter((l) => permis.has(l.perm))
@@ -177,10 +185,10 @@ export function Coquille({ children }: { children: ReactNode }) {
           path: l.href,
           ...(l.href === "/alertes" && nbAlertes ? { badge: nbAlertes } : {}),
         })),
-    })).filter((s) => s.items.length);
-    // permis : recalculé à chaque rendu, comparé par sa clé texte
+    })).filter((s) => s.items.length));
+    // permis et mesLieux : recalculés à chaque rendu, comparés par leur clé texte
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plateforme, cleDroits, monLieuSeul, moi.lieuId, nbAlertes]);
+  }, [plateforme, cleDroits, cleMesLieux, nbAlertes]);
 
   // La barre latérale ne surligne que le chemin exact : on lui donne l'entrée de menu qui contient la page
   const cheminActif = useMemo(() => {

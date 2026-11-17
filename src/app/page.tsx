@@ -23,9 +23,9 @@ import { useDroits } from "@/lib/perms";
 export default function Accueil() {
   const moi = useMoi();
   const router = useRouter();
-  // Sans tableau de bord (droits Konitys) : vers la première page permise (bornes, son lieu), sinon le refus
+  // Sans tableau de bord (droits Konitys) : vers la première page permise (bornes, son lieu, ses apports), sinon le refus
   const a = useDroits();
-  const redirection = a("pages.tableau_de_bord.view") ? null : a("pages.bornes.view") ? "/bornes" : moi.lieuId ? `/lieux/${moi.lieuId}` : "/403";
+  const redirection = a("pages.tableau_de_bord.view") ? null : a("pages.bornes.view") ? "/bornes" : moi.lieux[0] ? `/lieux/${moi.lieux[0].id}` : a("pages.mes_apports.view") ? "/mes-apports" : "/403";
   useEffect(() => {
     if (redirection) router.replace(redirection);
   }, [redirection, router]);

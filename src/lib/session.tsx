@@ -10,8 +10,9 @@ export interface Moi {
   email: string;
   nom: string;
   prenom: string;
-  /** Lieu rattaché (partenaire) : son périmètre quand il n'a pas le droit de voir tous les lieux */
-  lieuId: number | null;
+  /** Lieux rattachés (client) : son périmètre quand il n'a pas le droit de voir tous les lieux */
+  lieuIds: number[];
+  lieux: { id: number; enseigne: string }[];
   /** Admin de la plateforme : seul à pouvoir supprimer un lieu ou une borne */
   superAdmin?: boolean;
 }

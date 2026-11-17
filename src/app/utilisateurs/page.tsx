@@ -19,8 +19,11 @@ interface Utilisateur {
   /** Reçoit les e-mails des alertes et le récapitulatif quotidien (désigné ici) */
   alertesEmail: boolean;
   isActive: boolean;
-  lieuId: number | null;
-  lieu: { id: number; enseigne: string } | null;
+  /** Lieux auxquels un client a accès (demande du 17/11 : un ou plusieurs) */
+  lieuIds: number[];
+  lieux: { id: number; enseigne: string }[];
+  /** Apporteur d'affaires (au moins un lieu rattaché dans la page Apporteurs) */
+  apporteur: boolean;
   dejaConnecte: boolean;
   nbLieux: number;
   /** Profils Konitys (Admin Panel), relevés à sa dernière connexion */
@@ -64,7 +67,7 @@ function Utilisateurs() {
     <>
       <EnTete
         titre="Utilisateurs"
-        sousTitre="L'identité vient de Keycloak, les droits de l'Admin Panel Konitys. Ici : ajouter une personne, rattacher un partenaire à son lieu, les SMS des alertes, couper un accès."
+        sousTitre="L'identité vient de Keycloak, les droits de l'Admin Panel Konitys. Ici : ajouter une personne, rattacher un client à ses lieux, les SMS des alertes, couper un accès."
         actions={
           <Gate perm="utilisateurs.manage">
             <button className="bouton" onClick={() => setEdition("nouveau")}>Ajouter un utilisateur</button>
@@ -78,6 +81,7 @@ function Utilisateurs() {
       {emails.error && <Erreur erreur={emails.error} />}
       <p className="mb-2 text-sm text-ink-2">
         Ce que chacun peut voir et faire se règle dans l&apos;Admin Panel → <strong>Profils &amp; Droits</strong> (application « Régie »), selon le profil de son compte.
+        Pour un client, choisissez-y ce qu&apos;il peut faire sur ses lieux (juste les chiffres, tout voir, gérer ses événements…) ; ses lieux se rattachent ici.
         {ADMIN_PANEL && (
           <>
             {" "}
@@ -96,8 +100,8 @@ function Utilisateurs() {
               <tr>
                 <th className="px-4 py-3 font-medium">Nom</th>
                 <th className="px-4 py-3 font-medium" title="Profils de l'Admin Panel, relevés à sa dernière connexion : ils donnent ses droits">Profils</th>
-                <th className="px-4 py-3 font-medium" title="Seulement pour un partenaire : le lieu qu'il voit. Les autres voient les lieux selon leurs droits.">
-                  Lieu (partenaire)
+                <th className="px-4 py-3 font-medium" title="Seulement pour un client : le ou les lieux qu'il voit. Les autres voient les lieux selon leurs droits.">
+                  Lieux (client)
                 </th>
                 <th className="px-4 py-3 font-medium" title="Alertes Warning et Critique, et récapitulatif quotidien">E-mails des alertes</th>
                 <th className="px-4 py-3 font-medium" title="Alertes critiques (borne muette…)">SMS des alertes</th>
@@ -128,11 +132,19 @@ function Utilisateurs() {
                     )}
                   </td>
                   <td className="px-4 py-3 text-ink-2">
-                    {/* Lieu rattaché : seulement pour un partenaire ; les autres voient les lieux selon leurs droits */}
-                    {u.lieu?.enseigne ?? <span className="text-xs text-ink-muted">aucun</span>}
+                    {/* Lieux rattachés : seulement pour un client ; les autres voient les lieux selon leurs droits */}
+                    {u.lieux.length ? (
+                      <span title={u.lieux.map((l) => l.enseigne).join(", ")}>
+                        {u.lieux.slice(0, 3).map((l) => l.enseigne).join(", ")}
+                        {u.lieux.length > 3 && <span className="text-ink-muted"> et {u.lieux.length - 3} autre{u.lieux.length > 4 ? "s" : ""}</span>}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-ink-muted">aucun</span>
+                    )}
                     {u.nbLieux > 0 && (
                       <span className="block text-xs text-ink-muted">responsable de {u.nbLieux} lieu{u.nbLieux > 1 ? "x" : ""}</span>
                     )}
+                    {u.apporteur && <span className="block text-xs text-ink-muted">apporteur d&apos;affaires</span>}
                   </td>
                   <td className="px-4 py-3">
                     <input
@@ -163,7 +175,7 @@ function Utilisateurs() {
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       {gere && (
-                        <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Lieu rattaché</button>
+                        <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Lieux rattachés</button>
                       )}
                       {gere && u.id !== moi.id && (
                         <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => basculer.mutate(u)}>
@@ -180,7 +192,7 @@ function Utilisateurs() {
       )}
 
       <Modale
-        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Lieu rattaché"}
+        titre={edition === "nouveau" ? "Ajouter un utilisateur" : "Lieux rattachés"}
         ouverte={edition !== null}
         onFermer={() => setEdition(null)}
       >
@@ -192,12 +204,25 @@ function Utilisateurs() {
 
 function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => void }) {
   const client = useQueryClient();
-  const [f, setF] = useState({ email: u?.email ?? "", lieuId: u?.lieuId ? String(u.lieuId) : "" });
+  const [f, setF] = useState({ email: u?.email ?? "", lieuIds: new Set<number>(u?.lieuIds ?? []) });
+  const [recherche, setRecherche] = useState("");
   const { data: lieux } = useQuery({ queryKey: ["lieux", ""], queryFn: () => api<LieuListe[]>("/lieux") });
+  const basculerLieu = (id: number) =>
+    setF((f) => {
+      const lieuIds = new Set(f.lieuIds);
+      if (lieuIds.has(id)) lieuIds.delete(id);
+      else lieuIds.add(id);
+      return { ...f, lieuIds };
+    });
+  const normaliser = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const q = normaliser(recherche.trim());
+  // Les lieux cochés d'abord, puis ceux qui correspondent à la recherche (15 au plus : on cherche les autres)
+  const coches = (lieux ?? []).filter((l) => f.lieuIds.has(l.id));
+  const proposes = (lieux ?? []).filter((l) => !f.lieuIds.has(l.id) && (!q || normaliser(`${l.enseigne} ${l.ville ?? ""} ${l.codePostal ?? ""}`).includes(q))).slice(0, 15);
   const enregistrer = useMutation({
     mutationFn: () => {
-      // Identité (Keycloak) et droits (Admin Panel) se gèrent ailleurs : seul le lieu rattaché se règle ici
-      const corps = { lieuId: f.lieuId ? Number(f.lieuId) : null };
+      // Identité (Keycloak) et droits (Admin Panel) se gèrent ailleurs : seuls les lieux rattachés se règlent ici
+      const corps = { lieuIds: [...f.lieuIds] };
       return u
         ? api(`/utilisateurs/${u.id}`, { method: "PATCH", json: corps })
         : api("/utilisateurs", { method: "POST", json: { ...corps, email: f.email } });
@@ -225,14 +250,31 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
           </span>
         </label>
       )}
-      <label className="block">
-        <span className="etiquette">Lieu rattaché (partenaire)</span>
-        <select className="champ" value={f.lieuId} onChange={(e) => setF({ ...f, lieuId: e.target.value })}>
-          <option value="">—</option>
-          {lieux?.map((l) => <option key={l.id} value={l.id}>{l.enseigne}</option>)}
-        </select>
-        <span className="mt-1 block text-xs text-ink-muted">Sans le droit « Voir tous les lieux », la personne ne voit que ce lieu.</span>
-      </label>
+      <div>
+        <span className="etiquette">Lieux rattachés (client)</span>
+        <input className="champ mb-2" placeholder="Rechercher un lieu, une ville…" value={recherche} onChange={(e) => setRecherche(e.target.value)} aria-label="Rechercher un lieu" />
+        <div className="max-h-56 overflow-y-auto rounded-md border border-line p-2 text-sm">
+          {coches.map((l) => (
+            <label key={l.id} className="flex items-center gap-2 py-1">
+              <input type="checkbox" checked onChange={() => basculerLieu(l.id)} />
+              <span className="font-medium">{l.enseigne}</span>
+              {l.ville && <span className="text-xs text-ink-muted">{l.ville}</span>}
+            </label>
+          ))}
+          {proposes.map((l) => (
+            <label key={l.id} className="flex items-center gap-2 py-1">
+              <input type="checkbox" checked={false} onChange={() => basculerLieu(l.id)} />
+              <span>{l.enseigne}</span>
+              {l.ville && <span className="text-xs text-ink-muted">{l.ville}</span>}
+            </label>
+          ))}
+          {!coches.length && !proposes.length && <p className="py-2 text-xs text-ink-muted">{lieux ? "Aucun lieu ne correspond." : "Chargement…"}</p>}
+        </div>
+        <span className="mt-1 block text-xs text-ink-muted">
+          {f.lieuIds.size ? `${f.lieuIds.size} lieu${f.lieuIds.size > 1 ? "x" : ""} coché${f.lieuIds.size > 1 ? "s" : ""}. ` : ""}
+          Sans le droit « Voir tous les lieux », la personne ne voit que ces lieux ; ce qu&apos;elle peut y faire dépend de son profil dans l&apos;Admin Panel.
+        </span>
+      </div>
       {enregistrer.error && <p role="alert" className="text-sm text-bad">{enregistrer.error.message}</p>}
       <button className="bouton" disabled={enregistrer.isPending}>{u ? "Enregistrer" : "Ajouter"}</button>
     </form>
