@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
+import { api, type EvenementBooth, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
 import { depuis, euros, jour } from "@/lib/format";
 import { usePerm } from "@/lib/perms";
-import { affiche, duAu, etatPublication, instants, maintenantParis, periode } from "@/lib/programmation";
+import { affiche, creneauBooth, duAu, etatPublication, instants, maintenantParis, periode } from "@/lib/programmation";
 import { Badge, Erreur } from "./Etat";
 import { MenuActions } from "./MenuActions";
 import { Modale } from "./Modale";
@@ -16,7 +16,9 @@ import { Modale } from "./Modale";
 // l'onglet Configuration, la ligne « Par défaut » puis les événements personnalisés groupés par mois, filtrés (en
 // cours et à venir, passés, tous) avec une recherche qui porte sur tous ; chaque ligne montre les tarifs pratiqués.
 // La fenêtre « Nouvel événement » (nom, début et fin avec leur heure), la copie d'un événement, et la conversion
-// d'un événement personnalisé en événement par défaut.
+// d'un événement personnalisé en événement par défaut. Depuis l'avenant de l'équipe borne du 18/11/2026, la fenêtre
+// propose aussi un « Événement booth » : un code booth saisi sans vérification, programmé sur un créneau, que la borne
+// charge elle-même (pas de fiche, pas de publication).
 
 /** « 12/11/2026 à 20:00 → 13/11/2026 à 06:00 » (en-tête de la fiche événement). */
 export function dates(e: { dateDebut: string; dateFin: string; heureDebut?: string | null; heureFin?: string | null }) {
@@ -115,6 +117,120 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
   );
 }
 
+/** Code booth : 3 à 8 lettres ou chiffres (la saisie est mise en majuscules, jamais vérifiée auprès de booth). */
+const CODE_BOOTH = /^[A-Z0-9]{3,8}$/;
+
+/**
+ * Fenêtre « Événement booth » : le code booth, un nom facultatif, début et fin avec leur heure. Crée le créneau, ou le
+ * modifie avec `booth`. La Régie ne vérifie pas le code : si la borne ne le trouve pas, elle le signale en échec.
+ */
+export function FormEvenementBooth({ lieuId, onAnnuler, booth }: { lieuId: number; onAnnuler: () => void; booth?: EvenementBooth }) {
+  const client = useQueryClient();
+  const [code, setCode] = useState(booth?.code ?? "");
+  const [nom, setNom] = useState(booth?.nom ?? "");
+  const [debut, setDebut] = useState(booth?.dateDebut ?? "");
+  const [heureDebut, setHeureDebut] = useState(booth ? booth.heureDebut ?? "" : "20:00");
+  const [fin, setFin] = useState(booth && booth.dateFin !== booth.dateDebut ? booth.dateFin : "");
+  const [heureFin, setHeureFin] = useState(booth ? booth.heureFin ?? "" : "06:00");
+
+  const dateFin = fin || (debut && heureDebut && heureFin && heureFin <= heureDebut ? lendemain(debut) : debut);
+  const saisie = { code: code.trim().toUpperCase(), nom: nom.trim() || null, dateDebut: debut, dateFin, heureDebut: heureDebut || null, heureFin: heureFin || null };
+  const codeValide = CODE_BOOTH.test(saisie.code);
+  const finAvantDebut = Boolean(debut) && instants(saisie).fin <= instants(saisie).debut;
+
+  const enregistrer = useMutation({
+    mutationFn: () =>
+      booth
+        ? api(`/lieux/${lieuId}/evenements-booth/${booth.id}`, { method: "PUT", json: saisie })
+        : api(`/lieux/${lieuId}/evenements-booth`, { method: "POST", json: saisie }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["evenements-booth", lieuId] });
+      onAnnuler();
+    },
+  });
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        enregistrer.mutate();
+      }}
+    >
+      <div className="grid grid-cols-[8rem_1fr] gap-3">
+        <label className="block">
+          <span className="etiquette">Code booth *</span>
+          <input
+            className="champ font-mono uppercase"
+            required
+            maxLength={8}
+            placeholder="AB12"
+            autoComplete="off"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            aria-invalid={code.length > 0 && !codeValide}
+          />
+        </label>
+        <label className="block">
+          <span className="etiquette">Nom</span>
+          <input className="champ" maxLength={80} placeholder="Soirée privée, mariage…" value={nom} onChange={(e) => setNom(e.target.value)} />
+        </label>
+      </div>
+      <div className="grid grid-cols-[1fr_8rem] gap-3">
+        <label className="block">
+          <span className="etiquette">Début *</span>
+          <input className="champ" type="date" required value={debut} onChange={(e) => setDebut(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">à</span>
+          <input className="champ" type="time" value={heureDebut} onChange={(e) => setHeureDebut(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">Fin</span>
+          <input className="champ" type="date" min={debut || undefined} value={fin} onChange={(e) => setFin(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">à</span>
+          <input className="champ" type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} />
+        </label>
+      </div>
+      <p className="text-xs text-ink-muted">
+        Le code est celui de l&apos;événement dans booth, repris tel quel : la Régie ne le vérifie pas. À l&apos;heure du créneau, la borne le charge
+        elle-même, puis revient à la programmation du lieu. Sans date de fin : une seule soirée, jusqu&apos;au lendemain si l&apos;heure de fin est avant
+        celle du début.
+      </p>
+      {code.length > 0 && !codeValide && <p role="alert" className="text-sm text-crit-ink">Le code fait 3 à 8 lettres ou chiffres.</p>}
+      {finAvantDebut && <p role="alert" className="text-sm text-crit-ink">La fin est avant le début.</p>}
+      {enregistrer.error && <Erreur erreur={enregistrer.error} />}
+      <div className="-mx-4 -mb-4 flex justify-end gap-2 border-t border-line px-4 py-3">
+        <button type="button" className="bouton-second" onClick={onAnnuler}>Annuler</button>
+        <button type="submit" className="bouton" disabled={enregistrer.isPending || !codeValide || !debut || finAvantDebut}>
+          {enregistrer.isPending ? "Enregistrement…" : booth ? "Enregistrer" : "Programmer le code booth"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+type Genre = "regie" | "booth";
+/** Fenêtre « Nouvel événement » : un événement de la Régie (fiche, cadres, publication) ou un code booth à programmer. */
+function FormNouveau({ lieuId, onAnnuler }: { lieuId: number; onAnnuler: () => void }) {
+  const [genre, setGenre] = useState<Genre>("regie");
+  return (
+    <div className="space-y-4">
+      <Segments<Genre>
+        libelle="Type d'événement"
+        valeur={genre}
+        onChange={setGenre}
+        choix={[
+          { cle: "regie", libelle: "Événement de la Régie", aide: "Cadres, tarifs et options réglés ici, publié vers la borne" },
+          { cle: "booth", libelle: "Événement booth", aide: "Un code booth programmé sur un créneau, chargé par la borne" },
+        ]}
+      />
+      {genre === "regie" ? <FormNouvelEvenement lieuId={lieuId} onAnnuler={onAnnuler} /> : <FormEvenementBooth lieuId={lieuId} onAnnuler={onAnnuler} />}
+    </div>
+  );
+}
+
 /** Boutons collés (filtre, échelle de la frise) : celui choisi en noir. */
 export function Segments<T extends string>({ choix, valeur, onChange, libelle }: {
   choix: { cle: T; libelle: ReactNode; desactive?: boolean; aide?: string }[];
@@ -161,8 +277,9 @@ const ETAPES_INSTALLATION: Record<string, string> = { DEMANDE: "demandée", ENVO
  * La version publiée est-elle arrivée sur chaque borne du lieu ? (retour de Sébastien du 16/11) D'après le journal
  * des téléchargements : à jour, en cours, en échec, ancienne version, ou jamais téléchargé.
  */
-function SurLesBornes({ code, version, installations }: { code: string | null; version: number; installations?: InstallationsLieu }) {
-  if (!code || version === 0 || !installations?.bornes.length) return null;
+function SurLesBornes({ code, version, installations, booth = false }: { code: string | null; version: number; installations?: InstallationsLieu; booth?: boolean }) {
+  // Un créneau booth n'a pas de version (toujours 0) : on montre seulement ce que la borne a signalé
+  if (!code || (version === 0 && !booth) || !installations?.bornes.length) return null;
   const parBorne = installations.parCode[code] ?? {};
   return (
     <ul className="mt-1 space-y-0.5 text-xs">
@@ -172,14 +289,14 @@ function SurLesBornes({ code, version, installations }: { code: string | null; v
         // Étape plus récente que la dernière installation (téléchargement de la nouvelle version en cours, ou raté)
         const enCours = dernier && dernier.etat !== "INSTALLE" && (!installe || dernier.le > installe.le) ? dernier : null;
         const [ton, texte, titre] = aJour
-          ? (["text-good", `à jour (v${installe.version})`, `Installée ${depuis(installe.le)}`] as const)
+          ? (["text-good", booth ? "installé sur la borne" : `à jour (v${installe.version})`, `Installé ${depuis(installe.le)}`] as const)
           : enCours?.etat === "ECHEC"
             ? (["text-bad", `échec v${enCours.version}`, enCours.message ?? `Échec ${depuis(enCours.le)}`] as const)
             : enCours
               ? (["text-warn-ink", `v${enCours.version} ${ETAPES_INSTALLATION[enCours.etat] ?? enCours.etat.toLowerCase()}`, depuis(enCours.le)] as const)
               : installe
                 ? (["text-warn-ink", `v${installe.version} installée, v${version} pas encore`, `v${installe.version} installée ${depuis(installe.le)}`] as const)
-                : (["text-ink-muted", "pas encore téléchargé", "Aucun téléchargement de cet événement par cette borne"] as const);
+                : (["text-ink-muted", booth ? "pas encore chargé" : "pas encore téléchargé", booth ? "La borne n'a pas encore signalé ce code" : "Aucun téléchargement de cet événement par cette borne"] as const);
         return (
           <li key={b.id} className={ton} title={titre}>
             <span className="font-medium">{b.identifiant}</span> · {texte}
@@ -277,8 +394,11 @@ function DevenirDefaut({ lieuId, e, onFermer }: { lieuId: number; e: EvenementPo
   );
 }
 
-/** Bloc « Événements » de l'onglet Configuration : la ligne « Par défaut », puis les événements personnalisés. */
-export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[] }) {
+/** Une ligne de la liste : un événement Régie ou un créneau booth (identifiant négatif, voir creneauBooth). */
+type Ligne = (EvenementPonctuel & { origine: "regie" }) | (ReturnType<typeof creneauBooth> & { booth: EvenementBooth });
+
+/** Bloc « Événements » de l'onglet Configuration : la ligne « Par défaut », puis les événements personnalisés et les créneaux booth. */
+export function EvenementsLieu({ lieuId, defaut, liste, booth }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; booth: EvenementBooth[] }) {
   const client = useQueryClient();
   const peutModifier = usePerm("evenements.edit");
   // Arrivée de chaque version sur les bornes du lieu, rafraîchie toutes les 30 s (on publie, puis on regarde la borne la charger)
@@ -292,18 +412,24 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
   const [creation, setCreation] = useState(false);
   const [copie, setCopie] = useState<SourceCopie | null>(null);
   const [versDefaut, setVersDefaut] = useState<EvenementPonctuel | null>(null);
+  const [boothModifie, setBoothModifie] = useState<EvenementBooth | null>(null);
   const supprimer = useMutation({
     mutationFn: (eid: number) => api(`/lieux/${lieuId}/evenements-ponctuels/${eid}`, { method: "DELETE" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] }),
   });
+  const supprimerBooth = useMutation({
+    mutationFn: (bid: number) => api(`/lieux/${lieuId}/evenements-booth/${bid}`, { method: "DELETE" }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["evenements-booth", lieuId] }),
+  });
 
   const maintenant = maintenantParis();
-  const defautAffiche = affiche(liste, maintenant) === null;
-  const passes = liste.filter((e) => periode(e, maintenant) === "passe");
-  const aVenir = liste.filter((e) => periode(e, maintenant) !== "passe");
+  const lignes: Ligne[] = [...liste.map((e) => ({ ...e, origine: "regie" as const })), ...booth.map((b) => ({ ...creneauBooth(b), booth: b }))];
+  const defautAffiche = affiche(lignes, maintenant) === null;
+  const passes = lignes.filter((e) => periode(e, maintenant) === "passe");
+  const aVenir = lignes.filter((e) => periode(e, maintenant) !== "passe");
   const q = sansAccents(recherche.trim());
   // La recherche porte sur tous les événements, quel que soit le filtre
-  const visibles = (q ? liste.filter((e) => sansAccents(`${e.nom} ${e.code}`).includes(q)) : filtre === "avenir" ? aVenir : filtre === "passes" ? passes : liste)
+  const visibles = (q ? lignes.filter((e) => sansAccents(`${e.nom} ${e.code}`).includes(q)) : filtre === "avenir" ? aVenir : filtre === "passes" ? passes : lignes)
     .slice()
     .sort((a, b) => (filtre === "passes" && !q ? -1 : 1) * instants(a).debut.localeCompare(instants(b).debut));
   const router = useRouter();
@@ -329,7 +455,7 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
             choix={[
               { cle: "avenir", libelle: `En cours et à venir · ${aVenir.length}` },
               { cle: "passes", libelle: `Passés · ${passes.length}` },
-              { cle: "tous", libelle: `Tous · ${liste.length}` },
+              { cle: "tous", libelle: `Tous · ${lignes.length}` },
             ]}
           />
         </div>
@@ -395,6 +521,38 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
             </tr>
             {visibles.map((e) => {
               const p = periode(e, maintenant);
+              if (e.origine === "booth") {
+                const b = e.booth;
+                return (
+                  <tr key={e.id} className={LIGNE} onClick={(ev) => peutModifier && !(ev.target as HTMLElement).closest("a, button, [role=menu]") && setBoothModifie(b)}>
+                    <td className="rounded-l-lg px-3 py-2.5">
+                      <span className="font-medium text-ink">{e.nom}</span>
+                      <span className={CODE} title="Code booth, chargé par la borne">{e.code}</span>
+                    </td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <span className="tabular">{duAu(e)}</span>
+                      {p === "en-cours" && <span className="ml-1.5 font-semibold">· en cours</span>}
+                      {p === "passe" && <span className="ml-1.5 text-ink-muted">· passé</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-ink-muted" title="Les tarifs sont ceux réglés dans booth">—</td>
+                    <td className="px-3 py-2.5">
+                      <span title="Événement booth : rien à publier, la borne le charge elle-même avec ce code"><Badge ton="neutre">Booth</Badge></span>
+                      {p !== "passe" && <SurLesBornes code={e.code} version={0} booth installations={installations.data} />}
+                    </td>
+                    <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
+                      {peutModifier && (
+                        <MenuActions
+                          libelle={`Actions sur ${e.nom}`}
+                          actions={[
+                            { libelle: "Modifier", aide: "Code, nom, dates", onClick: () => setBoothModifie(b) },
+                            { libelle: "Supprimer", danger: true, onClick: () => confirm(`Retirer le créneau booth « ${e.nom} » de la programmation ?`) && supprimerBooth.mutate(b.id) },
+                          ]}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                );
+              }
               return (
                 <tr key={e.id} className={LIGNE} onClick={(ev) => ouvrir(ev, pageEvenement(lieuId, e.id))}>
                   <td className="rounded-l-lg px-3 py-2.5">
@@ -442,13 +600,17 @@ export function EvenementsLieu({ lieuId, defaut, liste }: { lieuId: number; defa
         </p>
       )}
       {supprimer.error && <div className="mt-3"><Erreur erreur={supprimer.error} /></div>}
+      {supprimerBooth.error && <div className="mt-3"><Erreur erreur={supprimerBooth.error} /></div>}
 
       <Modale titre={copie ? `Dupliquer « ${copie.nom} »` : "Dupliquer"} ouverte={copie !== null} onFermer={() => setCopie(null)}>
         {/* Clé : un formulaire neuf, prérempli, pour chaque événement copié */}
         {copie && <FormNouvelEvenement key={`${copie.eid}`} lieuId={lieuId} source={copie} onAnnuler={() => setCopie(null)} />}
       </Modale>
       <Modale titre="Nouvel événement" ouverte={creation} onFermer={() => setCreation(false)}>
-        {creation && <FormNouvelEvenement lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
+        {creation && <FormNouveau lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
+      </Modale>
+      <Modale titre={boothModifie ? `Créneau booth ${boothModifie.code}` : "Créneau booth"} ouverte={boothModifie !== null} onFermer={() => setBoothModifie(null)}>
+        {boothModifie && <FormEvenementBooth key={boothModifie.id} lieuId={lieuId} booth={boothModifie} onAnnuler={() => setBoothModifie(null)} />}
       </Modale>
       <Modale titre={versDefaut ? `« ${versDefaut.nom} » comme événement par défaut` : "Événement par défaut"} ouverte={versDefaut !== null} onFermer={() => setVersDefaut(null)}>
         {versDefaut && <DevenirDefaut key={versDefaut.id} lieuId={lieuId} e={versDefaut} onFermer={() => setVersDefaut(null)} />}

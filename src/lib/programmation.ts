@@ -3,8 +3,11 @@
 // Les instants sont des heures de Paris écrites « AAAA-MM-JJTHH:mm » : ils se comparent comme des chaînes.
 // Deux événements qui se chevauchent : celui qui commence le plus tard s'affiche (règle proposée, non validée).
 // La borne ne change pas encore d'événement toute seule : tout ici est ce qui est PRÉVU, pas ce qu'elle affiche.
+// Depuis le 18/11/2026, un créneau peut aussi désigner un événement booth (origine « booth ») : même programmation,
+// mais rien à publier côté Régie.
 
-export interface Programme {
+/** Un créneau de la programmation : événement Régie ou créneau booth. */
+export interface Creneau {
   id: number;
   nom: string;
   code: string;
@@ -12,13 +15,26 @@ export interface Programme {
   dateFin: string;
   heureDebut: string | null;
   heureFin: string | null;
+  origine?: "regie" | "booth";
+}
+
+/** Un événement Régie programmé, avec son état de publication. */
+export interface Programme extends Creneau {
   version: number;
   publieeLe: string | null;
   modifieDepuisPublication: boolean;
 }
 
+/**
+ * Un créneau booth dans la programmation : identifiant négatif pour ne pas croiser ceux des événements Régie (les
+ * frises et la règle de priorité se servent de l'identifiant) ; sans nom, « Booth AB12 ».
+ */
+export const creneauBooth = (b: { id: number; code: string; nom: string | null; dateDebut: string; dateFin: string; heureDebut: string | null; heureFin: string | null }): Creneau & { origine: "booth" } => ({
+  id: -b.id, nom: b.nom ?? `Booth ${b.code}`, code: b.code, dateDebut: b.dateDebut, dateFin: b.dateFin, heureDebut: b.heureDebut, heureFin: b.heureFin, origine: "booth",
+});
+
 /** Début et fin ; sans heure, du début du premier jour à la fin du dernier (comme l'API). */
-export const instants = (e: Pick<Programme, "dateDebut" | "dateFin" | "heureDebut" | "heureFin">) => ({
+export const instants = (e: Pick<Creneau, "dateDebut" | "dateFin" | "heureDebut" | "heureFin">) => ({
   debut: `${e.dateDebut}T${e.heureDebut ?? "00:00"}`,
   fin: `${e.dateFin}T${e.heureFin ?? "24:00"}`,
 });
@@ -38,7 +54,7 @@ export const minutes = (instant: string) => {
 };
 
 export type Periode = "en-cours" | "a-venir" | "passe";
-export function periode(e: Programme, maintenant = maintenantParis()): Periode {
+export function periode(e: Creneau, maintenant = maintenantParis()): Periode {
   const { debut, fin } = instants(e);
   return fin <= maintenant ? "passe" : debut > maintenant ? "a-venir" : "en-cours";
 }
@@ -59,13 +75,13 @@ export function instantLisible(instant: string) {
   return jourHeure(j, h === "00:00" ? null : h);
 }
 /** « 12/11 à 20:00 → 28/11 à 06:00 », « 12/11 → 28/11 », « 12/11 » (une journée sans heure). */
-export function duAu(e: Pick<Programme, "dateDebut" | "dateFin" | "heureDebut" | "heureFin">) {
+export function duAu(e: Pick<Creneau, "dateDebut" | "dateFin" | "heureDebut" | "heureFin">) {
   if (e.dateDebut === e.dateFin && !e.heureDebut && !e.heureFin) return deuxChiffres(e.dateDebut);
   return `${jourHeure(e.dateDebut, e.heureDebut)} → ${jourHeure(e.dateFin, e.heureFin)}`;
 }
 
 /** L'événement programmé affiché à cet instant (null : celui par défaut). */
-export function affiche<T extends Programme>(liste: T[], instant: string): T | null {
+export function affiche<T extends Creneau>(liste: T[], instant: string): T | null {
   let choisi: T | null = null;
   for (const e of liste) {
     const { debut, fin } = instants(e);
@@ -75,7 +91,7 @@ export function affiche<T extends Programme>(liste: T[], instant: string): T | n
 }
 
 /** Le prochain changement d'événement prévu : à quel instant, et pour lequel (null : retour au par défaut). */
-export function prochainChangement<T extends Programme>(liste: T[], maintenant = maintenantParis()): { instant: string; evenement: T | null } | null {
+export function prochainChangement<T extends Creneau>(liste: T[], maintenant = maintenantParis()): { instant: string; evenement: T | null } | null {
   const actuel = affiche(liste, maintenant);
   const bornes = [...new Set(liste.flatMap((e) => Object.values(instants(e))))].filter((i) => i > maintenant).sort();
   for (const instant of bornes) {
@@ -86,7 +102,7 @@ export function prochainChangement<T extends Programme>(liste: T[], maintenant =
 }
 
 /** Couples d'événements à venir ou en cours qui se chevauchent, avec celui qui l'emporte. */
-export function chevauchements<T extends Programme>(liste: T[], maintenant = maintenantParis()) {
+export function chevauchements<T extends Creneau>(liste: T[], maintenant = maintenantParis()) {
   const actifs = liste.filter((e) => instants(e).fin > maintenant).sort((a, b) => instants(a).debut.localeCompare(instants(b).debut));
   const couples: { a: T; b: T; debut: string; fin: string }[] = [];
   actifs.forEach((a, i) =>
@@ -99,7 +115,7 @@ export function chevauchements<T extends Programme>(liste: T[], maintenant = mai
 }
 
 /** Lignes de la frise : un événement va sur la première ligne libre à son début. */
-export function lignes<T extends Programme>(liste: T[]): Map<number, number> {
+export function lignes<T extends Creneau>(liste: T[]): Map<number, number> {
   const fins: string[] = [];
   const ligneDe = new Map<number, number>();
   for (const e of [...liste].sort((a, b) => instants(a).debut.localeCompare(instants(b).debut))) {

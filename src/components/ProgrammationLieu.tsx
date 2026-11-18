@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import type { EvenementPonctuel, FicheEvenementLieu } from "@/lib/api";
-import { affiche, chevauchements, duAu, etatPublication, instants, jourHeure, LIBELLES_ETAT, lignes, minutes, type EtatPublication } from "@/lib/programmation";
+import type { EvenementBooth, EvenementPonctuel, FicheEvenementLieu } from "@/lib/api";
+import { affiche, chevauchements, creneauBooth, duAu, etatPublication, instants, jourHeure, LIBELLES_ETAT, lignes, minutes, type Creneau, type EtatPublication } from "@/lib/programmation";
 import { Segments } from "./EvenementsLieu";
 
 // Frise de la programmation de l'onglet Configuration (maquettes du 10/11/2026) : à partir d'aujourd'hui (retour du
 // 12/11 : le passé encombrait), le par défaut en continu et les événements programmés par-dessus. Le passé se
-// retrouve dans la liste des événements (filtre « Passés »).
+// retrouve dans la liste des événements (filtre « Passés »). Les créneaux booth (avenant du 18/11/2026) y figurent
+// avec leur propre couleur : rien à publier, la borne les charge par booth.
 
 const pageEvenement = (lieuId: number, eid?: number | null) => (eid ? `/lieux/${lieuId}/evenement/${eid}` : `/lieux/${lieuId}/evenement`);
 
@@ -40,11 +41,13 @@ function useBulle() {
   return { montrer, cacher: () => setBulle(null), rendu };
 }
 
-const COULEURS: Record<EtatPublication, string> = {
+const COULEURS: Record<EtatPublication | "booth", string> = {
   publie: "bg-[#8A80F0] text-white",
   brouillon: "bg-[#DDDAFD] text-[#3F33C7]",
   jamais: "bg-[#FEF0DD] text-[#B54708] border border-dashed border-[#B54708]",
+  booth: "bg-[#F2A33A] text-[#3B2300]",
 };
+const LIBELLE_BOOTH = "événement booth, chargé par la borne";
 const ECHELLES = [3, 6, 12] as const;
 type Echelle = (typeof ECHELLES)[number];
 const moisCourt = new Intl.DateTimeFormat("fr-FR", { month: "short", timeZone: "UTC" });
@@ -72,7 +75,7 @@ function useLargeur() {
 }
 
 /** Frise « Programmation » : d'aujourd'hui à la fin de la période, puis mois par mois vers l'avenir. */
-export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; maintenant: string }) {
+export function FriseProgrammation({ lieuId, defaut, liste, booth, maintenant }: { lieuId: number; defaut: FicheEvenementLieu; liste: EvenementPonctuel[]; booth: EvenementBooth[]; maintenant: string }) {
   const [echelle, setEchelle] = useState<Echelle>(6);
   const [decalage, setDecalage] = useState(0);
   const bulle = useBulle();
@@ -86,10 +89,13 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
   const total = minutes(fin) - minutes(debut);
   const pct = (instant: string) => Math.min(100, Math.max(0, ((minutes(instant) - minutes(debut)) / total) * 100));
 
-  const visibles = liste.filter((e) => instants(e).fin > debut && instants(e).debut < fin);
+  // Événements Régie et créneaux booth sur la même frise (un créneau booth a un identifiant négatif)
+  const creneaux: Creneau[] = [...liste.map((e) => ({ ...e, origine: "regie" as const })), ...booth.map(creneauBooth)];
+  const parId = new Map(liste.map((e) => [e.id, e]));
+  const visibles = creneaux.filter((e) => instants(e).fin > debut && instants(e).debut < fin);
   const ligneDe = lignes(visibles);
   const nbLignes = Math.max(1, ...[...ligneDe.values()].map((l) => l + 1));
-  const conflits = chevauchements(liste, maintenant);
+  const conflits = chevauchements(creneaux, maintenant);
   const jourMois = (instant: string) => jourHeure(instant.slice(0, 10), null);
 
   return (
@@ -139,21 +145,27 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
               const gauche = pct(ie.debut);
               const large = Math.max(pct(ie.fin) - gauche, 0);
               const haut = HAUT_LIGNES + ligneDe.get(e.id)! * PAS_LIGNE;
-              const etat = etatPublication(e, maintenant);
+              const regie = parId.get(e.id);
+              const etat = regie ? etatPublication(regie, maintenant) : null;
+              const libelle = etat ? LIBELLES_ETAT[etat] : LIBELLE_BOOTH;
               // Le nom tient-il dans le bloc ? Sinon il va à côté (à gauche près du bord droit)
               const tient = largeur > 0 && (large / 100) * largeur >= e.nom.length * 6.6 + 16;
               const aGauche = gauche > 82;
+              const classe = `absolute box-border h-6 overflow-hidden rounded-md px-1.5 text-[11px] leading-6 font-bold whitespace-nowrap ${COULEURS[etat ?? "booth"]}`;
+              const style = { left: `${gauche}%`, width: `max(${large}%, 8px)`, top: haut };
+              const survol = (ev: { currentTarget: HTMLElement }) => bulle.montrer(ev, `${e.nom} · du ${jourHeure(e.dateDebut, e.heureDebut)} au ${jourHeure(e.dateFin, e.heureFin)} · ${libelle}`);
               return (
                 <div key={e.id}>
-                  <Link
-                    href={pageEvenement(lieuId, e.id)}
-                    aria-label={`${e.nom} · ${duAu(e)} · ${LIBELLES_ETAT[etat]}`}
-                    className={`absolute box-border h-6 overflow-hidden rounded-md px-1.5 text-[11px] leading-6 font-bold whitespace-nowrap hover:ring-2 hover:ring-ink/30 ${COULEURS[etat]}`}
-                    style={{ left: `${gauche}%`, width: `max(${large}%, 8px)`, top: haut }}
-                    onMouseEnter={(ev) => bulle.montrer(ev, `${e.nom} · du ${jourHeure(e.dateDebut, e.heureDebut)} au ${jourHeure(e.dateFin, e.heureFin)} · ${LIBELLES_ETAT[etat]}`)}
-                  >
-                    {tient && e.nom}
-                  </Link>
+                  {regie ? (
+                    <Link href={pageEvenement(lieuId, e.id)} aria-label={`${e.nom} · ${duAu(e)} · ${libelle}`} className={`${classe} hover:ring-2 hover:ring-ink/30`} style={style} onMouseEnter={survol}>
+                      {tient && e.nom}
+                    </Link>
+                  ) : (
+                    // Un créneau booth n'a pas de page : il se modifie dans la liste des événements
+                    <span aria-label={`${e.nom} · ${duAu(e)} · ${libelle}`} className={classe} style={style} onMouseEnter={survol}>
+                      {tient && e.nom}
+                    </span>
+                  )}
                   {!tient && (
                     <span
                       aria-hidden
@@ -179,6 +191,7 @@ export function FriseProgrammation({ lieuId, defaut, liste, maintenant }: { lieu
         <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#8A80F0]" />publié</span>
         <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#DDDAFD]" />brouillon</span>
         <span className="flex items-center gap-1.5"><i className="box-border inline-block h-2.5 w-2.5 rounded-[3px] border border-dashed border-[#B54708] bg-[#FEF0DD]" />jamais publié</span>
+        {booth.length > 0 && <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#F2A33A]" />booth</span>}
         <span className="flex items-center gap-1.5"><i className="inline-block h-2.5 w-0.5 bg-ink" />aujourd&apos;hui</span>
         {conflits.length > 0 && (
           <span className="ml-auto space-y-0.5 text-right text-sm text-warn-ink">

@@ -990,6 +990,24 @@ export interface EvenementPonctuel {
   modifieDepuisPublication: boolean;
 }
 
+/**
+ * Créneau d'événement booth programmé sur le lieu (avenant du 18/11/2026) : la Régie ne garde que le code, saisi sans
+ * vérification, et ses dates ; la borne le charge par booth. GET/POST /lieux/:id/evenements-booth, PUT/DELETE …/:bid.
+ */
+export interface EvenementBooth {
+  id: number;
+  code: string;
+  /** Libellé pour la Régie ; null : seulement le code */
+  nom: string | null;
+  origine: "booth";
+  dateDebut: string;
+  dateFin: string;
+  heureDebut: string | null;
+  heureFin: string | null;
+  creeLe: string;
+  modifieLe: string;
+}
+
 // ─── Suivi de la fiche lieu : commentaires et timeline ───
 
 export interface Mentionnable {
