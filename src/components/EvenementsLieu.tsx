@@ -288,10 +288,12 @@ function SurLesBornes({ code, version, installations, booth = false }: { code: s
         const aJour = installe && installe.version >= version;
         // Étape plus récente que la dernière installation (téléchargement de la nouvelle version en cours, ou raté)
         const enCours = dernier && dernier.etat !== "INSTALLE" && (!installe || dernier.le > installe.le) ? dernier : null;
-        const [ton, texte, titre] = aJour
-          ? (["text-good", booth ? "installé sur la borne" : `à jour (v${installe.version})`, `Installé ${depuis(installe.le)}`] as const)
-          : enCours?.etat === "ECHEC"
-            ? (["text-bad", `échec v${enCours.version}`, enCours.message ?? `Échec ${depuis(enCours.le)}`] as const)
+        // Un échec plus récent que l'installation passe devant « à jour » : pour un booth, c'est le code refusé par booth
+        // (BadEventCode) après avoir tourné ; pour un événement Régie, une version qui ne se recharge plus.
+        const [ton, texte, titre] = enCours?.etat === "ECHEC"
+          ? (["text-bad", booth ? `échec : ${enCours.message ?? "sans message"}` : `échec v${enCours.version}`, enCours.message ?? `Échec ${depuis(enCours.le)}`] as const)
+          : aJour
+            ? (["text-good", booth ? "installé sur la borne" : `à jour (v${installe.version})`, `Installé ${depuis(installe.le)}`] as const)
             : enCours
               ? (["text-warn-ink", `v${enCours.version} ${ETAPES_INSTALLATION[enCours.etat] ?? enCours.etat.toLowerCase()}`, depuis(enCours.le)] as const)
               : installe
