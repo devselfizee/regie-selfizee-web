@@ -60,6 +60,8 @@ const DEFAUTS = { q: "", cartes: "reelles", du: "", au: "", type: "paiements", s
 
 /** Largeur commune des filtres */
 const CHAMP_FILTRE = "block w-full sm:w-48";
+// Onglet Ventes d'une fiche lieu : un peu plus étroits, pour tenir sur une seule ligne (retour de Sébastien, 19/11)
+const CHAMP_FILTRE_LIEU = "block w-full sm:w-40";
 
 /**
  * Liste paginée des paiements, avec filtres, récapitulatif et remboursement.
@@ -101,6 +103,9 @@ export function ListePaiements({ lieuIdFixe, initial, ht: htFiche }: { lieuIdFix
   const bornes = useQuery({ queryKey: ["bornes"], queryFn: () => api<BorneListe[]>("/bornes"), staleTime: 5 * 60_000 });
   // Lieu choisi : seulement ses bornes (retour de Sébastien), plus celle déjà choisie
   const bornesProposees = (bornes.data ?? []).filter((b) => !lieuId || b.lieuActuel?.id === Number(lieuId) || String(b.id) === f.borneId);
+  // Dans un lieu à une seule borne, le filtre « Borne » n'apporte rien : on ne l'affiche pas
+  const filtreBorne = !lieuIdFixe || bornesProposees.length > 1 || Boolean(f.borneId);
+  const champ = lieuIdFixe ? CHAMP_FILTRE_LIEU : CHAMP_FILTRE;
   const pages = data ? Math.max(1, Math.ceil(data.total / data.parPage)) : 1;
   const typeChoisi = TYPES.find((x) => x.cle === f.type);
   const modifies = (Object.keys(DEFAUTS) as (keyof typeof DEFAUTS)[]).some((k) => (lieuIdFixe && (k === "lieuId" || k === "parc") ? false : f[k] !== DEFAUTS[k]));
@@ -147,49 +152,51 @@ export function ListePaiements({ lieuIdFixe, initial, ht: htFiche }: { lieuIdFix
       )}
 
       {/* Filtres sur le moins de lignes possible (retour de Sébastien), à droite et de même largeur comme les autres pages (retour du 13/11) */}
-      <div className="mb-3 flex flex-wrap items-end justify-end gap-2">
-        <label className={CHAMP_FILTRE}>
+      <div className={`mb-3 flex flex-wrap items-end justify-end ${lieuIdFixe ? "gap-1.5" : "gap-2"}`}>
+        <label className={champ}>
           <span className="etiquette">Recherche</span>
           <input id="paiements-recherche" className="champ" placeholder="Transaction, n° d'autorisation, 4 derniers chiffres, pi_…" value={f.q} onChange={(e) => changer("q")(e.target.value)} />
         </label>
         {vue === "liste" && (
           <>
-            <label className={CHAMP_FILTRE}>
+            <label className={champ}>
               <span className="etiquette">Du</span>
               <input id="paiements-du" type="date" className="champ" value={f.du} max={f.au || undefined} onChange={(e) => changer("du")(e.target.value)} />
             </label>
-            <label className={CHAMP_FILTRE}>
+            <label className={champ}>
               <span className="etiquette">Au</span>
               <input id="paiements-au" type="date" className="champ" value={f.au} min={f.du || undefined} onChange={(e) => changer("au")(e.target.value)} />
             </label>
           </>
         )}
-        <label className={CHAMP_FILTRE}>
+        <label className={champ}>
           <span className="etiquette">Afficher</span>
           <select id="paiements-type" className="champ" value={f.type} onChange={(e) => changer("type")(e.target.value)} title={typeChoisi?.aide}>
             {TYPES.map((x) => <option key={x.cle} value={x.cle}>{x.libelle}</option>)}
           </select>
         </label>
         {!lieuIdFixe && (
-          <div className={CHAMP_FILTRE}>
+          <div className={champ}>
             <span className="etiquette">Lieu</span>
             <ChoixLieu id="paiements-lieu" lieux={lieux.data ?? []} valeur={f.lieuId} onChange={changer("lieuId")} tous="Tous" />
           </div>
         )}
-        <label className={CHAMP_FILTRE}>
-          <span className="etiquette">Borne</span>
-          <select id="paiements-borne" className="champ" value={f.borneId} onChange={(e) => changer("borneId")(e.target.value)}>
-            <option value="">Toutes</option>
-            {bornesProposees.map((b) => <option key={b.id} value={b.id}>{lieuId || !b.lieuActuel ? b.identifiant : `${b.lieuActuel.enseigne} · ${b.identifiant}`}</option>)}
-          </select>
-        </label>
-        <label className={CHAMP_FILTRE}>
+        {filtreBorne && (
+          <label className={champ}>
+            <span className="etiquette">Borne</span>
+            <select id="paiements-borne" className="champ" value={f.borneId} onChange={(e) => changer("borneId")(e.target.value)}>
+              <option value="">Toutes</option>
+              {bornesProposees.map((b) => <option key={b.id} value={b.id}>{lieuId || !b.lieuActuel ? b.identifiant : `${b.lieuActuel.enseigne} · ${b.identifiant}`}</option>)}
+            </select>
+          </label>
+        )}
+        <label className={champ}>
           <span className="etiquette">Cartes</span>
           <select id="paiements-cartes" className="champ" value={f.cartes} onChange={(e) => changer("cartes")(e.target.value)}>
             {Object.entries(CARTES).map(([cle, libelle]) => <option key={cle} value={cle}>{libelle}</option>)}
           </select>
         </label>
-        <label className={CHAMP_FILTRE}>
+        <label className={champ}>
           <span className="etiquette">Moyen</span>
           <select id="paiements-moyen" className="champ" value={f.moyen} onChange={(e) => changer("moyen")(e.target.value)}>
             <option value="">Tous</option>
@@ -197,7 +204,7 @@ export function ListePaiements({ lieuIdFixe, initial, ht: htFiche }: { lieuIdFix
           </select>
         </label>
         {!lieuIdFixe && (
-          <label className={CHAMP_FILTRE}>
+          <label className={champ}>
             <span className="etiquette">Parc</span>
             <select id="paiements-parc" className="champ" value={f.parc} onChange={(e) => changer("parc")(e.target.value)}>
               <option value="SELFIZEE">Selfizee</option>
