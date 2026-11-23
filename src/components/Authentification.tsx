@@ -63,6 +63,8 @@ export function Authentification({ children }: { children: ReactNode }) {
 }
 
 const sansAbonnement = () => () => undefined;
+const BOUTON =
+  "h-[50px] w-full rounded-xl bg-gradient-to-r from-[#f5005a] to-[#e0004d] text-[15px] font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60";
 const URL_CONNEXION = `${API_URL.replace(/\/api$/, "")}/public/v1/connexion`;
 
 /** Accueil : l'e-mail décide de la connexion (salariés : realm konitys ; clients : realm « regie ») */
@@ -97,41 +99,49 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
     }
   }
 
+  // Même allure que la page de connexion Keycloak (thème Konitys) : on passe de l'une à l'autre sans rupture
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-surface-2 px-4">
-      <div className="carte w-full max-w-md p-8 text-center">
-        <Image src="/selfizee-logo.png" alt="Selfizee" width={160} height={48} className="mx-auto h-12 w-auto" priority />
-        <h1 className="mt-6 text-lg font-semibold">Régie Selfizee</h1>
+    <div className="flex min-h-screen w-full items-start justify-center bg-[#eef0fb] px-4 pt-[12vh] text-[#1f2333]">
+      <div className="w-full max-w-[420px] rounded-3xl bg-white px-10 py-11 shadow-[0_20px_60px_-20px_rgba(245,0,90,0.18)]">
+        <div className="text-center">
+          <Image src="/selfizee-logo.png" alt="Selfizee" width={160} height={48} className="mx-auto h-11 w-auto" priority />
+          <p className="mt-3 text-sm text-[#8a90a8]">Régie Selfizee</p>
+        </div>
         {deuxComptes ? (
-          <>
-            <p className="mt-1 text-sm text-ink-2">Cette adresse a deux comptes. Lequel utiliser ?</p>
-            <div className="mt-6 grid gap-3">
-              <button type="button" className="bouton justify-center py-3" onClick={() => onChoix("client", email.trim())}>
+          <div className="mt-8">
+            <p className="text-sm font-semibold">Cette adresse a deux comptes. Lequel utiliser ?</p>
+            <div className="mt-4 grid gap-3">
+              <button type="button" className={BOUTON} onClick={() => onChoix("client", email.trim())}>
                 Mon compte client
               </button>
-              <button type="button" className="bouton-second justify-center py-3" onClick={() => onChoix("salarie", email.trim())}>
+              <button
+                type="button"
+                className="h-[50px] w-full rounded-xl border border-[#e3e6f0] bg-white text-[15px] font-semibold text-[#1f2333] transition hover:bg-[#f7f8fc]"
+                onClick={() => onChoix("salarie", email.trim())}
+              >
                 Mon compte salarié Selfizee
               </button>
             </div>
-            <button type="button" className="mt-4 text-xs text-ink-muted underline" onClick={() => setDeuxComptes(false)}>
+            <button type="button" className="mt-5 text-sm text-[#f5005a] hover:underline" onClick={() => setDeuxComptes(false)}>
               Changer d&apos;adresse
             </button>
-          </>
+          </div>
         ) : (
-          <form onSubmit={continuer} className="mt-6 grid gap-3 text-left">
-            <label className="text-sm text-ink-2" htmlFor="email-connexion">Votre adresse e-mail</label>
+          <form onSubmit={continuer} className="mt-8">
+            <label className="block text-sm font-semibold" htmlFor="email-connexion">Adresse e-mail</label>
             <input
               id="email-connexion"
               type="email"
-              className="champ"
+              className="mt-2 h-[48px] w-full rounded-xl border border-[#e3e6f0] bg-[#f7f8fc] px-4 text-[15px] outline-none transition placeholder:text-[#9aa0b4] focus:border-[#f5005a] focus:bg-white focus:ring-2 focus:ring-[#f5005a]/15"
+              placeholder="vous@exemple.fr"
               autoComplete="email"
               autoFocus
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            {erreur && <p className="text-sm text-red-600">{erreur}</p>}
-            <button type="submit" className="bouton justify-center py-3" disabled={envoi}>
+            {erreur && <p className="mt-3 text-sm text-[#e0004d]">{erreur}</p>}
+            <button type="submit" className={`${BOUTON} mt-8`} disabled={envoi}>
               {envoi ? "Un instant…" : "Continuer"}
             </button>
           </form>
