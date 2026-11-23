@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { API_URL } from "@/lib/api";
 import { authActive, choisirCompte, compteChoisi, initialiserAuth, type SorteCompte } from "@/lib/auth";
@@ -62,8 +63,12 @@ export function Authentification({ children }: { children: ReactNode }) {
 }
 
 const sansAbonnement = () => () => undefined;
+// Valeurs reprises du thème Keycloak « konitys » (login/konitys/css/konitys.css) : la page ressemble à celle qui suit
 const BOUTON =
-  "h-[50px] w-full rounded-xl bg-gradient-to-r from-[#f5005a] to-[#e0004d] text-[15px] font-semibold text-white shadow-sm transition hover:brightness-105 disabled:opacity-60";
+  "mt-2 w-full rounded-xl bg-[linear-gradient(135deg,#fe0154_0%,#e50049_100%)] px-6 py-[13px] text-[15px] font-semibold tracking-[0.02em] text-white transition hover:-translate-y-px hover:bg-[linear-gradient(135deg,#e50049_0%,#cc0040_100%)] disabled:opacity-60";
+const CHAMP =
+  "box-border w-full rounded-xl border-[1.5px] border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-sm text-[#1e293b] outline-none transition placeholder:text-[#94a3b8] focus:border-[#fe0154] focus:bg-white focus:shadow-[0_0_0_3px_rgba(254,1,84,0.1)]";
+const LIBELLE = "mb-1.5 block text-[13px] font-semibold tracking-[0.01em] text-[#334155]";
 const URL_CONNEXION = `${API_URL.replace(/\/api$/, "")}/public/v1/connexion`;
 
 /** Accueil : l'e-mail décide de la connexion (salariés : realm konitys ; clients : realm « regie ») */
@@ -98,48 +103,58 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
     }
   }
 
-  // Même allure que la page de connexion Keycloak (thème Konitys) : on passe de l'une à l'autre sans rupture
   return (
-    <div className="flex min-h-screen w-full items-start justify-center bg-[#eef0fb] px-4 pt-[12vh] text-[#1f2333]">
-      <div className="w-full max-w-[440px] rounded-3xl bg-white px-10 py-12 shadow-[0_20px_60px_-20px_rgba(245,0,90,0.18)]">
-        <div className="text-center">
-          <p className="text-[44px] font-extrabold leading-none tracking-tight text-[#1f2333]">Konitys</p>
-          <p className="mt-4 text-[15px] text-[#8a90a8]">Plateforme de gestion</p>
+    <div
+      className="flex min-h-screen w-full items-center justify-center bg-[#EBF0FA] p-4"
+      style={{ fontFamily: "Inter, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif" }}
+    >
+      {/* Même police que le thème Keycloak (chargée là-bas depuis Google Fonts) ; React place la feuille dans <head> */}
+      <link rel="stylesheet" precedence="default" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+      <div className="w-full max-w-[420px] rounded-3xl bg-white px-10 pb-10 pt-12 shadow-[0_4px_6px_-1px_rgba(254,1,84,0.08),0_20px_50px_-12px_rgba(254,1,84,0.15),0_0_0_1px_rgba(254,1,84,0.06)] max-[480px]:rounded-[20px] max-[480px]:px-6 max-[480px]:pb-7 max-[480px]:pt-8">
+        <div className="mb-8 text-center">
+          <Image src="/konitys-logo.png" alt="Konitys" width={200} height={46} className="mx-auto h-[38px] w-auto max-[480px]:h-8" priority />
+          <p className="mt-2 text-sm tracking-[0.01em] text-[#94a3b8]">Plateforme de gestion</p>
         </div>
         {deuxComptes ? (
-          <div className="mt-8">
-            <p className="text-sm font-semibold">Cette adresse a deux comptes. Lequel utiliser ?</p>
+          <div>
+            <p className={LIBELLE}>Cette adresse a deux comptes. Lequel utiliser ?</p>
             <div className="mt-4 grid gap-3">
               <button type="button" className={BOUTON} onClick={() => onChoix("client", email.trim())}>
                 Mon compte client
               </button>
               <button
                 type="button"
-                className="h-[50px] w-full rounded-xl border border-[#e3e6f0] bg-white text-[15px] font-semibold text-[#1f2333] transition hover:bg-[#f7f8fc]"
+                className="w-full rounded-xl border-[1.5px] border-[#fe0154] bg-white px-6 py-[11px] text-sm font-semibold text-[#fe0154] transition hover:border-[#e50049] hover:bg-[#fff0f5]"
                 onClick={() => onChoix("salarie", email.trim())}
               >
                 Mon compte salarié Selfizee
               </button>
             </div>
-            <button type="button" className="mt-5 text-sm text-[#f5005a] hover:underline" onClick={() => setDeuxComptes(false)}>
-              Changer d&apos;adresse
-            </button>
+            <p className="mt-5 text-center text-[13px]">
+              <button type="button" className="font-medium text-[#fe0154] hover:text-[#cc0040] hover:underline" onClick={() => setDeuxComptes(false)}>
+                Changer d&apos;adresse
+              </button>
+            </p>
           </div>
         ) : (
-          <form onSubmit={continuer} className="mt-10">
-            <label className="block text-sm font-semibold" htmlFor="email-connexion">Nom d&apos;utilisateur ou courriel</label>
-            <input
-              id="email-connexion"
-              type="email"
-              className="mt-3 h-[48px] w-full rounded-xl border border-[#e3e6f0] bg-[#f7f8fc] px-4 text-[15px] outline-none transition placeholder:text-[#9aa0b4] focus:border-[#f5005a] focus:bg-white focus:ring-2 focus:ring-[#f5005a]/15"
-              autoComplete="email"
-              autoFocus
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            {erreur && <p className="mt-3 text-sm text-[#e0004d]">{erreur}</p>}
-            <button type="submit" className={`${BOUTON} mt-10`} disabled={envoi}>
+          <form onSubmit={continuer}>
+            <div className="mb-5">
+              <label className={LIBELLE} htmlFor="email-connexion">Nom d&apos;utilisateur ou courriel</label>
+              <input
+                id="email-connexion"
+                type="email"
+                className={CHAMP}
+                autoComplete="email"
+                autoFocus
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            {erreur && (
+              <div className="mb-5 rounded-xl border-l-[3px] border-[#fe0154] bg-[#fef2f2] px-4 py-3 text-[13px] text-[#991b1b]">{erreur}</div>
+            )}
+            <button type="submit" className={BOUTON} disabled={envoi}>
               {envoi ? "…" : "Connexion"}
             </button>
           </form>
