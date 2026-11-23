@@ -9,6 +9,7 @@ import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
 import { chargerPlateforme, PLATEFORME_URL, useTicketsPlateforme, type Plateforme, type Racine18 } from "@/lib/plateforme";
 import { Navigation } from "./Navigation";
+import { EnTeteClient } from "./EnTeteClient";
 import { estPageAnalyses, OngletsAnalyses, PERM_ANALYSES, PERM_SUPER_ADMIN, useVoitMenu } from "./Analyses";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- composants React 18 chargés à l'exécution */
@@ -216,6 +217,22 @@ export function Coquille({ children }: { children: ReactNode }) {
       }
       return suivant;
     });
+
+  // Compte client : un en-tête de la Régie (pas celui de la plateforme), puis le menu local et la page
+  if (client) {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <EnTeteClient />
+        <div className="min-h-0 flex-1 md:flex">
+          <Navigation sousEntete sansCompte />
+          <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-8 print:p-0">
+            {estPageAnalyses(chemin) && <OngletsAnalyses />}
+            {children}
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   if (local) {
     return (

@@ -36,8 +36,11 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/evenements", libelle: "Événements", perm: PERM_SUPER_ADMIN },
 ];
 
-/** `sousEntete` : sous l'en-tête de la plateforme (téléphone), la barre se colle juste en dessous. */
-export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
+/**
+ * `sousEntete` : sous un en-tête de 48 px (plateforme sur téléphone, ou en-tête client) : la barre se colle juste en
+ * dessous. `sansCompte` : sans le bloc nom / déconnexion, déjà dans l'en-tête.
+ */
+export function Navigation({ sousEntete = false, sansCompte = false }: { sousEntete?: boolean; sansCompte?: boolean }) {
   const chemin = usePathname();
   const moi = useMoi();
   const kc = keycloak();
@@ -55,11 +58,13 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
   const actif = (href: string) => (estPageAnalyses(chemin) ? href === "/analyses" : href === "/" ? chemin === "/" : chemin.startsWith(href));
 
   return (
-    <nav className={`print:hidden sticky ${sousEntete ? "top-12" : "top-0"} z-10 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface px-4 py-2 md:h-screen md:w-56 md:flex-col md:items-stretch md:gap-1 md:border-r md:border-b-0 md:px-3 md:py-6`}>
-      <div className="mr-3 shrink-0 text-sm font-semibold md:mb-6 md:px-3 md:text-base">
-        Régie <span className="text-ink-muted font-normal">Selfizee</span>
-        {moi.entreprise && <span className="block truncate text-xs font-normal text-ink-2">{moi.entreprise.nom}</span>}
-      </div>
+    <nav className={`print:hidden sticky ${sousEntete ? "top-12 md:h-[calc(100vh-3rem)]" : "top-0 md:h-screen"} z-10 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface px-4 py-2 md:w-56 md:flex-col md:items-stretch md:gap-1 md:border-r md:border-b-0 md:px-3 md:py-6`}>
+      {!sansCompte && (
+        <div className="mr-3 shrink-0 text-sm font-semibold md:mb-6 md:px-3 md:text-base">
+          Régie <span className="text-ink-muted font-normal">Selfizee</span>
+          {moi.entreprise && <span className="block truncate text-xs font-normal text-ink-2">{moi.entreprise.nom}</span>}
+        </div>
+      )}
       {liens.map((l) => (
         <Link
           key={l.href}
@@ -79,6 +84,7 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
           )}
         </Link>
       ))}
+      {!sansCompte && (
       <div className="ml-auto flex shrink-0 items-center gap-2 md:mt-auto md:ml-0 md:flex-col md:items-stretch md:border-t md:border-line md:px-3 md:pt-4">
         <span className="hidden text-xs sm:inline">
           <span className="text-ink">{[moi.prenom, moi.nom].filter(Boolean).join(" ")}</span>
@@ -89,6 +95,7 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
           </button>
         )}
       </div>
+      )}
     </nav>
   );
 }
