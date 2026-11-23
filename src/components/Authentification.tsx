@@ -101,10 +101,10 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
   // Même allure que la page de connexion Keycloak (thème Konitys) : on passe de l'une à l'autre sans rupture
   return (
     <div className="flex min-h-screen w-full items-start justify-center bg-[#eef0fb] px-4 pt-[12vh] text-[#1f2333]">
-      <div className="w-full max-w-[420px] rounded-3xl bg-white px-10 py-11 shadow-[0_20px_60px_-20px_rgba(245,0,90,0.18)]">
+      <div className="w-full max-w-[440px] rounded-3xl bg-white px-10 py-12 shadow-[0_20px_60px_-20px_rgba(245,0,90,0.18)]">
         <div className="text-center">
-          <p className="text-[40px] font-extrabold italic leading-none tracking-tight text-[#1f2333]">Konitys</p>
-          <p className="mt-3 text-sm text-[#8a90a8]">Plateforme de gestion</p>
+          <p className="text-[44px] font-extrabold leading-none tracking-tight text-[#1f2333]">Konitys</p>
+          <p className="mt-4 text-[15px] text-[#8a90a8]">Plateforme de gestion</p>
         </div>
         {deuxComptes ? (
           <div className="mt-8">
@@ -126,12 +126,12 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
             </button>
           </div>
         ) : (
-          <form onSubmit={continuer} className="mt-8">
-            <label className="block text-sm font-semibold" htmlFor="email-connexion">Username or email</label>
+          <form onSubmit={continuer} className="mt-10">
+            <label className="block text-sm font-semibold" htmlFor="email-connexion">Nom d&apos;utilisateur ou courriel</label>
             <input
               id="email-connexion"
               type="email"
-              className="mt-2 h-[48px] w-full rounded-xl border border-[#e3e6f0] bg-[#f7f8fc] px-4 text-[15px] outline-none transition placeholder:text-[#9aa0b4] focus:border-[#f5005a] focus:bg-white focus:ring-2 focus:ring-[#f5005a]/15"
+              className="mt-3 h-[48px] w-full rounded-xl border border-[#e3e6f0] bg-[#f7f8fc] px-4 text-[15px] outline-none transition placeholder:text-[#9aa0b4] focus:border-[#f5005a] focus:bg-white focus:ring-2 focus:ring-[#f5005a]/15"
               autoComplete="email"
               autoFocus
               required
@@ -139,8 +139,8 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
               onChange={(e) => setEmail(e.target.value)}
             />
             {erreur && <p className="mt-3 text-sm text-[#e0004d]">{erreur}</p>}
-            <button type="submit" className={`${BOUTON} mt-8`} disabled={envoi}>
-              {envoi ? "…" : "Sign In"}
+            <button type="submit" className={`${BOUTON} mt-10`} disabled={envoi}>
+              {envoi ? "…" : "Connexion"}
             </button>
           </form>
         )}
