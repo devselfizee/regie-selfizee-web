@@ -42,7 +42,7 @@ function Entreprises() {
     <>
       <EnTete
         titre="Entreprises clientes"
-        sousTitre="Les comptes clients de la Régie : chaque entreprise a ses lieux et ses comptes, qui se connectent par « Je suis client »."
+        sousTitre="Les comptes clients de la Régie : chaque entreprise a ses lieux et ses comptes, qui se connectent avec leur e-mail depuis l'accueil."
         actions={
           <Gate perm="entreprises.manage">
             <button type="button" className="bouton" onClick={() => setNouvelle(true)}>Nouvelle entreprise</button>

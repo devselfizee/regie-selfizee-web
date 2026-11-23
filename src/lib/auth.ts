@@ -4,7 +4,7 @@ import type Keycloak from "keycloak-js";
 export const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL ?? "";
 export const authActive = KEYCLOAK_URL !== "";
 const REALM_SALARIES = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "konitys";
-// Realm des clients de la Régie (option 2 du 20/11/2026) : vide, pas de bouton « Je suis client »
+// Realm des clients de la Régie (option 2 du 20/11/2026) : vide, pas de connexion client (accueil direct vers konitys)
 const REALM_CLIENTS = (process.env.NEXT_PUBLIC_KEYCLOAK_REGIE_REALM ?? "").trim();
 export const connexionClientsActive = authActive && REALM_CLIENTS !== "" && REALM_CLIENTS !== REALM_SALARIES;
 
@@ -54,8 +54,8 @@ export async function deconnecter() {
 
 let instance: Keycloak | null = null;
 
-/** Initialise Keycloak (une seule fois) et force la connexion. */
-export async function initialiserAuth(compte: SorteCompte = "salarie"): Promise<Keycloak> {
+/** Initialise Keycloak (une seule fois) et force la connexion ; loginHint pré-remplit l'e-mail tapé à l'accueil. */
+export async function initialiserAuth(compte: SorteCompte = "salarie", loginHint?: string): Promise<Keycloak> {
   if (instance) return instance;
   const securise = window.isSecureContext;
   if (!securise) {
@@ -82,16 +82,22 @@ export async function initialiserAuth(compte: SorteCompte = "salarie"): Promise<
     realm: compte === "client" ? REALM_CLIENTS : REALM_SALARIES,
     clientId: compte === "client" ? process.env.NEXT_PUBLIC_KEYCLOAK_REGIE_CLIENT_ID || "regie-selfizee" : process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "regie-selfizee",
   });
+  // Pas de onLoad « login-required » : il ne transmet pas l'e-mail à Keycloak. init lit le retour de Keycloak,
+  // puis on lance la connexion nous-mêmes si personne n'est connecté.
+  const redirectUri = avecCompte(window.location.href, compte);
   await kc.init({
-    onLoad: "login-required",
     checkLoginIframe: false,
     // Pas de "scope" explicite : Keycloak répond invalid_scope si un scope demandé n'est pas
     // rattaché au client. L'e-mail (indispensable à l'API) vient du scope "email" en Default sur le client.
     // PKCE (S256) a besoin de crypto.subtle, absent en http
     pkceMethod: securise ? "S256" : false,
     // Retour de Keycloak : garder la sorte de compte dans l'adresse si le navigateur ne la stocke pas
-    redirectUri: avecCompte(window.location.href, compte),
+    redirectUri,
   });
+  if (!kc.authenticated) {
+    await kc.login({ redirectUri, loginHint: loginHint || undefined });
+    return new Promise<Keycloak>(() => undefined); // la page part vers Keycloak
+  }
   instance = kc;
   return kc;
 }

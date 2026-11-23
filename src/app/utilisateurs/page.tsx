@@ -324,7 +324,7 @@ function FormPasserClient({ u, onFini }: { u: Utilisateur; onFini: () => void })
     <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); convertir.mutate(); }}>
       <p className="text-sm">
         <strong>{u.email}</strong> aura un compte client de la Régie, avec ses {u.lieux.length} lieu{u.lieux.length > 1 ? "x" : ""} (
-        {u.lieux.map((l) => l.enseigne).join(", ")}). Il reçoit un e-mail pour choisir son mot de passe, puis se connecte par « Je suis client ». Son
+        {u.lieux.map((l) => l.enseigne).join(", ")}). Il reçoit un e-mail pour choisir son mot de passe, puis se connecte avec son e-mail depuis l'accueil. Son
         compte Konitys est désactivé ici.
       </p>
       {entreprises.data && !entreprises.data.configure && (
