@@ -15,7 +15,7 @@ import { libelleErreurBorne } from "@/lib/erreursBorne";
 interface LotJournal {
   id: string;
   source: string;
-  type: "TRANSACTIONS" | "HEARTBEAT" | "RELEVE_MONETIQUE" | "PARCOURS" | "CODES" | "MEDIAS" | "CONFIG";
+  type: "TRANSACTIONS" | "HEARTBEAT" | "RELEVE_MONETIQUE" | "PARCOURS" | "CODES" | "MEDIAS" | "CONFIG" | "CARTES";
   borneIdentifiant: string | null;
   schemaVersion: string | null;
   recuLe: string;
@@ -51,7 +51,7 @@ interface SigneDeVie {
   lieu: { id: number; enseigne: string } | null;
 }
 
-const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité", CODES: "Codes de remise", MEDIAS: "Médias PikCloud", CONFIG: "Zip de l'événement" };
+const TYPES: Record<string, string> = { TRANSACTIONS: "Ventes", HEARTBEAT: "Signes de vie", RELEVE_MONETIQUE: "Relevé monétique", PARCOURS: "Parcours invité", CODES: "Codes de remise", MEDIAS: "Médias PikCloud", CONFIG: "Zip de l'événement", CARTES: "Cartes du lieu" };
 const STATUTS: Record<LotJournal["statut"], { ton: "ok" | "warn" | "crit"; libelle: string }> = {
   OK: { ton: "ok", libelle: "Accepté" },
   PARTIEL: { ton: "warn", libelle: "En partie refusé" },
@@ -130,6 +130,7 @@ function Journal() {
                 <option value="CODES">Codes de remise</option>
                 <option value="MEDIAS">Médias PikCloud</option>
                 <option value="CONFIG">Zip de l&apos;événement</option>
+                <option value="CARTES">Cartes du lieu</option>
               </select>
             </label>
             <label className="block w-48">

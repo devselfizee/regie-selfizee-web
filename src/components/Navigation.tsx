@@ -24,6 +24,7 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/paiements", libelle: "Paiements", perm: "pages.paiements.view" },
   { href: "/reversements", libelle: "Commissions", perm: "pages.commissions.view" },
   { href: "/codes", libelle: "Codes de remise", perm: "pages.codes_remise.view" },
+  { href: "/cartes-lieu", libelle: "Cartes du lieu", perm: "pages.cartes_lieu.view" },
   { href: "/rentabilite", libelle: "Rentabilité", perm: "pages.rentabilite.view" },
   { href: "/rapprochement", libelle: "Rapprochement", perm: "pages.rapprochement.view" },
   { href: "/prospects", libelle: "Prospects", perm: "pages.prospects.view" },
