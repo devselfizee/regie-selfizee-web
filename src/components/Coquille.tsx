@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { jeton, keycloak } from "@/lib/auth";
+import { deconnecter, estCompteClient, jeton } from "@/lib/auth";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
 import { chargerPlateforme, PLATEFORME_URL, useTicketsPlateforme, type Plateforme, type Racine18 } from "@/lib/plateforme";
@@ -64,6 +64,9 @@ const SECTIONS: { libelle: string; liens: { href: string; libelle: string; icone
     libelle: "Administration",
     liens: [
       { href: "/utilisateurs", libelle: "Utilisateurs", icone: "Users", perm: "pages.utilisateurs.view" },
+      // Entreprises clientes et leurs comptes (option 2 du 20/11/2026) ; « Mon entreprise » pour le client admin
+      { href: "/entreprises", libelle: "Entreprises clientes", icone: "Building2", perm: "pages.entreprises.view" },
+      { href: "/mon-entreprise", libelle: "Mon entreprise", icone: "Building2", perm: "pages.mon_entreprise.view" },
       { href: "/parametres", libelle: "Paramètres", icone: "Settings", perm: "pages.parametres.view" },
       // Tous les événements de borne, tous lieux confondus : super admins seulement (13/11)
       { href: "/evenements", libelle: "Événements", icone: "CalendarDays", perm: PERM_SUPER_ADMIN },
@@ -115,7 +118,10 @@ export function Coquille({ children }: { children: ReactNode }) {
   const router = useRouter();
   const chemin = usePathname();
   const [plateforme, setPlateforme] = useState<Plateforme | null>(null);
-  const [local, setLocal] = useState(false);
+  // Client de la Régie (realm « regie ») : jamais l'en-tête ni le menu de la plateforme Konitys (sélecteur d'apps,
+  // tickets, notifications) ; la navigation locale de la Régie seulement
+  const client = estCompteClient();
+  const [local, setLocal] = useState(client);
   const [jetonActuel, setJeton] = useState<string | null>(null);
   useTicketsPlateforme();
   const [replie, setReplie] = useState(() => {
@@ -127,6 +133,7 @@ export function Coquille({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
+    if (client) return;
     let fini = false;
     // Plateforme trop lente : on n'attend pas plus de 8 s pour afficher un menu
     const delai = setTimeout(() => !fini && setLocal(true), 8000);
@@ -142,15 +149,16 @@ export function Coquille({ children }: { children: ReactNode }) {
         setLocal(true);
       });
     return () => clearTimeout(delai);
-  }, []);
+  }, [client]);
 
   // Jeton Keycloak pour les notifications de la plateforme, renouvelé régulièrement
   useEffect(() => {
+    if (client) return;
     const maj = () => jeton().then(setJeton).catch(() => setJeton(null));
     maj();
     const t = setInterval(maj, 4 * 60_000);
     return () => clearInterval(t);
-  }, []);
+  }, [client]);
 
   // Droits du menu : les clés accordées, et leur empreinte (dépendance du menu mémorisé)
   const a = useDroits();
@@ -231,7 +239,7 @@ export function Coquille({ children }: { children: ReactNode }) {
             onErreur={() => setLocal(true)}
             proprietes={{
               user: { firstName: moi.prenom ?? "", lastName: moi.nom ?? "", email: moi.email, username: moi.email },
-              onLogout: () => keycloak()?.logout(),
+              onLogout: () => deconnecter(),
               currentAppName: "Régie Selfizee",
               onNavigate: naviguer,
               platformUrl: PLATEFORME_URL,

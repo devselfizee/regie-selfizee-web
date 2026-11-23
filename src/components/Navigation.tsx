@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { keycloak } from "@/lib/auth";
+import { deconnecter, keycloak } from "@/lib/auth";
 import { useMoi } from "@/lib/session";
 import { useDroits } from "@/lib/perms";
 import { estPageAnalyses, PERM_ANALYSES, PERM_SUPER_ADMIN, useVoitMenu } from "./Analyses";
@@ -30,6 +30,8 @@ const LIENS: { href: string; libelle: string; perm: string }[] = [
   { href: "/apporteurs", libelle: "Apporteurs", perm: "pages.apporteurs.view" },
   { href: "/mes-apports", libelle: "Mes apports", perm: "pages.mes_apports.view" },
   { href: "/utilisateurs", libelle: "Utilisateurs", perm: "pages.utilisateurs.view" },
+  { href: "/entreprises", libelle: "Entreprises clientes", perm: "pages.entreprises.view" },
+  { href: "/mon-entreprise", libelle: "Mon entreprise", perm: "pages.mon_entreprise.view" },
   { href: "/parametres", libelle: "Paramètres", perm: "pages.parametres.view" },
   { href: "/evenements", libelle: "Événements", perm: PERM_SUPER_ADMIN },
 ];
@@ -56,6 +58,7 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
     <nav className={`print:hidden sticky ${sousEntete ? "top-12" : "top-0"} z-10 flex items-center gap-1 overflow-x-auto border-b border-line bg-surface px-4 py-2 md:h-screen md:w-56 md:flex-col md:items-stretch md:gap-1 md:border-r md:border-b-0 md:px-3 md:py-6`}>
       <div className="mr-3 shrink-0 text-sm font-semibold md:mb-6 md:px-3 md:text-base">
         Régie <span className="text-ink-muted font-normal">Selfizee</span>
+        {moi.entreprise && <span className="block truncate text-xs font-normal text-ink-2">{moi.entreprise.nom}</span>}
       </div>
       {liens.map((l) => (
         <Link
@@ -81,7 +84,7 @@ export function Navigation({ sousEntete = false }: { sousEntete?: boolean }) {
           <span className="text-ink">{[moi.prenom, moi.nom].filter(Boolean).join(" ")}</span>
         </span>
         {kc && (
-          <button type="button" className="text-left text-xs text-accent hover:underline" onClick={() => kc.logout()}>
+          <button type="button" className="text-left text-xs text-accent hover:underline" onClick={() => deconnecter()}>
             Déconnexion
           </button>
         )}

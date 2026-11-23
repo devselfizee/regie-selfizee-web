@@ -221,6 +221,11 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
             <Info l="Commercial">
               {[l.commercial && `${l.commercial.prenom} ${l.commercial.nom}`, l.origineLead?.libelle].filter(Boolean).join(" · ") || "—"}
             </Info>
+            {l.entreprise && (
+              <Info l="Entreprise cliente">
+                {a("pages.entreprises.view") ? <Link href={`/entreprises/${l.entreprise.id}`} className="hover:text-accent">{l.entreprise.nom}</Link> : l.entreprise.nom}
+              </Info>
+            )}
             <Info l="Contrat">
               {[l.dateSignature && `signé le ${date(l.dateSignature)}`, l.dateInstallation && `installé le ${date(l.dateInstallation)}`, l.dureeContratMois && `${l.dureeContratMois} mois`].filter(Boolean).join(" · ") || "—"}
             </Info>

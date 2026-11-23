@@ -6,7 +6,7 @@
 
 import { cloneElement, isValidElement, useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { jeton } from "./auth";
+import { estCompteClient, jeton } from "./auth";
 
 export const APP_KEY = "regie";
 export const GATEWAY_URL = (process.env.NEXT_PUBLIC_GATEWAY_URL ?? "").replace(/\/$/, "");
@@ -26,6 +26,15 @@ declare global {
 }
 
 let sdkCharge = false;
+
+// Compte client de la Régie (realm « regie ») : le gateway ne le connaît pas, pas de SDK. Ses droits viennent de
+// l'API (/utilisateurs/moi, profil de l'Admin Panel), posés par <Session> avant d'afficher la page. Refus par défaut :
+// tant qu'ils ne sont pas posés, rien n'est accordé.
+let clesClient: Set<string> | null = null;
+export function definirDroitsClient(cles: string[] | undefined) {
+  clesClient = new Set(cles ?? []);
+}
+const droitsClientPrets = () => clesClient !== null;
 
 export function loadPermsSDK({ token, gatewayUrl }: { token: string; gatewayUrl: string }) {
   if (!token || !gatewayUrl) return;
@@ -49,7 +58,7 @@ export function loadPermsSDK({ token, gatewayUrl }: { token: string; gatewayUrl:
 /** Charge le SDK dès que le jeton Keycloak existe, puis le reconfigure à chaque rafraîchissement du jeton (4 min). */
 export function ChargeurDroits() {
   useEffect(() => {
-    if (!GATEWAY_URL) return;
+    if (!GATEWAY_URL || estCompteClient()) return;
     const maj = () =>
       jeton()
         .then((t) => t && loadPermsSDK({ token: t, gatewayUrl: GATEWAY_URL }))
@@ -69,7 +78,7 @@ function useSdk(): SdkDroits | null {
   const [, setTick] = useState(0);
   useEffect(() => {
     if (!sdk) {
-      if (!GATEWAY_URL) return; // pas de SDK attendu : tout est autorisé
+      if (!GATEWAY_URL || estCompteClient()) return; // pas de SDK attendu (client : droits venus de l'API)
       const iv = setInterval(() => {
         const cur = getSDK();
         if (cur) {
@@ -87,6 +96,7 @@ function useSdk(): SdkDroits | null {
 /** Fonction de test des droits, pour plusieurs clés dans un même composant (menu, onglets…) */
 export function useDroits(): (permKey: string | null | undefined) => boolean {
   const sdk = useSdk();
+  if (estCompteClient()) return (permKey) => !permKey || (clesClient?.has(permKey) ?? false);
   return (permKey) => !sdk || !permKey || sdk.has(permKey);
 }
 
@@ -110,10 +120,12 @@ export function Gate({ perm, children, fallback = null }: { perm: string; childr
 export function PageGuard({ perm, children }: { perm: string | string[]; children: ReactNode }) {
   const a = useDroits();
   const allowed = (Array.isArray(perm) ? perm : [perm]).some((p) => a(p));
+  // Client dont les droits ne sont pas encore arrivés : attendre, sans renvoyer sur « Accès refusé »
+  const attente = estCompteClient() && !droitsClientPrets();
   const router = useRouter();
   useEffect(() => {
-    if (!allowed) router.replace("/403");
-  }, [allowed, router]);
+    if (!allowed && !attente) router.replace("/403");
+  }, [allowed, attente, router]);
   if (!allowed) return null;
   return <>{children}</>;
 }

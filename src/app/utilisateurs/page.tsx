@@ -49,6 +49,9 @@ function Utilisateurs() {
   const gere = usePerm("utilisateurs.manage");
   const client = useQueryClient();
   const [edition, setEdition] = useState<Utilisateur | "nouveau" | null>(null);
+  // Ancien client Konitys → compte client de la Régie (option 2 du 20/11/2026)
+  const [aConvertir, setAConvertir] = useState<Utilisateur | null>(null);
+  const gereEntreprises = usePerm("entreprises.manage");
   const { data, error, isPending } = useQuery({ queryKey: ["utilisateurs"], queryFn: () => api<Utilisateur[]>("/utilisateurs") });
   const basculer = useMutation({
     mutationFn: (u: Utilisateur) => api(`/utilisateurs/${u.id}`, { method: "PATCH", json: { isActive: !u.isActive } }),
@@ -177,6 +180,15 @@ function Utilisateurs() {
                       {gere && (
                         <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => setEdition(u)}>Lieux rattachés</button>
                       )}
+                      {gere && gereEntreprises && u.isActive && u.lieux.length > 0 && u.id !== moi.id && (
+                        <button
+                          className="bouton-second !px-2 !py-1 text-xs"
+                          title="Créer son compte client de la Régie (connexion séparée des salariés) et désactiver ce compte Konitys"
+                          onClick={() => setAConvertir(u)}
+                        >
+                          Passer en compte client
+                        </button>
+                      )}
                       {gere && u.id !== moi.id && (
                         <button className="bouton-second !px-2 !py-1 text-xs" onClick={() => basculer.mutate(u)}>
                           {u.isActive ? "Désactiver" : "Réactiver"}
@@ -197,6 +209,9 @@ function Utilisateurs() {
         onFermer={() => setEdition(null)}
       >
         {edition !== null && <FormUtilisateur u={edition === "nouveau" ? null : edition} onFini={() => setEdition(null)} />}
+      </Modale>
+      <Modale titre="Passer en compte client" ouverte={aConvertir !== null} onFermer={() => setAConvertir(null)}>
+        {aConvertir && <FormPasserClient u={aConvertir} onFini={() => setAConvertir(null)} />}
       </Modale>
     </>
   );
@@ -277,6 +292,63 @@ function FormUtilisateur({ u, onFini }: { u: Utilisateur | null; onFini: () => v
       </div>
       {enregistrer.error && <p role="alert" className="text-sm text-bad">{enregistrer.error.message}</p>}
       <button className="bouton" disabled={enregistrer.isPending}>{u ? "Enregistrer" : "Ajouter"}</button>
+    </form>
+  );
+}
+
+/**
+ * Un client rattaché à des lieux dans le realm Konitys devient un compte client de la Régie : compte créé dans
+ * l'entreprise avec les mêmes lieux, e-mail d'invitation, ancien compte désactivé.
+ */
+function FormPasserClient({ u, onFini }: { u: Utilisateur; onFini: () => void }) {
+  const client = useQueryClient();
+  const [entrepriseId, setEntrepriseId] = useState("");
+  const [profilId, setProfilId] = useState("");
+  const entreprises = useQuery({ queryKey: ["entreprises"], queryFn: () => api<{ configure: boolean; entreprises: { id: number; nom: string; actif: boolean }[] }>("/entreprises") });
+  const detail = useQuery({
+    queryKey: ["entreprise", Number(entrepriseId)],
+    queryFn: () => api<{ profils: { id: number; libelle: string }[] }>(`/entreprises/${entrepriseId}`),
+    enabled: entrepriseId !== "",
+  });
+  const convertir = useMutation({
+    mutationFn: () => api(`/utilisateurs/${u.id}/passer-client`, { method: "POST", json: { entrepriseId: Number(entrepriseId), profilId: Number(profilId) } }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["utilisateurs"] });
+      client.invalidateQueries({ queryKey: ["entreprises"] });
+      onFini();
+    },
+  });
+  const actives = (entreprises.data?.entreprises ?? []).filter((e) => e.actif);
+
+  return (
+    <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); convertir.mutate(); }}>
+      <p className="text-sm">
+        <strong>{u.email}</strong> aura un compte client de la Régie, avec ses {u.lieux.length} lieu{u.lieux.length > 1 ? "x" : ""} (
+        {u.lieux.map((l) => l.enseigne).join(", ")}). Il reçoit un e-mail pour choisir son mot de passe, puis se connecte par « Je suis client ». Son
+        compte Konitys est désactivé ici.
+      </p>
+      {entreprises.data && !entreprises.data.configure && (
+        <p className="rounded-md bg-warn-bg p-3 text-sm text-warn-ink">La connexion des clients n&apos;est pas encore configurée : conversion impossible pour le moment.</p>
+      )}
+      <label className="block">
+        <span className="etiquette">Entreprise *</span>
+        <select className="champ" required value={entrepriseId} onChange={(e) => { setEntrepriseId(e.target.value); setProfilId(""); }}>
+          <option value="">—</option>
+          {actives.map((e) => <option key={e.id} value={e.id}>{e.nom}</option>)}
+        </select>
+        <span className="mt-1 block text-xs text-ink-muted">Ses lieux sont rattachés à cette entreprise s&apos;ils n&apos;en ont pas encore. Créez l&apos;entreprise d&apos;abord si besoin (page Entreprises clientes).</span>
+      </label>
+      <label className="block">
+        <span className="etiquette">Profil *</span>
+        <select className="champ" required value={profilId} onChange={(e) => setProfilId(e.target.value)} disabled={!detail.data}>
+          <option value="">—</option>
+          {detail.data?.profils.map((p) => <option key={p.id} value={p.id}>{p.libelle}</option>)}
+        </select>
+      </label>
+      {convertir.error && <p role="alert" className="text-sm text-bad">{convertir.error.message}</p>}
+      <button className="bouton" disabled={convertir.isPending || !entrepriseId || !profilId || entreprises.data?.configure === false}>
+        {convertir.isPending ? "Création…" : "Créer le compte client"}
+      </button>
     </form>
   );
 }

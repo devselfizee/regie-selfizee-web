@@ -275,6 +275,8 @@ export interface LieuFiche {
   eclairage: RefValeur | null;
   origineLead: RefValeur | null;
   commercial: { id: number; nom: string; prenom: string } | null;
+  /** Entreprise cliente propriétaire (comptes clients de la Régie) */
+  entreprise?: { id: number; nom: string } | null;
   clienteles: RefValeur[];
   contacts: { id: number; role: string; nom: string; prenom: string | null; email: string | null; telephone: string | null; commentaire: string | null }[];
   horaires: { id: number; jourSemaine: number; ouverture: string; fermeture: string }[];

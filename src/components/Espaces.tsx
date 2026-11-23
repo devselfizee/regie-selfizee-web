@@ -7,6 +7,7 @@ import { Coquille } from "./Coquille";
 import { Authentification } from "./Authentification";
 import { Session } from "@/lib/session";
 import { ChargeurDroits, PageGuard } from "@/lib/perms";
+import { estCompteClient } from "@/lib/auth";
 
 // Pages publiques (invités, sans compte) : ni connexion Keycloak, ni barre ni menu de la plateforme
 const PUBLIQUES = ["/mes-photos"];
@@ -29,10 +30,19 @@ export function Espaces({ children }: { children: ReactNode }) {
     <Authentification>
       <ChargeurDroits />
       <Providers>
-        <PageGuard perm="app.access">
+        <GardeAcces>
           <Session>{PLEIN_ECRAN.test(chemin) ? children : <Coquille>{children}</Coquille>}</Session>
-        </PageGuard>
+        </GardeAcces>
       </Providers>
     </Authentification>
   );
+}
+
+/**
+ * Accès à l'application : salarié → droit app.access du SDK Konitys ; client de la Régie → vérifié par <Session>
+ * (ses droits viennent de l'API, et un refus s'y affiche avec le compte connecté).
+ */
+function GardeAcces({ children }: { children: ReactNode }) {
+  if (estCompteClient()) return <>{children}</>;
+  return <PageGuard perm="app.access">{children}</PageGuard>;
 }
