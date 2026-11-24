@@ -12,7 +12,7 @@ import { Modale } from "@/components/Modale";
 import { ChoixLieu } from "@/components/ChoixLieu";
 
 // Cartes sans contact du lieu (Mifare, avenant du 23/11/2026) : la borne lit l'UID de la carte, la Régie décide
-// (carte connue, lieu, validité, plafond du jour, solde) et débite le solde ou offre les tirages.
+// (carte connue, lieu, validité, tarifs, plafond de la nuit, solde) et débite le solde ou offre les tirages.
 
 type Etat = "active" | "expiree" | "desactivee";
 const ETATS: Record<Etat, { libelle: string; ton: "ok" | "neutre" | "crit" }> = {
@@ -29,14 +29,17 @@ const RAISONS: Record<string, string> = {
   DESACTIVEE: "Carte désactivée",
   EXPIREE: "Carte expirée",
   LIEU: "Borne d'un autre lieu",
-  PLAFOND: "Plafond du jour atteint",
+  MONTANT: "Montant au-dessus des tarifs",
+  PLAFOND: "Plafond de la nuit atteint",
   SOLDE_INSUFFISANT: "Solde insuffisant",
   ANNULEE: "Annulée avant l'utilisation",
 };
 const ANNULATIONS: Record<string, string> = {
   tirage_non_sorti: "tirage pas sorti",
   sans_reponse: "la borne n'a pas eu la réponse",
+  reponse_invalide: "réponse illisible pour la borne",
   reponse_tardive: "réponse arrivée trop tard",
+  arret_borne: "borne arrêtée pendant la vente",
 };
 
 interface Carte {
@@ -47,6 +50,7 @@ interface Carte {
   soldeCents: number;
   plafondJourCents: number | null;
   plafondJourTirages: number | null;
+  plafondJourUtilisations: number | null;
   expireLe: string | null;
   desactiveLe: string | null;
   notes: string | null;
@@ -77,10 +81,15 @@ const centimes = (s: string): number | null => {
 };
 const saisieEuros = (c: number | null) => (c == null ? "" : (c / 100).toFixed(2).replace(".", ","));
 
-const plafond = (c: Pick<Carte, "effet" | "plafondJourCents" | "plafondJourTirages">) =>
-  c.effet === "DEBITE"
-    ? c.plafondJourCents != null ? `${euros(c.plafondJourCents)} par jour` : null
-    : c.plafondJourTirages != null ? `${c.plafondJourTirages} tirage${c.plafondJourTirages > 1 ? "s" : ""} par jour` : null;
+// Plafonds par nuit d'exploitation : de 6 h à 6 h, heure de Paris (une soirée qui passe minuit compte pour une nuit)
+const plafond = (c: Pick<Carte, "effet" | "plafondJourCents" | "plafondJourTirages" | "plafondJourUtilisations">) => {
+  const p = [
+    c.effet === "DEBITE" && c.plafondJourCents != null ? euros(c.plafondJourCents) : null,
+    c.effet === "OFFERT" && c.plafondJourTirages != null ? `${c.plafondJourTirages} tirage${c.plafondJourTirages > 1 ? "s" : ""}` : null,
+    c.plafondJourUtilisations != null ? `${c.plafondJourUtilisations} utilisation${c.plafondJourUtilisations > 1 ? "s" : ""}` : null,
+  ].filter(Boolean);
+  return p.length ? `${p.join(", ")} par nuit` : null;
+};
 
 export default function PageCartesLieu() {
   return (
@@ -276,6 +285,7 @@ function FormulaireCarte({ lieux, carte, uidInitial, lieuInitial, onFini }: { li
   const [solde, setSolde] = useState("");
   const [plafondEuros, setPlafondEuros] = useState(saisieEuros(carte?.plafondJourCents ?? null));
   const [plafondTirages, setPlafondTirages] = useState(carte?.plafondJourTirages != null ? String(carte.plafondJourTirages) : "");
+  const [plafondUtilisations, setPlafondUtilisations] = useState(carte?.plafondJourUtilisations != null ? String(carte.plafondJourUtilisations) : "");
   const [expireLe, setExpireLe] = useState(carte?.expireLe ?? "");
   const [notes, setNotes] = useState(carte?.notes ?? "");
   const [erreurSaisie, setErreurSaisie] = useState<string | null>(null);
@@ -308,6 +318,7 @@ function FormulaireCarte({ lieux, carte, uidInitial, lieuInitial, onFini }: { li
           effet,
           plafondJourCents: plafondCents,
           plafondJourTirages: effet === "OFFERT" && plafondTirages ? Number(plafondTirages) : null,
+          plafondJourUtilisations: plafondUtilisations ? Number(plafondUtilisations) : null,
           expireLe: expireLe || null,
           notes: notes.trim() || null,
         });
@@ -356,15 +367,19 @@ function FormulaireCarte({ lieux, carte, uidInitial, lieuInitial, onFini }: { li
         )}
         {effet === "DEBITE" ? (
           <label className="block">
-            <span className="etiquette">Plafond par jour (€)</span>
+            <span className="etiquette">Plafond par nuit (€)</span>
             <input className="champ" inputMode="decimal" placeholder="Aucun" value={plafondEuros} onChange={(e) => setPlafondEuros(e.target.value)} />
           </label>
         ) : (
           <label className="block">
-            <span className="etiquette">Plafond par jour (tirages)</span>
+            <span className="etiquette">Plafond par nuit (tirages)</span>
             <input className="champ" type="number" min={1} max={1000} placeholder="Aucun" value={plafondTirages} onChange={(e) => setPlafondTirages(e.target.value)} />
           </label>
         )}
+        <label className="block">
+          <span className="etiquette">Utilisations par nuit</span>
+          <input className="champ" type="number" min={1} max={1000} placeholder="Aucune limite" value={plafondUtilisations} onChange={(e) => setPlafondUtilisations(e.target.value)} />
+        </label>
         <label className="block">
           <span className="etiquette">Valable jusqu&apos;au</span>
           <input className="champ" type="date" value={expireLe} onChange={(e) => setExpireLe(e.target.value)} />
@@ -384,7 +399,7 @@ function FormulaireCarte({ lieux, carte, uidInitial, lieuInitial, onFini }: { li
 
 interface Detail extends Carte {
   creePar: { prenom: string | null; nom: string | null } | null;
-  aujourdhui: { cents: number; tirages: number };
+  aujourdhui: { cents: number; tirages: number; utilisations: number };
   utilisations: {
     id: string;
     horodatage: string;
@@ -434,11 +449,12 @@ function DetailCarte({ id, onModifier }: { id: number; onModifier: (c: Carte) =>
         <dd className="tabular">
           {p ?? "aucun"}
           <span className="text-ink-2">
-            {" · aujourd'hui : "}
+            {" · cette nuit : "}
             {c.effet === "DEBITE" ? euros(c.aujourdhui.cents) : `${c.aujourdhui.tirages} tirage${c.aujourdhui.tirages > 1 ? "s" : ""}`}
+            {` en ${c.aujourdhui.utilisations} utilisation${c.aujourdhui.utilisations > 1 ? "s" : ""}`}
           </span>
         </dd>
-        <dt className="text-ink-2">Valable jusqu&apos;au</dt><dd>{c.expireLe ? jour(c.expireLe) : "sans limite"}</dd>
+        <dt className="text-ink-2">Valable jusqu&apos;au</dt><dd>{c.expireLe ? `${jour(c.expireLe)} (nuit comprise, jusqu'à 6 h le lendemain)` : "sans limite"}</dd>
         <dt className="text-ink-2">Enregistrée</dt><dd>le {dateHeure(c.creeLe)}{c.creePar && ` par ${nomDe(c.creePar)}`}</dd>
         {c.notes && (<><dt className="text-ink-2">Notes</dt><dd className="whitespace-pre-line">{c.notes}</dd></>)}
       </dl>
