@@ -304,7 +304,7 @@ export function ListePaiements({ lieuIdFixe, initial, ht: htFiche }: { lieuIdFix
 }
 
 /** Flèches gauche / droite du clavier (et boutons) : commande précédente / suivante de la liste (retour de Sébastien) */
-function NavigationRecap({ recap, onChange, children }: { recap: { id: string; ids: string[] }; onChange: (id: string) => void; children: ReactNode }) {
+export function NavigationRecap({ recap, onChange, children }: { recap: { id: string; ids: string[] }; onChange: (id: string) => void; children: ReactNode }) {
   const i = recap.ids.indexOf(recap.id);
   const precedente = i > 0 ? recap.ids[i - 1] : null;
   const suivante = i >= 0 && i < recap.ids.length - 1 ? recap.ids[i + 1] : null;
