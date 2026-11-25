@@ -4,13 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type EvenementBooth, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
+import { api, envoyerFichier, type EvenementBooth, type EvenementPonctuel, type FicheEvenementLieu, type GrilleTarifs } from "@/lib/api";
 import { depuis, euros, jour } from "@/lib/format";
 import { usePerm } from "@/lib/perms";
 import { affiche, creneauBooth, duAu, etatPublication, instants, maintenantParis, periode } from "@/lib/programmation";
 import { Badge, Erreur } from "./Etat";
 import { MenuActions } from "./MenuActions";
 import { Modale } from "./Modale";
+import { ChampsSurMesure, refusFichier, telechargerZip, type BorneDuLieu } from "./SurMesureBooth";
 
 // Événements d'un lieu (maquettes « configuration-evenements » du 10/11/2026, retour du 12/11) : un seul bloc dans
 // l'onglet Configuration, la ligne « Par défaut » puis les événements personnalisés groupés par mois, filtrés (en
@@ -18,7 +19,8 @@ import { Modale } from "./Modale";
 // La fenêtre « Nouvel événement » (nom, début et fin avec leur heure), la copie d'un événement, et la conversion
 // d'un événement personnalisé en événement par défaut. Depuis l'avenant de l'équipe borne du 18/11/2026, la fenêtre
 // propose aussi un « Événement booth » : un code booth saisi sans vérification, programmé sur un créneau, que la borne
-// charge elle-même (pas de fiche, pas de publication).
+// charge elle-même (pas de fiche, pas de publication). Depuis l'avenant du 24/11/2026, un créneau booth peut être
+// « sur mesure » : dans sa fenêtre, la case et le dépôt du zip, servi aux bornes à la place de booth (SurMesureBooth.tsx).
 
 /** « 12/11/2026 à 20:00 → 13/11/2026 à 06:00 » (en-tête de la fiche événement). */
 export function dates(e: { dateDebut: string; dateFin: string; heureDebut?: string | null; heureFin?: string | null }) {
@@ -119,35 +121,65 @@ export function FormNouvelEvenement({ lieuId, onAnnuler, source }: { lieuId: num
 
 /** Code booth : 3 à 8 lettres ou chiffres (la saisie est mise en majuscules, jamais vérifiée auprès de booth). */
 const CODE_BOOTH = /^[A-Z0-9]{3,8}$/;
+const AIDE_CRENEAU_BOOTH =
+  "Le code est celui de l'événement dans booth, repris tel quel : la Régie ne le vérifie pas. À l'heure du créneau, la borne le charge " +
+  "elle-même, puis revient à la programmation du lieu. Sans date de fin : une seule soirée, jusqu'au lendemain si l'heure de fin est avant celle du début.";
 
 /**
- * Fenêtre « Événement booth » : le code booth, un nom facultatif, début et fin avec leur heure. Crée le créneau, ou le
- * modifie avec `booth`. La Régie ne vérifie pas le code : si la borne ne le trouve pas, elle le signale en échec.
+ * Fenêtre « Événement booth » : le code booth, un nom facultatif, début et fin avec leur heure, et la case « Événement
+ * sur mesure » avec son zip (avenant du 24/11/2026). Crée le créneau, ou le modifie avec `booth`. La Régie ne vérifie pas
+ * le code auprès de booth : si la borne ne le trouve pas, elle le signale en échec. Le zip, lui, est contrôlé à l'envoi.
  */
-export function FormEvenementBooth({ lieuId, onAnnuler, booth }: { lieuId: number; onAnnuler: () => void; booth?: EvenementBooth }) {
+export function FormEvenementBooth({ lieuId, onAnnuler, booth, bornes }: { lieuId: number; onAnnuler: () => void; booth?: EvenementBooth; bornes: BorneDuLieu[] }) {
   const client = useQueryClient();
+  // Une fois créé, le formulaire modifie ce créneau : si le zip est refusé, on en choisit un autre sans recréer le créneau
+  const [creneau, setCreneau] = useState<EvenementBooth | undefined>(booth);
   const [code, setCode] = useState(booth?.code ?? "");
   const [nom, setNom] = useState(booth?.nom ?? "");
   const [debut, setDebut] = useState(booth?.dateDebut ?? "");
   const [heureDebut, setHeureDebut] = useState(booth ? booth.heureDebut ?? "" : "20:00");
   const [fin, setFin] = useState(booth && booth.dateFin !== booth.dateDebut ? booth.dateFin : "");
   const [heureFin, setHeureFin] = useState(booth ? booth.heureFin ?? "" : "06:00");
+  const [surMesure, setSurMesure] = useState(booth?.zip?.actif ?? false);
+  const [fichier, setFichier] = useState<File | null>(null);
+  const [progression, setProgression] = useState<number | null>(null);
 
   const dateFin = fin || (debut && heureDebut && heureFin && heureFin <= heureDebut ? lendemain(debut) : debut);
   const saisie = { code: code.trim().toUpperCase(), nom: nom.trim() || null, dateDebut: debut, dateFin, heureDebut: heureDebut || null, heureFin: heureFin || null };
   const codeValide = CODE_BOOTH.test(saisie.code);
   const finAvantDebut = Boolean(debut) && instants(saisie).fin <= instants(saisie).debut;
+  // Le zip est celui du code : celui affiché ne vaut plus si le code a été changé dans le formulaire
+  const codeChange = creneau !== undefined && saisie.code !== creneau.code;
+  const zip = creneau && !codeChange ? creneau.zip : null;
+  const refus = surMesure ? refusFichier(fichier) : null;
+  const zipManquant = surMesure && !fichier && !zip;
 
   const enregistrer = useMutation({
-    mutationFn: () =>
-      booth
-        ? api(`/lieux/${lieuId}/evenements-booth/${booth.id}`, { method: "PUT", json: saisie })
-        : api(`/lieux/${lieuId}/evenements-booth`, { method: "POST", json: saisie }),
-    onSuccess: () => {
+    mutationFn: async () => {
+      let c = creneau
+        ? await api<EvenementBooth>(`/lieux/${lieuId}/evenements-booth/${creneau.id}`, { method: "PUT", json: saisie })
+        : await api<EvenementBooth>(`/lieux/${lieuId}/evenements-booth`, { method: "POST", json: saisie });
+      setCreneau(c);
+      if (surMesure && fichier) {
+        c = await envoyerFichier<EvenementBooth>(`/lieux/${lieuId}/evenements-booth/${c.id}/zip`, fichier, {
+          type: "application/zip",
+          entetes: { "X-Nom-Fichier": encodeURIComponent(fichier.name) },
+          onProgression: setProgression,
+        });
+      } else if (c.zip && c.zip.actif !== surMesure) {
+        c = await api<EvenementBooth>(`/lieux/${lieuId}/evenements-booth/${c.id}/sur-mesure`, { method: "PUT", json: { actif: surMesure } });
+      }
+      return c;
+    },
+    onSuccess: onAnnuler,
+    onSettled: () => {
+      setProgression(null);
       client.invalidateQueries({ queryKey: ["evenements-booth", lieuId] });
-      onAnnuler();
+      client.invalidateQueries({ queryKey: ["evenements-installations", lieuId] });
     },
   });
+  // Créneau créé, mais zip refusé (code du config.json, taille…) : le formulaire reste ouvert sur le créneau créé
+  const zipRefuseApresCreation = !booth && creneau !== undefined && enregistrer.isError;
   return (
     <form
       className="space-y-4"
@@ -157,7 +189,8 @@ export function FormEvenementBooth({ lieuId, onAnnuler, booth }: { lieuId: numbe
       }}
     >
       <div className="grid grid-cols-[8rem_1fr] gap-3">
-        <label className="block">
+        {/* Explications en info-bulle (retour du 25/11 : trop de texte dans la fenêtre) */}
+        <label className="block" title={AIDE_CRENEAU_BOOTH}>
           <span className="etiquette">Code booth *</span>
           <input
             className="champ font-mono uppercase"
@@ -193,18 +226,34 @@ export function FormEvenementBooth({ lieuId, onAnnuler, booth }: { lieuId: numbe
           <input className="champ" type="time" value={heureFin} onChange={(e) => setHeureFin(e.target.value)} />
         </label>
       </div>
-      <p className="text-xs text-ink-muted">
-        Le code est celui de l&apos;événement dans booth, repris tel quel : la Régie ne le vérifie pas. À l&apos;heure du créneau, la borne le charge
-        elle-même, puis revient à la programmation du lieu. Sans date de fin : une seule soirée, jusqu&apos;au lendemain si l&apos;heure de fin est avant
-        celle du début.
-      </p>
       {code.length > 0 && !codeValide && <p role="alert" className="text-sm text-crit-ink">Le code fait 3 à 8 lettres ou chiffres.</p>}
       {finAvantDebut && <p role="alert" className="text-sm text-crit-ink">La fin est avant le début.</p>}
+      <ChampsSurMesure
+        lieuId={lieuId}
+        creneauId={creneau?.id ?? null}
+        code={saisie.code}
+        zip={zip}
+        autresLieux={creneau && !codeChange ? creneau.autresLieux : 0}
+        bornes={bornes}
+        codeChange={codeChange}
+        surMesure={surMesure}
+        onSurMesure={setSurMesure}
+        fichier={fichier}
+        onFichier={setFichier}
+      />
+      {progression !== null && <progress className="h-2 w-full" value={progression} max={1} aria-label="Envoi du zip" />}
+      {zipRefuseApresCreation && <p className="text-sm font-medium">Le créneau est programmé, mais le zip n&apos;a pas été pris :</p>}
       {enregistrer.error && <Erreur erreur={enregistrer.error} />}
       <div className="-mx-4 -mb-4 flex justify-end gap-2 border-t border-line px-4 py-3">
-        <button type="button" className="bouton-second" onClick={onAnnuler}>Annuler</button>
-        <button type="submit" className="bouton" disabled={enregistrer.isPending || !codeValide || !debut || finAvantDebut}>
-          {enregistrer.isPending ? "Enregistrement…" : booth ? "Enregistrer" : "Programmer le code booth"}
+        <button type="button" className="bouton-second" onClick={onAnnuler}>{zipRefuseApresCreation ? "Fermer" : "Annuler"}</button>
+        <button type="submit" className="bouton" disabled={enregistrer.isPending || !codeValide || !debut || finAvantDebut || Boolean(refus) || zipManquant}>
+          {enregistrer.isPending
+            ? progression !== null
+              ? `Envoi du zip… ${Math.round(progression * 100)} %`
+              : "Enregistrement…"
+            : creneau
+              ? "Enregistrer"
+              : "Programmer"}
         </button>
       </div>
     </form>
@@ -213,7 +262,7 @@ export function FormEvenementBooth({ lieuId, onAnnuler, booth }: { lieuId: numbe
 
 type Genre = "regie" | "booth";
 /** Fenêtre « Nouvel événement » : un événement de la Régie (fiche, cadres, publication) ou un code booth à programmer. */
-function FormNouveau({ lieuId, onAnnuler }: { lieuId: number; onAnnuler: () => void }) {
+function FormNouveau({ lieuId, onAnnuler, bornes }: { lieuId: number; onAnnuler: () => void; bornes: BorneDuLieu[] }) {
   const [genre, setGenre] = useState<Genre>("regie");
   return (
     <div className="space-y-4">
@@ -226,7 +275,7 @@ function FormNouveau({ lieuId, onAnnuler }: { lieuId: number; onAnnuler: () => v
           { cle: "booth", libelle: "Événement booth", aide: "Un code booth programmé sur un créneau, chargé par la borne" },
         ]}
       />
-      {genre === "regie" ? <FormNouvelEvenement lieuId={lieuId} onAnnuler={onAnnuler} /> : <FormEvenementBooth lieuId={lieuId} onAnnuler={onAnnuler} />}
+      {genre === "regie" ? <FormNouvelEvenement lieuId={lieuId} onAnnuler={onAnnuler} /> : <FormEvenementBooth lieuId={lieuId} onAnnuler={onAnnuler} bornes={bornes} />}
     </div>
   );
 }
@@ -239,7 +288,8 @@ export function Segments<T extends string>({ choix, valeur, onChange, libelle }:
   libelle: string;
 }) {
   return (
-    <div role="group" aria-label={libelle} className="flex overflow-hidden rounded-lg border border-line-strong bg-surface">
+    // w-fit : à la largeur des choix, même seul sur sa ligne (fenêtre « Nouvel événement »)
+    <div role="group" aria-label={libelle} className="flex w-fit overflow-hidden rounded-lg border border-line-strong bg-surface">
       {choix.map((c) => (
         <button
           key={c.cle}
@@ -267,7 +317,7 @@ export function Publication({ e, maintenant }: { e: EvenementPonctuel; maintenan
 
 /** GET /lieux/:id/evenements/installations : dernière étape et dernière version installée, par code et par borne */
 export interface InstallationsLieu {
-  bornes: { id: number; identifiant: string }[];
+  bornes: BorneDuLieu[];
   parCode: Record<string, Record<string, { dernier: { etat: string; version: number; le: string; message: string | null } | null; installe: { version: number; le: string } | null }>>;
 }
 
@@ -277,7 +327,14 @@ const ETAPES_INSTALLATION: Record<string, string> = { DEMANDE: "demandée", ENVO
  * La version publiée est-elle arrivée sur chaque borne du lieu ? (retour de Sébastien du 16/11) D'après le journal
  * des téléchargements : à jour, en cours, en échec, ancienne version, ou jamais téléchargé.
  */
-function SurLesBornes({ code, version, installations, booth = false }: { code: string | null; version: number; installations?: InstallationsLieu; booth?: boolean }) {
+function SurLesBornes({ code, version, installations, booth = false, surMesureDepuis = null }: {
+  code: string | null;
+  version: number;
+  installations?: InstallationsLieu;
+  booth?: boolean;
+  /** Événement booth sur mesure : date du zip déposé (une borne qui signale la version 0 après n'est pas à jour) */
+  surMesureDepuis?: string | null;
+}) {
   // Un créneau booth n'a pas de version (toujours 0) : on montre seulement ce que la borne a signalé
   if (!code || (version === 0 && !booth) || !installations?.bornes.length) return null;
   const parBorne = installations.parCode[code] ?? {};
@@ -288,12 +345,22 @@ function SurLesBornes({ code, version, installations, booth = false }: { code: s
         const aJour = installe && installe.version >= version;
         // Étape plus récente que la dernière installation (téléchargement de la nouvelle version en cours, ou raté)
         const enCours = dernier && dernier.etat !== "INSTALLE" && (!installe || dernier.le > installe.le) ? dernier : null;
+        // Sur mesure : une borne d'avant l'avenant du 24/11/2026 prend l'événement chez booth et le signale en version 0
+        const priseChezBooth = Boolean(
+          surMesureDepuis && !aJour && dernier && dernier.version === 0 && dernier.etat !== "ECHEC" && dernier.etat !== "DEMANDE" && dernier.le > surMesureDepuis
+        );
         // Un échec plus récent que l'installation passe devant « à jour » : pour un booth, c'est le code refusé par booth
         // (BadEventCode) après avoir tourné ; pour un événement Régie, une version qui ne se recharge plus.
         const [ton, texte, titre] = enCours?.etat === "ECHEC"
           ? (["text-bad", booth ? `échec : ${enCours.message ?? "sans message"}` : `échec v${enCours.version}`, enCours.message ?? `Échec ${depuis(enCours.le)}`] as const)
           : aJour
             ? (["text-good", booth ? "installé sur la borne" : `à jour (v${installe.version})`, `Installé ${depuis(installe.le)}`] as const)
+            : priseChezBooth
+              ? ([
+                  "text-bad",
+                  `a pris la version booth : logiciel à mettre à jour${b.logicielVersion ? ` (v${b.logicielVersion})` : ""}`,
+                  `Après le dépôt du zip, la borne a chargé l'événement chez booth (version 0) : son logiciel est d'avant l'avenant du 24/11/2026`,
+                ] as const)
             : enCours
               ? (["text-warn-ink", `v${enCours.version} ${ETAPES_INSTALLATION[enCours.etat] ?? enCours.etat.toLowerCase()}`, depuis(enCours.le)] as const)
               : installe
@@ -307,6 +374,18 @@ function SurLesBornes({ code, version, installations, booth = false }: { code: s
       })}
     </ul>
   );
+}
+
+/** État d'un créneau booth : chargé chez booth, ou sur mesure (zip déposé dans la Régie, avenant du 24/11/2026). */
+function EtatBooth({ zip }: { zip: EvenementBooth["zip"] }) {
+  if (zip?.actif && zip.etat !== "complete") {
+    return <span title="Le fichier du zip n'est plus sur le serveur : à redéposer"><Badge ton="crit">Zip à redéposer</Badge></span>;
+  }
+  if (zip?.actif) {
+    return <span title={`Zip version ${zip.version} déposé dans la Régie, servi aux bornes à la place de booth`}><Badge ton="ok">Sur mesure · v{zip.version}</Badge></span>;
+  }
+  const titre = zip ? `Zip version ${zip.version} retiré : la borne charge ce code chez booth` : "Événement booth : rien à publier, la borne le charge elle-même avec ce code";
+  return <span title={titre}><Badge ton="neutre">Booth</Badge></span>;
 }
 
 /** « Publié » ou « À publier » (modifié depuis) ; version et date au survol. */
@@ -415,6 +494,8 @@ export function EvenementsLieu({ lieuId, defaut, liste, booth }: { lieuId: numbe
   const [copie, setCopie] = useState<SourceCopie | null>(null);
   const [versDefaut, setVersDefaut] = useState<EvenementPonctuel | null>(null);
   const [boothModifie, setBoothModifie] = useState<EvenementBooth | null>(null);
+  const bornesLieu = installations.data?.bornes ?? [];
+  const recupererZip = useMutation({ mutationFn: (bid: number) => telechargerZip(lieuId, bid) });
   const supprimer = useMutation({
     mutationFn: (eid: number) => api(`/lieux/${lieuId}/evenements-ponctuels/${eid}`, { method: "DELETE" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["evenements-ponctuels", lieuId] }),
@@ -538,16 +619,26 @@ export function EvenementsLieu({ lieuId, defaut, liste, booth }: { lieuId: numbe
                     </td>
                     <td className="px-3 py-2.5 text-ink-muted" title="Les tarifs sont ceux réglés dans booth">—</td>
                     <td className="px-3 py-2.5">
-                      <span title="Événement booth : rien à publier, la borne le charge elle-même avec ce code"><Badge ton="neutre">Booth</Badge></span>
-                      {p !== "passe" && <SurLesBornes code={e.code} version={0} booth installations={installations.data} />}
+                      <EtatBooth zip={b.zip} />
+                      {p !== "passe" &&
+                        (b.zip?.actif ? (
+                          <SurLesBornes code={e.code} version={b.zip.version} surMesureDepuis={b.zip.publieLe} installations={installations.data} />
+                        ) : (
+                          <SurLesBornes code={e.code} version={0} booth installations={installations.data} />
+                        ))}
                     </td>
                     <td className="w-10 rounded-r-lg px-2 py-2.5 text-right">
-                      {peutModifier && (
+                      {(peutModifier || b.zip?.etat === "complete") && (
                         <MenuActions
                           libelle={`Actions sur ${e.nom}`}
                           actions={[
-                            { libelle: "Modifier", aide: "Code, nom, dates", onClick: () => setBoothModifie(b) },
-                            { libelle: "Supprimer", danger: true, onClick: () => confirm(`Retirer le créneau booth « ${e.nom} » de la programmation ?`) && supprimerBooth.mutate(b.id) },
+                            ...(peutModifier ? [{ libelle: "Modifier", aide: "Code, nom, dates, événement sur mesure", onClick: () => setBoothModifie(b) }] : []),
+                            ...(b.zip?.etat === "complete"
+                              ? [{ libelle: "Télécharger le zip", aide: `Version ${b.zip.version} déposée dans la Régie`, onClick: () => recupererZip.mutate(b.id) }]
+                              : []),
+                            ...(peutModifier
+                              ? [{ libelle: "Supprimer", danger: true, onClick: () => confirm(`Retirer le créneau booth « ${e.nom} » de la programmation ?`) && supprimerBooth.mutate(b.id) }]
+                              : []),
                           ]}
                         />
                       )}
@@ -603,16 +694,17 @@ export function EvenementsLieu({ lieuId, defaut, liste, booth }: { lieuId: numbe
       )}
       {supprimer.error && <div className="mt-3"><Erreur erreur={supprimer.error} /></div>}
       {supprimerBooth.error && <div className="mt-3"><Erreur erreur={supprimerBooth.error} /></div>}
+      {recupererZip.error && <div className="mt-3"><Erreur erreur={recupererZip.error} /></div>}
 
       <Modale titre={copie ? `Dupliquer « ${copie.nom} »` : "Dupliquer"} ouverte={copie !== null} onFermer={() => setCopie(null)}>
         {/* Clé : un formulaire neuf, prérempli, pour chaque événement copié */}
         {copie && <FormNouvelEvenement key={`${copie.eid}`} lieuId={lieuId} source={copie} onAnnuler={() => setCopie(null)} />}
       </Modale>
       <Modale titre="Nouvel événement" ouverte={creation} onFermer={() => setCreation(false)}>
-        {creation && <FormNouveau lieuId={lieuId} onAnnuler={() => setCreation(false)} />}
+        {creation && <FormNouveau lieuId={lieuId} onAnnuler={() => setCreation(false)} bornes={bornesLieu} />}
       </Modale>
       <Modale titre={boothModifie ? `Créneau booth ${boothModifie.code}` : "Créneau booth"} ouverte={boothModifie !== null} onFermer={() => setBoothModifie(null)}>
-        {boothModifie && <FormEvenementBooth key={boothModifie.id} lieuId={lieuId} booth={boothModifie} onAnnuler={() => setBoothModifie(null)} />}
+        {boothModifie && <FormEvenementBooth key={boothModifie.id} lieuId={lieuId} booth={boothModifie} bornes={bornesLieu} onAnnuler={() => setBoothModifie(null)} />}
       </Modale>
       <Modale titre={versDefaut ? `« ${versDefaut.nom} » comme événement par défaut` : "Événement par défaut"} ouverte={versDefaut !== null} onFermer={() => setVersDefaut(null)}>
         {versDefaut && <DevenirDefaut key={versDefaut.id} lieuId={lieuId} e={versDefaut} onFermer={() => setVersDefaut(null)} />}

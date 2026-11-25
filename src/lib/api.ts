@@ -42,6 +42,37 @@ export async function telecharger(chemin: string) {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Envoie un fichier tel quel (corps binaire) avec le jeton, en suivant la progression : dépôt du zip d'un événement
+ * booth sur mesure (jusqu'à 100 Mo). XMLHttpRequest plutôt que fetch, qui ne donne pas la progression de l'envoi.
+ */
+export async function envoyerFichier<T>(chemin: string, fichier: File, options: { type: string; entetes?: Record<string, string>; onProgression?: (fraction: number) => void }): Promise<T> {
+  const t = await jeton();
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_URL}${chemin}`);
+    xhr.setRequestHeader("Content-Type", options.type);
+    if (t) xhr.setRequestHeader("Authorization", `Bearer ${t}`);
+    for (const [cle, valeur] of Object.entries(options.entetes ?? {})) xhr.setRequestHeader(cle, valeur);
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) options.onProgression?.(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      let corps: ErreurApi["corps"] = {};
+      try {
+        corps = JSON.parse(xhr.responseText);
+      } catch {
+        // Réponse sans JSON (proxy) : message par défaut ci-dessous
+      }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(corps as T);
+      if (xhr.status === 413 && !corps.message) corps = { error: "TROP_GROS", message: "Fichier trop gros pour le serveur." };
+      reject(new ErreurApi(xhr.status, corps));
+    };
+    xhr.onerror = () => reject(new ErreurApi(0, { message: "Envoi interrompu : vérifiez la connexion et réessayez." }));
+    xhr.send(fichier);
+  });
+}
+
 /** Query string à partir d'un objet (valeurs vides ignorées, tableaux joints par des virgules). */
 export function qs(params: Record<string, string | number | (string | number)[] | null | undefined>) {
   const p = new URLSearchParams();
@@ -1008,6 +1039,28 @@ export interface EvenementBooth {
   heureFin: string | null;
   creeLe: string;
   modifieLe: string;
+  /** Zip « sur mesure » déposé pour ce code (avenant du 24/11/2026) ; null : jamais déposé, la borne prend booth */
+  zip: ZipSurMesure | null;
+  /** Autres lieux où ce code est programmé : le zip y est servi aussi */
+  autresLieux: number;
+}
+
+/**
+ * Zip d'un événement booth sur mesure (avenant du 24/11/2026) : un par code booth, déposé dans la Régie et servi aux
+ * bornes. POST …/evenements-booth/:bid/zip (le fichier), PUT …/:bid/sur-mesure { actif }, GET …/:bid/zip.
+ */
+export interface ZipSurMesure {
+  /** Case « Événement sur mesure » : décochée, la borne reprend la version de booth */
+  actif: boolean;
+  /** Version du dernier dépôt (1, 2, 3…), servie quand la case est cochée */
+  version: number;
+  publieLe: string | null;
+  taille: number | null;
+  sha256: string | null;
+  nomFichier: string | null;
+  deposePar: string | null;
+  /** complete : servi ; obsolete : fichier disparu, à redéposer */
+  etat: "complete" | "obsolete" | "incomplete";
 }
 
 // ─── Suivi de la fiche lieu : commentaires et timeline ───
