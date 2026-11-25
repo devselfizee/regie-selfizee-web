@@ -848,6 +848,11 @@ export function useCanvasInit(params: any) {
       }
 
       (canvas as any)._updateCanvasSize = updateCanvasSize;
+      // Exposés au hook d'interaction : après un déplacement de la zone de
+      // travail (défilement, Espace + glisser), règles et barre flottante
+      // doivent suivre le visuel.
+      (canvas as any)._updateRulerOffset = updateRulerOffset;
+      (canvas as any)._updateFloatingPos = updateFloatingPos;
 
       if (containerRef.current) {
         unobserveResize = observeResize(containerRef.current, () => {

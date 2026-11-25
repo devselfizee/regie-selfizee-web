@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Ruler } from "./Ruler";
+import { CanvasScrollbars } from "./CanvasScrollbars";
 import { CtxBtn } from "..";
 import { PostSelectionPopup } from "../dialogs/PostSelectionPopup";
 import { useEditorStore } from "../store/editorStore";
@@ -350,6 +351,8 @@ function CanvasAreaComponent(props: CanvasAreaProps) {
           </div>
         </>
       )}
+      {/* Barres de défilement — visibles dès que le visuel zoomé dépasse la fenêtre */}
+      <CanvasScrollbars />
       <div data-canvas-pan className="relative" style={{ display: ready ? "inline-block" : "none" }}>
         {removingBg && (
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">

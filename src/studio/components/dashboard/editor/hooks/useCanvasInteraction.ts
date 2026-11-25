@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useEditorStore } from "../store/editorStore";
 import { observeResize } from "@/studio/lib/observeResize";
+import { getPanExtent, PAN_EVENT, PAN_REQUEST_EVENT } from "../canvas/panLimits";
 
 export function useCanvasInteraction(params: any) {
   const {
@@ -28,6 +29,8 @@ export function useCanvasInteraction(params: any) {
   const [isPanning, setIsPanning] = useState(false);
   const panOffsetRef = useRef({ x: 0, y: 0 });
   const panDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const zoomPercent = useEditorStore(s => s.zoomPercent);
+  const containerSize = useEditorStore(s => s.containerSize);
   // Bump this ref-version state once containerRef.current becomes
   // available. In React 18 strict mode / suspense the element ref may
   // bind a frame or two after the initial effect runs; without this,
@@ -126,13 +129,46 @@ export function useCanvasInteraction(params: any) {
     };
   }
 
+  /** Amplitude de défilement (barres, molette) au zoom courant. */
+  function panExtent() {
+    const { canvasWidth, canvasHeight } = useEditorStore.getState();
+    const scale = userZoomRef.current ?? autoScaleRef.current ?? 1;
+    return getPanExtent(containerRef.current, canvasWidth, canvasHeight, scale);
+  }
+
+  /**
+   * Seul point d'écriture du pan : applique la translation, prévient les
+   * barres de défilement, puis recale (une fois par frame) ce qui dépend de
+   * la position du visuel à l'écran — repère souris de Fabric, règles,
+   * barre flottante de la sélection.
+   */
+  const panSyncRafRef = useRef(0);
+  function applyPan(x: number, y: number) {
+    const cont = containerRef.current;
+    panOffsetRef.current = { x, y };
+    if (!cont) return;
+    const el = cont.querySelector("[data-canvas-pan]") as HTMLElement | null;
+    if (el) el.style.transform = x || y ? `translate(${x}px, ${y}px)` : "";
+    cont.dispatchEvent(new CustomEvent(PAN_EVENT, { detail: { x, y } }));
+    if (panSyncRafRef.current) return;
+    panSyncRafRef.current = requestAnimationFrame(() => {
+      panSyncRafRef.current = 0;
+      const canvas = fabricRef.current as any;
+      if (!canvas?.lowerCanvasEl) return;
+      try {
+        canvas.calcOffset();
+        if (useEditorStore.getState().showRulers) canvas._updateRulerOffset?.();
+        canvas._updateFloatingPos?.(true);
+      } catch { /* canvas disposed */ }
+    });
+  }
+  useEffect(() => () => { if (panSyncRafRef.current) cancelAnimationFrame(panSyncRafRef.current); }, []);
+
   // 3. Space + drag = pan canvas (hand tool, like Photoshop/Figma) + momentum inertia
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     let spaceHeld = false;
-    const getCanvasParent = () => container.querySelector("[data-canvas-pan]") as HTMLElement | null;
-
     // Velocity tracking for momentum
     let velX = 0, velY = 0;
     let lastMoveTime = 0;
@@ -212,9 +248,7 @@ export function useCanvasInteraction(params: any) {
       }
       lastMoveX = newX; lastMoveY = newY; lastMoveTime = now;
       const clamped = clampPan(newX, newY);
-      panOffsetRef.current = clamped;
-      const el = getCanvasParent();
-      if (el) el.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`;
+      applyPan(clamped.x, clamped.y);
     };
     const onMouseUp = () => {
       if (panDragRef.current) {
@@ -234,9 +268,7 @@ export function useCanvasInteraction(params: any) {
             const rawX = panOffsetRef.current.x + vx;
             const rawY = panOffsetRef.current.y + vy;
             const clamped = clampPan(rawX, rawY);
-            panOffsetRef.current = clamped;
-            const el = getCanvasParent();
-            if (el) el.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`;
+            applyPan(clamped.x, clamped.y);
             // Stop if velocity is low OR we hit the bounds
             const hitBounds = (Math.abs(clamped.x - rawX) > 0.5) || (Math.abs(clamped.y - rawY) > 0.5);
             if ((Math.abs(vx) > 0.2 || Math.abs(vy) > 0.2) && !hitBounds) {
@@ -272,8 +304,38 @@ export function useCanvasInteraction(params: any) {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    // Molette seule = défilement vertical, Maj + molette (ou geste
+    // horizontal du pavé tactile) = horizontal — uniquement sur les axes où
+    // le visuel zoomé dépasse la fenêtre.
+    const onWheelScroll = (e: WheelEvent) => {
+      // Laisse défiler une liste / un panneau ouvert par-dessus le canvas
+      for (let n = e.target as HTMLElement | null; n && n !== container; n = n.parentElement) {
+        const oy = getComputedStyle(n).overflowY;
+        if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight) return;
+      }
+      const { extX, extY, viewH } = panExtent();
+      if (!extX && !extY) return;
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? viewH : 1;
+      let dx = e.deltaX * unit;
+      let dy = e.deltaY * unit;
+      if (e.shiftKey && !dx) { dx = dy; dy = 0; }
+      const cur = panOffsetRef.current;
+      // Un axe sans défilement ne bouge pas ; un pan déjà hors course
+      // (Espace + glisser) n'est pas ramené de force, il peut juste revenir.
+      const step = (v: number, d: number, ext: number) => {
+        if (!ext || !d) return v;
+        const lim = Math.max(ext, Math.abs(v));
+        return Math.max(-lim, Math.min(lim, v - d));
+      };
+      const nx = step(cur.x, dx, extX);
+      const ny = step(cur.y, dy, extY);
+      // Toujours consommé quand la zone défile : sinon la page derrière
+      // l'éditeur partirait en bout de course.
+      e.preventDefault();
+      if (nx !== cur.x || ny !== cur.y) applyPan(nx, ny);
+    };
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
+      if (!e.ctrlKey && !e.metaKey) { onWheelScroll(e); return; }
       e.preventDefault();
       const currentScale = userZoomRef.current ?? autoScaleRef.current;
       const delta = e.deltaY > 0 ? -0.05 : 0.05;
@@ -298,9 +360,7 @@ export function useCanvasInteraction(params: any) {
         }
         applyScaleRef.current?.(newScale);
         const clampedZoom = clampPan(newPx, newPy);
-        panOffsetRef.current = clampedZoom;
-        panEl.style.transform = `translate(${clampedZoom.x}px, ${clampedZoom.y}px)`;
-        fabricRef.current?.calcOffset();
+        applyPan(clampedZoom.x, clampedZoom.y);
         setZoomPercent(Math.round(newScale * 100));
       }
       // Skip setZoomPercent when clamped at min/max — avoids unnecessary
@@ -310,6 +370,36 @@ export function useCanvasInteraction(params: any) {
     return () => container.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerReady]);
+
+  // 4b. Demandes de pan venues d'ailleurs (barres de défilement, « recentrer »)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const onRequest = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (!d || !Number.isFinite(d.x) || !Number.isFinite(d.y)) return;
+      const c = clampPan(d.x, d.y);
+      applyPan(c.x, c.y);
+    };
+    container.addEventListener(PAN_REQUEST_EVENT, onRequest);
+    return () => container.removeEventListener(PAN_REQUEST_EVENT, onRequest);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerReady]);
+
+  // 4c. Après un changement de zoom ou de taille de fenêtre : un axe sur
+  // lequel le visuel tient en entier est recentré (plus de barre pour le
+  // ramener), les autres sont gardés dans les bornes du pan.
+  useEffect(() => {
+    if (!containerRef.current || panDragRef.current) return;
+    const { extX, extY } = panExtent();
+    const cur = panOffsetRef.current;
+    const c = clampPan(extX ? cur.x : 0, extY ? cur.y : 0);
+    if (c.x !== cur.x || c.y !== cur.y) applyPan(c.x, c.y);
+    else containerRef.current.dispatchEvent(new CustomEvent(PAN_EVENT, { detail: cur }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // (containerSize est réécrit à chaque recalage des règles : on ne suit
+    // que ses dimensions, sinon un pan à la main serait annulé aussitôt)
+  }, [zoomPercent, containerSize.w, containerSize.h, containerReady]);
 
   // 5. Canvas position recalculation when toolbars/panels change layout.
   // Previously three setTimeout(30/150/300) calls were chained, which is

@@ -3,6 +3,7 @@
 import React from "react";
 import { toast } from "../../Toast";
 import { useEditorStore } from "../store/editorStore";
+import { requestPan } from "../canvas/panLimits";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -254,8 +255,7 @@ function BottomBarComponent({ updateObj, panOffsetRef }: {
             userZoomRef.current = null;
         // Reset pan offset on auto-fit
         panOffsetRef.current = { x: 0, y: 0 };
-        const panEl2 = containerRef.current?.querySelector("[data-canvas-pan]") as HTMLElement | null;
-        if (panEl2) panEl2.style.transform = "";
+        requestPan(containerRef.current, 0, 0);
             // Re-calc auto fit
             if (containerRef.current) {
               const availW = containerRef.current.clientWidth - 48;

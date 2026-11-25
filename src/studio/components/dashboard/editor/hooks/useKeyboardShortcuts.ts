@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useEditorStore } from "../store/editorStore";
+import { requestPan } from "../canvas/panLimits";
 
 /* Keyboard shortcuts hook — extracted from FrameEditor */
 
@@ -133,8 +134,7 @@ export function useKeyboardShortcuts({
         const { containerRef, canvasWidth, canvasHeight, autoScaleRef } = useEditorStore.getState();
         const cont = containerRef.current;
         if (cont) {
-          const panEl = cont.querySelector("[data-canvas-pan]") as HTMLElement | null;
-          if (panEl) panEl.style.transform = "";
+          requestPan(cont, 0, 0);
           const availW = cont.clientWidth - 48;
           const availH = cont.clientHeight - 48;
           autoScaleRef.current = Math.min(availW / canvasWidth, availH / canvasHeight, 1.15);
