@@ -100,11 +100,12 @@ export async function initialiserAuth(compte: SorteCompte = "salarie", loginHint
 const CLE_SSO = "regie.sso-essaye";
 
 /**
- * Connexion unique : avant d'afficher l'accueil, regarde si une session salarié (realm konitys) est déjà ouverte, par
- * exemple quand on arrive d'une autre app Konitys par le sélecteur d'apps. Aller-retour invisible vers Keycloak
- * (prompt=none) : rien à saisir. Vrai si la session existe ; l'application s'ouvre alors en salarié.
+ * Connexion unique : avant d'afficher l'accueil, regarde si une session est déjà ouverte sur le realm de ce compte
+ * (salarié par défaut : arrivée d'une autre app Konitys par le sélecteur d'apps ; retour de la page de connexion).
+ * Aller-retour invisible vers Keycloak (prompt=none) : rien à saisir. Vrai si la session existe. Un choix gardé par le
+ * navigateur n'envoie donc plus d'office vers une page de connexion : sans session, c'est l'accueil (e-mail).
  */
-export async function sessionSalarieOuverte(): Promise<boolean> {
+export async function sessionOuverte(compte: SorteCompte): Promise<boolean> {
   // En http (provisoire), l'accueil directement : initialiserAuth prépare ce qui manque à keycloak-js
   if (!connexionClientsActive || instance || !window.isSecureContext) return false;
   // Retour de Keycloak : son état est dans le fragment de l'adresse
@@ -121,16 +122,16 @@ export async function sessionSalarieOuverte(): Promise<boolean> {
     return false; // stockage bloqué : on ne peut pas éviter une boucle, l'accueil directement
   }
   try {
-    const kc = await creerKeycloak("salarie");
+    const kc = await creerKeycloak(compte);
     const ouverte = await kc.init({
       onLoad: "check-sso",
       checkLoginIframe: false,
       pkceMethod: window.isSecureContext ? "S256" : false,
-      redirectUri: window.location.href,
+      redirectUri: avecCompte(window.location.href, compte),
     });
     if (ouverte) {
       instance = kc;
-      choisirCompte("salarie");
+      choisirCompte(compte);
     }
     return ouverte;
   } catch (e) {

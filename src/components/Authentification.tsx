@@ -1,35 +1,40 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { API_URL } from "@/lib/api";
-import { authActive, choisirCompte, compteChoisi, initialiserAuth, sessionSalarieOuverte, type SorteCompte } from "@/lib/auth";
+import { authActive, choisirCompte, compteChoisi, connexionClientsActive, initialiserAuth, sessionOuverte, type SorteCompte } from "@/lib/auth";
 
 /**
  * N'affiche l'application qu'une fois l'utilisateur connecté via Keycloak. Avec la connexion des clients (realm
  * « regie », option 2 du 20/11/2026), l'accueil demande l'e-mail et envoie vers la bonne connexion : salarié ou client.
  */
 export function Authentification({ children }: { children: ReactNode }) {
-  // Choix lu dans le navigateur (stockage, lien d'invitation) ; inconnu pendant le rendu serveur
-  const choixNavigateur = useSyncExternalStore(sansAbonnement, () => (authActive ? compteChoisi() : "salarie"), () => undefined);
-  const [choixClic, setCompte] = useState<{ compte: SorteCompte; email?: string } | null>(null);
-  const compte: SorteCompte | null | undefined = choixClic?.compte ?? choixNavigateur;
+  // Compte retenu : session trouvée, ou choix fait à l'accueil (avec l'e-mail tapé)
+  // Sans connexion des clients : pas d'accueil, connexion salarié directe (comme avant)
+  const [choixClic, setCompte] = useState<{ compte: SorteCompte; email?: string } | null>(connexionClientsActive ? null : { compte: "salarie" });
+  const compte = choixClic?.compte ?? null;
   const [etat, setEtat] = useState<"attente" | "ok" | "erreur">(authActive ? "attente" : "ok");
-  // Connexion unique : session salarié déjà ouverte (arrivée depuis une autre app Konitys) ? Vérifiée avant l'accueil
+  // Avant l'accueil : session déjà ouverte sur le realm du choix gardé par le navigateur (salarié par défaut) ?
   const [sso, setSso] = useState<"verification" | "absente">("verification");
 
   useEffect(() => {
-    if (!authActive || compte !== null || sso !== "verification") return;
+    if (!authActive || !connexionClientsActive || sso !== "verification") return;
+    const cible = compteChoisi() ?? "salarie";
     let fini = false;
-    sessionSalarieOuverte().then((ouverte) => {
+    sessionOuverte(cible).then((ouverte) => {
       if (fini) return;
-      if (ouverte) setCompte({ compte: "salarie" });
-      else setSso("absente");
+      if (ouverte) setCompte({ compte: cible });
+      else {
+        // Pas de session : le choix gardé ne décide plus, l'e-mail tapé à l'accueil choisira la connexion
+        choisirCompte(null);
+        setSso("absente");
+      }
     });
     return () => {
       fini = true;
     };
-  }, [compte, sso]);
+  }, [sso]);
 
   useEffect(() => {
     if (!authActive || !compte) return;
@@ -41,10 +46,10 @@ export function Authentification({ children }: { children: ReactNode }) {
       });
   }, [compte, choixClic?.email]);
 
-  if (authActive && compte === null && sso === "verification") {
+  if (authActive && !compte && sso === "verification") {
     return <p className="w-full py-20 text-center text-sm text-ink-muted">Connexion…</p>;
   }
-  if (authActive && compte === null) {
+  if (authActive && !compte) {
     return (
       <AccueilConnexion
         onChoix={(c, email) => {
@@ -80,7 +85,6 @@ export function Authentification({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-const sansAbonnement = () => () => undefined;
 // Valeurs reprises du thème Keycloak « konitys » (login/konitys/css/konitys.css) : la page ressemble à celle qui suit
 const BOUTON =
   "mt-2 w-full rounded-xl bg-[linear-gradient(135deg,#fe0154_0%,#e50049_100%)] px-6 py-[13px] text-[15px] font-semibold tracking-[0.02em] text-white transition hover:-translate-y-px hover:bg-[linear-gradient(135deg,#e50049_0%,#cc0040_100%)] disabled:opacity-60";
