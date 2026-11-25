@@ -473,10 +473,28 @@ export function setupAlignmentSnapping(
     const tT = tb.top;
     const tB = tb.top  + tb.height;
 
-    const movingLeft   = ["tl", "bl", "ml"].includes(corner);
-    const movingRight  = ["tr", "br", "mr"].includes(corner);
-    const movingTop    = ["tl", "tr", "mt"].includes(corner);
-    const movingBottom = ["bl", "br", "mb"].includes(corner);
+    // Point fixe du redimensionnement (le coin / bord opposé à la poignée),
+    // tel que Fabric l'ancre — indépendant de l'origine propre de l'objet
+    // (les images importées sont en origine « center »).
+    const tOX = e.transform.originX;
+    const tOY = e.transform.originY;
+    const anchor = target.translateToOriginPoint(target.getRelativeCenterPoint(), tOX, tOY);
+
+    // Les bords mobiles sont déduits de la position de l'ancre dans le
+    // rectangle englobant : reste juste si l'objet est retourné ou tourné
+    // de 90/180/270°. Ancre au centre (Alt) → pas d'aimantation sur cet axe.
+    // (tolérance large : un contour décale l'ancre du rectangle englobant)
+    const epsX = tb.width / 4, epsY = tb.height / 4;
+    const isSide = ["ml", "mr", "mt", "mb"].includes(corner);
+    const sideX  = corner === "ml" || corner === "mr";
+    const quarter = angle === 90 || angle === 270;
+    // Une poignée latérale n'étire qu'un axe local (écran : inversé à 90/270°)
+    const xActive = !isSide || (sideX !== quarter);
+    const yActive = !isSide || (sideX === quarter);
+    const movingRight  = xActive && Math.abs(anchor.x - tL) < epsX;
+    const movingLeft   = xActive && Math.abs(anchor.x - tR) < epsX;
+    const movingBottom = yActive && Math.abs(anchor.y - tT) < epsY;
+    const movingTop    = yActive && Math.abs(anchor.y - tB) < epsY;
 
     let bestL: number | null = null, bestLAbs = thresh;
     let bestR: number | null = null, bestRAbs = thresh;
@@ -523,31 +541,47 @@ export function setupAlignmentSnapping(
       if (movingBottom) ys.forEach(y => trySnapBottom(y));
     });
 
-    // Apply scale corrections (adjust scaleX/scaleY + left/top for anchor-opposite handles)
+    // ── Application ──
+    // Facteurs d'échelle à l'écran, puis repositionnement sur l'ancre : le
+    // bord opposé ne bouge jamais, quelle que soit l'origine de l'objet.
     // Safety: minimum visual size = 10px to prevent collapse/flip
     const MIN_VIS = 10;
-    if (bestR !== null && movingRight) {
-      const newW = bestR - tL;
-      if (newW >= MIN_VIS) target.set("scaleX", newW / (target.width || 1));
-    } else if (bestL !== null && movingLeft) {
-      const newW = tR - bestL;
-      if (newW >= MIN_VIS) target.set({ left: target.left + (bestL - tL), scaleX: newW / (target.width || 1) });
+    const tW = tb.width, tH = tb.height;
+    let fX: number | null = null, dX = Infinity;
+    let fY: number | null = null, dY = Infinity;
+    if (bestR !== null && movingRight && bestR - tL >= MIN_VIS) { fX = (bestR - tL) / tW; dX = bestRAbs; }
+    else if (bestL !== null && movingLeft && tR - bestL >= MIN_VIS) { fX = (tR - bestL) / tW; dX = bestLAbs; }
+    if (bestB !== null && movingBottom && bestB - tT >= MIN_VIS) { fY = (bestB - tT) / tH; dY = bestBAbs; }
+    else if (bestT !== null && movingTop && tB - bestT >= MIN_VIS) { fY = (tB - bestT) / tH; dY = bestTAbs; }
+
+    // Ratio verrouillé (poignée d'angle, Maj inverse) : un seul facteur pour
+    // les deux axes — le bord le plus proche de son repère l'emporte.
+    const uniform = !isSide && (!!canvas.uniformScaling !== !!e.e?.[canvas.uniScaleKey || "shiftKey"]);
+    if (uniform && (fX !== null || fY !== null)) {
+      const f = dX <= dY ? fX : fY;
+      fX = f; fY = f;
     }
-    if (bestB !== null && movingBottom) {
-      const newH = bestB - tT;
-      if (newH >= MIN_VIS) target.set("scaleY", newH / (target.height || 1));
-    } else if (bestT !== null && movingTop) {
-      const newH = tB - bestT;
-      if (newH >= MIN_VIS) target.set({ top: target.top + (bestT - tT), scaleY: newH / (target.height || 1) });
+
+    if (fX !== null || fY !== null) {
+      const kx = fX ?? 1, ky = fY ?? 1;
+      // À 90/270° la largeur à l'écran dépend de scaleY (et inversement)
+      target.set({
+        scaleX: (target.scaleX || 1) * (quarter ? ky : kx),
+        scaleY: (target.scaleY || 1) * (quarter ? kx : ky),
+      });
+      target.setPositionByOrigin(anchor, tOX, tOY);
     }
     target.setCoords();
 
-    // Draw guide lines for snapped edges
+    // Draw guide lines for the edges that really sit on their snap point
+    const nb = target.getBoundingRect();
+    const nL = nb.left, nR = nb.left + nb.width, nT = nb.top, nB = nb.top + nb.height;
+    const on = (v: number, snap: number | null) => snap !== null && Math.abs(v - snap) < 1;
     const scaleGuides: GuideSpec[] = [];
-    if (bestR !== null && movingRight)  scaleGuides.push({ x1: bestR, y1: cT, x2: bestR, y2: cB });
-    if (bestL !== null && movingLeft)   scaleGuides.push({ x1: bestL, y1: cT, x2: bestL, y2: cB });
-    if (bestB !== null && movingBottom) scaleGuides.push({ x1: cL,    y1: bestB, x2: cR, y2: bestB });
-    if (bestT !== null && movingTop)    scaleGuides.push({ x1: cL,    y1: bestT, x2: cR, y2: bestT });
+    if (movingRight  && on(nR, bestR)) scaleGuides.push({ x1: bestR, y1: cT, x2: bestR, y2: cB });
+    if (movingLeft   && on(nL, bestL)) scaleGuides.push({ x1: bestL, y1: cT, x2: bestL, y2: cB });
+    if (movingBottom && on(nB, bestB)) scaleGuides.push({ x1: cL,    y1: bestB, x2: cR, y2: bestB });
+    if (movingTop    && on(nT, bestT)) scaleGuides.push({ x1: cL,    y1: bestT, x2: cR, y2: bestT });
     renderGuides(scaleGuides);
   });
 
