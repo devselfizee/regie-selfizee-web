@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { API_URL } from "@/lib/api";
-import { authActive, choisirCompte, compteChoisi, initialiserAuth, type SorteCompte } from "@/lib/auth";
+import { authActive, choisirCompte, compteChoisi, initialiserAuth, sessionSalarieOuverte, type SorteCompte } from "@/lib/auth";
 
 /**
  * N'affiche l'application qu'une fois l'utilisateur connecté via Keycloak. Avec la connexion des clients (realm
@@ -15,6 +15,21 @@ export function Authentification({ children }: { children: ReactNode }) {
   const [choixClic, setCompte] = useState<{ compte: SorteCompte; email?: string } | null>(null);
   const compte: SorteCompte | null | undefined = choixClic?.compte ?? choixNavigateur;
   const [etat, setEtat] = useState<"attente" | "ok" | "erreur">(authActive ? "attente" : "ok");
+  // Connexion unique : session salarié déjà ouverte (arrivée depuis une autre app Konitys) ? Vérifiée avant l'accueil
+  const [sso, setSso] = useState<"verification" | "absente">("verification");
+
+  useEffect(() => {
+    if (!authActive || compte !== null || sso !== "verification") return;
+    let fini = false;
+    sessionSalarieOuverte().then((ouverte) => {
+      if (fini) return;
+      if (ouverte) setCompte({ compte: "salarie" });
+      else setSso("absente");
+    });
+    return () => {
+      fini = true;
+    };
+  }, [compte, sso]);
 
   useEffect(() => {
     if (!authActive || !compte) return;
@@ -26,6 +41,9 @@ export function Authentification({ children }: { children: ReactNode }) {
       });
   }, [compte, choixClic?.email]);
 
+  if (authActive && compte === null && sso === "verification") {
+    return <p className="w-full py-20 text-center text-sm text-ink-muted">Connexion…</p>;
+  }
   if (authActive && compte === null) {
     return (
       <AccueilConnexion
@@ -82,6 +100,8 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
     e.preventDefault();
     const adresse = email.trim();
     if (!adresse) return;
+    // Nom d'utilisateur (sans @) : seuls les salariés en ont, les clients se connectent par e-mail
+    if (!adresse.includes("@")) return onChoix("salarie", adresse);
     setEnvoi(true);
     setErreur(null);
     try {
@@ -142,9 +162,9 @@ function AccueilConnexion({ onChoix }: { onChoix: (c: SorteCompte, email: string
               <label className={LIBELLE} htmlFor="email-connexion">Nom d&apos;utilisateur ou courriel</label>
               <input
                 id="email-connexion"
-                type="email"
+                type="text"
                 className={CHAMP}
-                autoComplete="email"
+                autoComplete="username"
                 autoFocus
                 required
                 value={email}

@@ -76,12 +76,7 @@ export async function initialiserAuth(compte: SorteCompte = "salarie", loginHint
       });
     }
   }
-  const { default: KeycloakJs } = await import("keycloak-js");
-  const kc = new KeycloakJs({
-    url: KEYCLOAK_URL,
-    realm: compte === "client" ? REALM_CLIENTS : REALM_SALARIES,
-    clientId: compte === "client" ? process.env.NEXT_PUBLIC_KEYCLOAK_REGIE_CLIENT_ID || "regie-selfizee" : process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "regie-selfizee",
-  });
+  const kc = await creerKeycloak(compte);
   // Pas de onLoad « login-required » : il ne transmet pas l'e-mail à Keycloak. init lit le retour de Keycloak,
   // puis on lance la connexion nous-mêmes si personne n'est connecté.
   const redirectUri = avecCompte(window.location.href, compte);
@@ -100,6 +95,63 @@ export async function initialiserAuth(compte: SorteCompte = "salarie", loginHint
   }
   instance = kc;
   return kc;
+}
+
+const CLE_SSO = "regie.sso-essaye";
+
+/**
+ * Connexion unique : avant d'afficher l'accueil, regarde si une session salarié (realm konitys) est déjà ouverte, par
+ * exemple quand on arrive d'une autre app Konitys par le sélecteur d'apps. Aller-retour invisible vers Keycloak
+ * (prompt=none) : rien à saisir. Vrai si la session existe ; l'application s'ouvre alors en salarié.
+ */
+export async function sessionSalarieOuverte(): Promise<boolean> {
+  // En http (provisoire), l'accueil directement : initialiserAuth prépare ce qui manque à keycloak-js
+  if (!connexionClientsActive || instance || !window.isSecureContext) return false;
+  // Retour de Keycloak : son état est dans le fragment de l'adresse
+  const retour = /[#&](state|error)=/.test(window.location.hash);
+  try {
+    const deja = sessionStorage.getItem(CLE_SSO) === "1";
+    if (deja && !retour) {
+      // Essai déjà lancé dans cet onglet sans retour lisible : pas de boucle, l'accueil
+      sessionStorage.removeItem(CLE_SSO);
+      return false;
+    }
+    sessionStorage.setItem(CLE_SSO, "1");
+  } catch {
+    return false; // stockage bloqué : on ne peut pas éviter une boucle, l'accueil directement
+  }
+  try {
+    const kc = await creerKeycloak("salarie");
+    const ouverte = await kc.init({
+      onLoad: "check-sso",
+      checkLoginIframe: false,
+      pkceMethod: window.isSecureContext ? "S256" : false,
+      redirectUri: window.location.href,
+    });
+    if (ouverte) {
+      instance = kc;
+      choisirCompte("salarie");
+    }
+    return ouverte;
+  } catch (e) {
+    console.warn("Keycloak (session déjà ouverte ?) :", e);
+    return false;
+  } finally {
+    try {
+      sessionStorage.removeItem(CLE_SSO);
+    } catch {
+      /* rien */
+    }
+  }
+}
+
+async function creerKeycloak(compte: SorteCompte) {
+  const { default: KeycloakJs } = await import("keycloak-js");
+  return new KeycloakJs({
+    url: KEYCLOAK_URL,
+    realm: compte === "client" ? REALM_CLIENTS : REALM_SALARIES,
+    clientId: compte === "client" ? process.env.NEXT_PUBLIC_KEYCLOAK_REGIE_CLIENT_ID || "regie-selfizee" : process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "regie-selfizee",
+  });
 }
 
 export const keycloak = () => instance;
