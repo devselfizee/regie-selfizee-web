@@ -22,15 +22,21 @@ export function Authentification({ children }: { children: ReactNode }) {
     if (!authActive || !connexionClientsActive || sso !== "verification") return;
     const cible = compteChoisi() ?? "salarie";
     let fini = false;
-    sessionOuverte(cible).then((ouverte) => {
+    (async () => {
+      let trouve: SorteCompte | null = (await sessionOuverte(cible)) ? cible : null;
+      if (!trouve && cible === "client") {
+        // Ancien choix « client » sans session : un salarié déjà connecté à une autre app Konitys entre sans rien saisir
+        choisirCompte(null);
+        trouve = (await sessionOuverte("salarie")) ? "salarie" : null;
+      }
       if (fini) return;
-      if (ouverte) setCompte({ compte: cible });
+      if (trouve) setCompte({ compte: trouve });
       else {
         // Pas de session : le choix gardé ne décide plus, l'e-mail tapé à l'accueil choisira la connexion
         choisirCompte(null);
         setSso("absente");
       }
-    });
+    })();
     return () => {
       fini = true;
     };
