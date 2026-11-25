@@ -64,7 +64,7 @@ export function ChampsSurMesure({ lieuId, creneauId, code, zip, autresLieux, bor
     (bornes.length
       ? `\nBornes du lieu : ${bornes.map((b) => `${b.identifiant} (logiciel ${b.logicielVersion ?? "inconnu"})`).join(", ")}. Il faut le logiciel livré avec l'avenant du 24/11/2026 : une borne plus ancienne prend la version de booth.`
       : "");
-  const aideFichier = `config.json à la racine, avec le code ${code || "du créneau"} ; 100 Mo au plus. Chaque dépôt est une nouvelle version, que les bornes installent seules à la fin de la séance en cours.`;
+  const aideFichier = `Le zip de booth tel quel, ou retouché : son config.json doit porter le code ${code || "du créneau"} ; 100 Mo au plus. Chaque dépôt est une nouvelle version, que les bornes installent seules à la fin de la séance en cours.`;
   return (
     <div className="space-y-3 rounded-lg border border-line p-3">
       <label className="flex items-start gap-2" title={aideCase}>
