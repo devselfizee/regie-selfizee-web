@@ -637,7 +637,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   rulerOffset: { x: 0, y: 0 },
   setRulerOffset: (v) => set({ rulerOffset: v }),
   containerSize: { w: 800, h: 600 },
-  setContainerSize: (v) => set({ containerSize: v }),
+  // Appelé à chaque recalage des règles (y compris pendant un défilement) :
+  // ne notifier les abonnés que si la taille change vraiment.
+  setContainerSize: (v) => set(s => (s.containerSize.w === v.w && s.containerSize.h === v.h ? s : { containerSize: v })),
   customGuides: [],
   setCustomGuides: (v) => {
     if (typeof v === "function") {

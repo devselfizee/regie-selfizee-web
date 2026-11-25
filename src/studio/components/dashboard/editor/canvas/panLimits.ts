@@ -30,10 +30,10 @@ export interface PanExtent {
 /** Amplitude de défilement d'un axe. La marge laisse un peu d'air autour du
  *  visuel en bout de course (et dégage les règles). */
 export function scrollExtent(view: number, content: number): number {
-  if (view <= 0 || content <= 0) return 0;
-  const margin = Math.min(40, view * 0.05);
-  const ext = (content - view) / 2 + margin;
-  return ext > 0.5 ? ext : 0;
+  // Rien à faire défiler tant que le visuel tient en entier : la marge ne
+  // s'ajoute qu'une fois qu'il dépasse réellement.
+  if (view <= 0 || content <= view + 0.5) return 0;
+  return (content - view) / 2 + Math.min(40, view * 0.05);
 }
 
 export function getPanExtent(

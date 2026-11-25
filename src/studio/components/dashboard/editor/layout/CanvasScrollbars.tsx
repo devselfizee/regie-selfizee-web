@@ -13,6 +13,9 @@ import { getPanExtent, PAN_EVENT, requestPan } from "../canvas/panLimits";
  * n'était atteignable qu'avec Espace + glisser. Chaque barre n'apparaît que
  * sur l'axe où le visuel dépasse.
  *
+ * Commande à la souris / au doigt uniquement (la molette et Espace + glisser
+ * font le même déplacement) : masquée aux lecteurs d'écran.
+ *
  * Les poignées sont positionnées directement dans le DOM (pas de rendu React
  * par frame pendant un défilement).
  */
@@ -35,7 +38,8 @@ function CanvasScrollbarsComponent() {
   const canvasWidth = useEditorStore(s => s.canvasWidth);
   const canvasHeight = useEditorStore(s => s.canvasHeight);
   const zoomPercent = useEditorStore(s => s.zoomPercent);
-  const containerSize = useEditorStore(s => s.containerSize);
+  const containerW = useEditorStore(s => s.containerSize.w);
+  const containerH = useEditorStore(s => s.containerSize.h);
   const showRulers = useEditorStore(s => s.showRulers);
   const ready = useEditorStore(s => s.ready);
 
@@ -92,7 +96,7 @@ function CanvasScrollbarsComponent() {
     // passage après mise en page couvre l'ouverture d'un panneau latéral.
     const id = requestAnimationFrame(layout);
     return () => cancelAnimationFrame(id);
-  }, [layout, zoomPercent, containerSize.w, containerSize.h, showRulers, ready]);
+  }, [layout, zoomPercent, containerW, containerH, showRulers, ready]);
 
   const startDrag = (axis: Axis) => (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -152,9 +156,8 @@ function CanvasScrollbarsComponent() {
     <>
       <div
         ref={trackRefs.x}
-        role="scrollbar"
-        aria-orientation="horizontal"
-        aria-label="Défilement horizontal du visuel"
+        data-canvas-scrollbar="x"
+        aria-hidden="true"
         className="absolute z-30 rounded-full bg-gray-300/40 hover:bg-gray-300/70 transition-colors touch-none"
         style={{ display: "none", left: startInset, right: THICKNESS + 8, bottom: 3, height: THICKNESS }}
         onPointerDown={pageJump("x")}
@@ -170,9 +173,8 @@ function CanvasScrollbarsComponent() {
       </div>
       <div
         ref={trackRefs.y}
-        role="scrollbar"
-        aria-orientation="vertical"
-        aria-label="Défilement vertical du visuel"
+        data-canvas-scrollbar="y"
+        aria-hidden="true"
         className="absolute z-30 rounded-full bg-gray-300/40 hover:bg-gray-300/70 transition-colors touch-none"
         style={{ display: "none", top: startInset, bottom: THICKNESS + 8, right: 3, width: THICKNESS }}
         onPointerDown={pageJump("y")}

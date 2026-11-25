@@ -30,7 +30,8 @@ export function useCanvasInteraction(params: any) {
   const panOffsetRef = useRef({ x: 0, y: 0 });
   const panDragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
   const zoomPercent = useEditorStore(s => s.zoomPercent);
-  const containerSize = useEditorStore(s => s.containerSize);
+  const containerW = useEditorStore(s => s.containerSize.w);
+  const containerH = useEditorStore(s => s.containerSize.h);
   // Bump this ref-version state once containerRef.current becomes
   // available. In React 18 strict mode / suspense the element ref may
   // bind a frame or two after the initial effect runs; without this,
@@ -143,6 +144,7 @@ export function useCanvasInteraction(params: any) {
    * barre flottante de la sélection.
    */
   const panSyncRafRef = useRef(0);
+  const panSettleTimerRef = useRef(0);
   function applyPan(x: number, y: number) {
     const cont = containerRef.current;
     panOffsetRef.current = { x, y };
@@ -160,9 +162,19 @@ export function useCanvasInteraction(params: any) {
         if (useEditorStore.getState().showRulers) canvas._updateRulerOffset?.();
         canvas._updateFloatingPos?.(true);
       } catch { /* canvas disposed */ }
+      // Pendant le déplacement la barre flottante est déplacée dans le DOM ;
+      // une fois le pan stabilisé, l'état React est remis d'accord (sinon le
+      // prochain rendu la replacerait à son ancienne position).
+      window.clearTimeout(panSettleTimerRef.current);
+      panSettleTimerRef.current = window.setTimeout(() => {
+        try { (fabricRef.current as any)?._updateFloatingPos?.(); } catch { /* canvas disposed */ }
+      }, 120);
     });
   }
-  useEffect(() => () => { if (panSyncRafRef.current) cancelAnimationFrame(panSyncRafRef.current); }, []);
+  useEffect(() => () => {
+    if (panSyncRafRef.current) cancelAnimationFrame(panSyncRafRef.current);
+    window.clearTimeout(panSettleTimerRef.current);
+  }, []);
 
   // 3. Space + drag = pan canvas (hand tool, like Photoshop/Figma) + momentum inertia
   useEffect(() => {
@@ -221,6 +233,8 @@ export function useCanvasInteraction(params: any) {
     const onWindowBlur = () => exitPanMode();
     const onMouseDown = (e: MouseEvent) => {
       if (!spaceHeld) return;
+      // Les barres de défilement gèrent leur propre glisser
+      if ((e.target as HTMLElement | null)?.closest?.("[data-canvas-scrollbar]")) return;
       cancelMomentum(); // stop any ongoing inertia on new drag
       velX = 0; velY = 0;
       lastMoveTime = performance.now();
@@ -343,8 +357,11 @@ export function useCanvasInteraction(params: any) {
       const panEl = container.querySelector("[data-canvas-pan]") as HTMLElement | null;
       if (panEl && currentScale !== newScale) {
         const contRect = container.getBoundingClientRect();
-        const mouseContX = e.clientX - contRect.left;
-        const mouseContY = e.clientY - contRect.top;
+        // Le pan est mesuré depuis le centre du conteneur (visuel centré à
+        // pan = 0) : la souris doit l'être aussi, sinon le point sous le
+        // curseur dérive à chaque cran de zoom.
+        const mouseContX = e.clientX - contRect.left - contRect.width / 2;
+        const mouseContY = e.clientY - contRect.top - contRect.height / 2;
         const px = panOffsetRef.current.x;
         const py = panOffsetRef.current.y;
         const ratio = newScale / currentScale;
@@ -386,20 +403,39 @@ export function useCanvasInteraction(params: any) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [containerReady]);
 
-  // 4c. Après un changement de zoom ou de taille de fenêtre : un axe sur
-  // lequel le visuel tient en entier est recentré (plus de barre pour le
-  // ramener), les autres sont gardés dans les bornes du pan.
+  // 4c. Après un changement de zoom ou de taille de fenêtre, garder le
+  // visuel atteignable :
+  //  - axe qui défile, zoom modifié (boutons, curseur, pincement — ils ne
+  //    touchent pas au pan) → pan ramené dans la course des barres, sinon
+  //    un dézoom laisserait le visuel hors de la fenêtre ;
+  //  - axe qui cesse de défiler → recentré (plus de barre pour le ramener) ;
+  //  - axe où tout est visible, zoom modifié → le visuel reste dans la fenêtre.
+  // Un pan fait à la main (Espace + glisser vers la marge de travail) n'est
+  // pas touché tant que le zoom ne change pas.
+  const prevPanStateRef = useRef({ zoom: zoomPercent, extX: 0, extY: 0 });
   useEffect(() => {
     if (!containerRef.current || panDragRef.current) return;
-    const { extX, extY } = panExtent();
+    const { extX, extY, viewW, viewH, contentW, contentH } = panExtent();
+    const prev = prevPanStateRef.current;
+    const zoomChanged = prev.zoom !== zoomPercent;
+    prevPanStateRef.current = { zoom: zoomPercent, extX, extY };
     const cur = panOffsetRef.current;
-    const c = clampPan(extX ? cur.x : 0, extY ? cur.y : 0);
+    const settle = (v: number, ext: number, prevExt: number, view: number, content: number) => {
+      if (ext) return zoomChanged ? Math.max(-ext, Math.min(ext, v)) : v;
+      if (prevExt) return 0;
+      if (!zoomChanged) return v;
+      // Visuel entièrement visible : un zoom ne doit pas le sortir de la fenêtre
+      const room = Math.max(0, (view - content) / 2);
+      return Math.max(-room, Math.min(room, v));
+    };
+    const c = clampPan(
+      settle(cur.x, extX, prev.extX, viewW, contentW),
+      settle(cur.y, extY, prev.extY, viewH, contentH),
+    );
     if (c.x !== cur.x || c.y !== cur.y) applyPan(c.x, c.y);
     else containerRef.current.dispatchEvent(new CustomEvent(PAN_EVENT, { detail: cur }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // (containerSize est réécrit à chaque recalage des règles : on ne suit
-    // que ses dimensions, sinon un pan à la main serait annulé aussitôt)
-  }, [zoomPercent, containerSize.w, containerSize.h, containerReady]);
+  }, [zoomPercent, containerW, containerH, containerReady]);
 
   // 5. Canvas position recalculation when toolbars/panels change layout.
   // Previously three setTimeout(30/150/300) calls were chained, which is
