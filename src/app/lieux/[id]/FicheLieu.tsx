@@ -70,7 +70,7 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   const prospect = l.statut === "PROSPECT";
   const voitVentes = voitVentesRole && !prospect;
   const voitCommissions = a("commissions.view");
-  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "photos" ? !prospect && a("medias.view") && (photos.data?.total ?? 0) > 0 : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : true));
+  const ongletsVisibles = ONGLETS.filter((o) => (o.cle === "stats" ? voitVentes || prospect : o.cle === "comportement" ? voitVentes : o.cle === "ventes" ? voitVentes && a("paiements.view") : o.cle === "commissions" ? voitCommissions : o.cle === "suivi" ? a("suivi.view") : o.cle === "configuration" ? a("evenements.view") : o.cle === "photos" ? !prospect && a("medias.view") && (photos.data?.total ?? 0) > 0 : o.cle === "souvenir" ? !prospect && a("souvenir.contacts_view") : o.cle === "codes" ? !prospect && a("codes_remise.view") : true));
   const ongletActif = ongletsVisibles.some((o) => o.cle === onglet) ? onglet : ongletsVisibles[0].cle;
 
   return (
@@ -174,6 +174,8 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
       {ongletActif === "photos" && <GalerieMedias lieuId={id} />}
 
       {ongletActif === "souvenir" && <PageSouvenirLieu lieuId={id} />}
+
+      {ongletActif === "codes" && <CodesRemiseLieu lieuId={id} />}
 
       {ongletActif === "infos" && (
       <>
@@ -294,12 +296,6 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         <AccesLieu lieuId={l.id} localisationCles={l.localisationCles ?? null} disponibiliteContacts={l.disponibiliteContacts ?? null} />
       </div>
 
-      <Gate perm="codes_remise.view">
-        <div className="mt-6">
-          <CodesRemiseLieu lieuId={l.id} />
-        </div>
-      </Gate>
-
       <div className="mt-6">
         <Section titre="Historique des bornes" actions={a("bornes.view") ? <Link className="text-sm text-accent hover:underline" href="/bornes">Gérer les bornes</Link> : undefined}>
           {l.affectations.length ? (
@@ -334,11 +330,13 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
   );
 }
 
-type Onglet = "stats" | "comportement" | "ventes" | "infos" | "suivi" | "commissions" | "configuration" | "photos" | "souvenir";
+type Onglet = "stats" | "comportement" | "ventes" | "codes" | "infos" | "suivi" | "commissions" | "configuration" | "photos" | "souvenir";
 // Ordre demandé par Sébastien le 13/11
 const ONGLETS: { cle: Onglet; libelle: string }[] = [
   { cle: "stats", libelle: "Statistiques" },
   { cle: "ventes", libelle: "Ventes" },
+  // Voir et créer les codes promo du lieu (retour de Sébastien du 27/11/2026)
+  { cle: "codes", libelle: "Codes promo" },
   { cle: "infos", libelle: "Informations" },
   // La borne du lieu : infos et tarif repris par chaque événement, puis les événements
   { cle: "configuration", libelle: "Configuration" },
