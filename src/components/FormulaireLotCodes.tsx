@@ -105,7 +105,7 @@ export function FormulaireLot({ lieux = [], lieuFixe, onCree }: { lieux?: LieuLi
         <label className="block">
           {/* Remise en % : sur toute la commande, on choisit combien de fois le code sert (retour de Sébastien du 16/11) */}
           <span className="etiquette">{type === "OFFERT" ? "Impressions par code *" : "Utilisations par code *"}</span>
-          <input className="champ" type="number" min={1} max={1000} required value={quantite} onChange={(e) => setQuantite(e.target.value)} />
+          <input className="champ" type="number" min={1} required value={quantite} onChange={(e) => setQuantite(e.target.value)} />
         </label>
         {type === "POURCENTAGE" && (
           <label className="block">
