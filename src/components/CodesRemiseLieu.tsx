@@ -9,6 +9,7 @@ import { Gate } from "@/lib/perms";
 import { Badge, Chargement, Erreur, Section, Vide } from "@/components/Etat";
 import { Modale } from "@/components/Modale";
 import { FormulaireLot } from "@/components/FormulaireLotCodes";
+import { RenommerCode } from "@/components/RenommerCode";
 
 // Codes de remise donnés au lieu : onglet « Codes promo » de la fiche (retours de Sébastien des 05/11 et 27/11/2026) :
 // les lots du lieu, leurs codes en dépliant un lot, et la génération d'un lot pour ce lieu.
@@ -157,7 +158,7 @@ function CodesDuLot({ lotId, lieuId }: { lotId: number; lieuId: number }) {
     <div>
       <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {data.lignes.map((c) => (
-          <li key={c.id} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2">
+          <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2">
             <span>
               <span className="font-mono font-medium tracking-wider">{c.code}</span>
               <span className="block text-xs text-ink-muted">
@@ -166,7 +167,10 @@ function CodesDuLot({ lotId, lieuId }: { lotId: number; lieuId: number }) {
                 {c.derniereUtilisation ? ` · ${dateHeure(c.derniereUtilisation)}` : ""}
               </span>
             </span>
-            <Badge ton={ETATS[c.etat].ton}>{ETATS[c.etat].libelle}</Badge>
+            <span className="flex flex-col items-end gap-1">
+              <Badge ton={ETATS[c.etat].ton}>{ETATS[c.etat].libelle}</Badge>
+              {c.utilise === 0 && <RenommerCode id={c.id} code={c.code} />}
+            </span>
           </li>
         ))}
       </ul>

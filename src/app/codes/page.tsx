@@ -13,6 +13,7 @@ import { Modale } from "@/components/Modale";
 import { ChoixLieu } from "@/components/ChoixLieu";
 import { BoutonExport } from "@/components/BoutonExport";
 import { FormulaireLot, remise } from "@/components/FormulaireLotCodes";
+import { RenommerCode } from "@/components/RenommerCode";
 
 // Codes de remise (demande de Sébastien, 02/11/2026) : impressions offertes ou remisées, saisies sur la borne.
 
@@ -309,6 +310,7 @@ function DetailCode({ id }: { id: number }) {
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-mono text-2xl font-semibold tracking-widest">{c.code}</span>
         <Badge ton={ETATS[c.etat].ton}>{ETATS[c.etat].libelle}</Badge>
+        {c.utilise === 0 && !c.utilisations.length && c.origine.type === "manuel" && <RenommerCode id={c.id} code={c.code} taille="normal" />}
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <dt className="text-ink-2">Remise</dt><dd>{remise(c)}</dd>
