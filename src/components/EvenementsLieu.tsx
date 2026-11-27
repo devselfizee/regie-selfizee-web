@@ -413,6 +413,7 @@ export function TarifsCourts({ grille: g, herite }: { grille: GrilleTarifs; heri
   const detail = [
     ...g.paliers.map((p) => `${p.de === 1 ? "1 tirage" : `dès ${p.de}`} : ${euros(p.prixCents)}${g.palierMisEnAvant === p.de ? " (mis en avant)" : ""}`),
     ...(g.plusUnCents ? [`+1 pour un pote : ${euros(g.plusUnCents)}`] : []),
+    `version numérique : ${euros(g.numeriqueCents)}`,
     herite ? "tarifs du lieu" : "tarifs propres à l'événement",
   ].join(" · ");
   const prix = (c: number) => (c / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

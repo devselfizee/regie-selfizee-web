@@ -36,6 +36,7 @@ export function ResumeGrille({ grille: g }: { grille: GrilleTarifs }) {
       <p className="text-ink-2">
         « +1 pour un pote » :{" "}
         {g.plusUnCents ? <span className="tabular font-medium text-ink">{euros(g.plusUnCents)}</span> : <span>question non posée</span>}
+        {" · "}Version numérique : <span className="tabular font-medium text-ink">{euros(g.numeriqueCents)}</span>
       </p>
     </div>
   );
@@ -53,6 +54,9 @@ export function GrilleEnLigne({ grille: g }: { grille: GrilleTarifs }) {
     <span key="pote">
       <span className="text-ink-2">+1 pour un pote</span>{" "}
       {g.plusUnCents ? <span className="tabular font-semibold">{euros(g.plusUnCents)}</span> : <span className="text-ink-muted">non posé</span>}
+    </span>,
+    <span key="numerique">
+      <span className="text-ink-2">numérique</span> <span className="tabular font-semibold">{euros(g.numeriqueCents)}</span>
     </span>,
   );
   return (
@@ -197,6 +201,11 @@ export function EditeurGrille({ valeur, onChange, desactive = false, nom = "gril
           <ChampEuros cents={valeur.plusUnCents} desactive={desactive} onChange={(c) => maj({ plusUnCents: c })} />
           <span className="mt-1 block text-xs text-ink-muted">0 € : la question n&apos;est pas posée.</span>
         </label>
+        <label className="block">
+          <span className="etiquette">Version numérique</span>
+          <ChampEuros cents={valeur.numeriqueCents} desactive={desactive} onChange={(c) => maj({ numeriqueCents: c })} />
+          <span className="mt-1 block text-xs text-ink-muted">Photo sur le téléphone quand l&apos;imprimante est indisponible.</span>
+        </label>
       </div>
     </div>
   );
@@ -204,7 +213,7 @@ export function EditeurGrille({ valeur, onChange, desactive = false, nom = "gril
 
 /** Résumé d'une grille sur une ligne : « 3,50 € · 2 tirages 3,00 € · 3 tirages 2,50 € · +1 pote 2,00 € » */
 export const resumeGrille = (g: GrilleTarifs) =>
-  [...g.paliers.map((p, i) => (i === 0 ? `${euros(p.prixCents)} le tirage` : `dès ${p.de} : ${euros(p.prixCents)}`)), g.plusUnCents ? `+1 pote ${euros(g.plusUnCents)}` : null]
+  [...g.paliers.map((p, i) => (i === 0 ? `${euros(p.prixCents)} le tirage` : `dès ${p.de} : ${euros(p.prixCents)}`)), g.plusUnCents ? `+1 pote ${euros(g.plusUnCents)}` : null, `numérique ${euros(g.numeriqueCents)}`]
     .filter(Boolean)
     .join(" · ");
 

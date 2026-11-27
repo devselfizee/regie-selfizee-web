@@ -972,6 +972,7 @@ export interface ReglagesEvenement {
     palierMisEnAvant: number | null;
     libelleMisEnAvant: string;
     plusUnCents: number;
+    numeriqueCents: number;
     codesPromo: boolean;
     jeu: { actif: boolean; lots: Record<LotJeu, number>; maxLotsParJour: number };
     reimpressionWeb: boolean;
@@ -1142,6 +1143,8 @@ export interface GrilleTarifs {
   palierMisEnAvant: number | null;
   libelleMisEnAvant: string;
   plusUnCents: number;
+  /** Version numérique seule (imprimante indisponible) */
+  numeriqueCents: number;
 }
 
 /** LIEU : tarifs propres au lieu ; BASE : tarifs de base du parc ; DEFAUT : grille d'usine (base pas encore saisie) */

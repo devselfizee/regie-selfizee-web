@@ -34,7 +34,7 @@ export function TarifsEvenement({ t, maj, tarifsLieu, enseigne }: { t: Tarifs; m
   const [edition, setEdition] = useState<string | null>(null);
   const [complet, setComplet] = useState(false);
   const g: GrilleTarifs = t.herite ? tarifsLieu.grille : t;
-  const majGrille = (p: Partial<GrilleTarifs>) => maj({ paliers: g.paliers, palierMisEnAvant: g.palierMisEnAvant, libelleMisEnAvant: g.libelleMisEnAvant, plusUnCents: g.plusUnCents, ...p });
+  const majGrille = (p: Partial<GrilleTarifs>) => maj({ paliers: g.paliers, palierMisEnAvant: g.palierMisEnAvant, libelleMisEnAvant: g.libelleMisEnAvant, plusUnCents: g.plusUnCents, numeriqueCents: g.numeriqueCents, ...p });
   const cases = [
     ...g.paliers.map((p, i) => ({
       cle: `p${p.de}`,
@@ -46,6 +46,7 @@ export function TarifsEvenement({ t, maj, tarifsLieu, enseigne }: { t: Tarifs; m
       retirer: i > 0 ? () => majGrille({ paliers: g.paliers.filter((_, j) => j !== i), palierMisEnAvant: g.palierMisEnAvant === p.de ? null : g.palierMisEnAvant }) : null,
     })),
     { cle: "pote", libelle: "+1 pour un pote", cents: g.plusUnCents, avant: false, changer: (c: number) => majGrille({ plusUnCents: c }), retirer: null },
+    { cle: "numerique", libelle: "Version numérique", cents: g.numeriqueCents, avant: false, changer: (c: number) => majGrille({ numeriqueCents: c }), retirer: null },
   ];
   const dernier = g.paliers[g.paliers.length - 1];
   // Nouveau palier : une quantité de plus que le dernier, même prix ; sa case s'ouvre pour saisir le prix
