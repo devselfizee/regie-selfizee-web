@@ -166,9 +166,14 @@ export function TuilesLieu({ k, p, f, ht }: { k: StatsLieu["kpis"]["courant"]; p
   const soirees = f?.lieu?.soirees ?? 0;
   const parSoiree = f?.lieu ? (ht ? f.lieu.caParSoireeHtCents : f.lieu.caParSoireeTtcCents) : null;
   const demandes = k.nbVentes + k.nbRefusees + k.nbAnnulees;
-  const ca = ht ? k.caHtCents : k.caTtcCents;
+  // Total : ventes d'impression + privatisations (forfaits, comptés le jour du début)
+  const priv = k.privatisations?.nb ? k.privatisations : null;
+  const ca = ht ? k.caTotalHtCents ?? k.caHtCents : k.caTotalTtcCents ?? k.caTtcCents;
+  const caPrec = ht ? p.caTotalHtCents ?? p.caHtCents : p.caTotalTtcCents ?? p.caTtcCents;
+  const ventesSeules = ht ? k.caHtCents : k.caTtcCents;
 
   const bulleCa = [
+    priv ? `impressions ${euros(ventesSeules)} + ${pluriel(priv.nb, "privatisation")} ${euros(ht ? priv.caHtCents : priv.caTtcCents)}${priv.nbOffertes ? ` (dont ${priv.nbOffertes} offerte${priv.nbOffertes > 1 ? "s" : ""})` : ""}` : null,
     soirees ? pluriel(soirees, "soirée ouverte", "soirées ouvertes") : null,
     k.nbIncertaines ? `dont ${euros(k.caIncertainTtcCents ?? 0)} TTC à confirmer au rapprochement (${pluriel(k.nbIncertaines, "vente")})` : null,
     k.tests?.nbVentes ? `hors CA : ${pluriel(k.tests.nbVentes, "vente")} avec les cartes de test (${euros(k.tests.caTtcCents)})` : null,
@@ -183,14 +188,17 @@ export function TuilesLieu({ k, p, f, ht }: { k: StatsLieu["kpis"]["courant"]; p
           icone="billet"
           libelle={`CA ${suffixe}`}
           valeur={eurosRond(ca)}
-          detail={[ht ? `TTC ${eurosRond(k.caTtcCents)}` : `HT ${eurosRond(k.caHtCents)}`, parSoiree !== null ? `${euros(parSoiree)} par soirée ouverte` : null].filter(Boolean).join(" · ")}
-          {...cmp(ca, ht ? p.caHtCents : p.caTtcCents)}
+          detail={[
+            priv ? `dont privatisations ${eurosRond(ht ? priv.caHtCents : priv.caTtcCents)}` : ht ? `TTC ${eurosRond(k.caTotalTtcCents ?? k.caTtcCents)}` : `HT ${eurosRond(k.caTotalHtCents ?? k.caHtCents)}`,
+            parSoiree !== null ? `${euros(parSoiree)} par soirée ouverte` : null,
+          ].filter(Boolean).join(" · ")}
+          {...cmp(ca, caPrec)}
         />
       </Bulle>
       <Bulle bloc texte={f?.lieu && soirees ? `${pluriel(f.lieu.nbVentes, "vente")} sur ${pluriel(soirees, "soirée")} · ${decimal1.format(f.lieu.nbVentes / soirees)} par soirée` : pluriel(k.nbVentes, "vente")}>
         <KpiCouleur teinte="bleu" icone="image" libelle="Ventes" valeur={nombre(k.nbVentes)} detail={`${nombre(k.photosAchetees)} photos achetées`} {...cmp(k.nbVentes, p.nbVentes)} />
       </Bulle>
-      <Bulle bloc texte={`${euros(ca)} ÷ ${pluriel(k.nbVentes, "vente")}`}>
+      <Bulle bloc texte={`${euros(ventesSeules)} ÷ ${pluriel(k.nbVentes, "vente")}${priv ? " (sans les privatisations)" : ""}`}>
         <KpiCouleur teinte="rose" icone="sac" libelle="Panier moyen" valeur={euros(k.panierMoyenCents)} detail={`${suffixe} par vente`} {...cmp(k.panierMoyenCents, p.panierMoyenCents)} />
       </Bulle>
       <Bulle bloc texte={`${pluriel(k.nbRefusees, "refus", "refus")} du terminal et ${pluriel(k.nbAnnulees, "annulation")} par l'invité, sur ${pluriel(demandes, "demande")} de paiement`}>

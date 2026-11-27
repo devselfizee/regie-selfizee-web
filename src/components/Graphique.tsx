@@ -16,7 +16,7 @@ import { SVGRenderer } from "echarts/renderers";
 echarts.use([LineChart, BarChart, HeatmapChart, GridComponent, LegendComponent, MarkAreaComponent, MarkLineComponent, TooltipComponent, VisualMapComponent, SVGRenderer]);
 
 export type Jetons = Record<
-  "viz1" | "viz2" | "grid" | "axis" | "label" | "ink" | "ink2" | "surface" | "seq0" | "seq1" | "seq2" | "seq3" | "seq4" | "seq5",
+  "viz1" | "viz2" | "viz3" | "grid" | "axis" | "label" | "ink" | "ink2" | "surface" | "seq0" | "seq1" | "seq2" | "seq3" | "seq4" | "seq5",
   string
 >;
 
@@ -24,7 +24,7 @@ function lireJetons(): Jetons {
   const s = getComputedStyle(document.documentElement);
   const v = (n: string) => s.getPropertyValue(n).trim();
   return {
-    viz1: v("--viz-1"), viz2: v("--viz-2"), grid: v("--viz-grid"), axis: v("--viz-axis"),
+    viz1: v("--viz-1"), viz2: v("--viz-2"), viz3: v("--viz-3"), grid: v("--viz-grid"), axis: v("--viz-axis"),
     label: v("--viz-label"), ink: v("--ink"), ink2: v("--ink-2"), surface: v("--surface"),
     seq0: v("--viz-seq-0"), seq1: v("--viz-seq-1"), seq2: v("--viz-seq-2"),
     seq3: v("--viz-seq-3"), seq4: v("--viz-seq-4"), seq5: v("--viz-seq-5"),

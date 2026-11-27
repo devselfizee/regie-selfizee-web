@@ -36,23 +36,32 @@ export function GraphiqueCA({
   const option = useCallback(
     (j: Jetons) => {
       const periodes = periodesDe(du, au, granularite);
-      const montant = (s: PointSerie[]) => (ht ? s.map((p) => ({ ...p, caTtcCents: p.caHtCents ?? Math.round(p.caTtcCents / 1.2) })) : s);
+      const montant = (s: PointSerie[]) =>
+        ht ? s.map((p) => ({ ...p, caTtcCents: p.caHtCents ?? Math.round(p.caTtcCents / 1.2), privatisationTtcCents: p.privatisationHtCents ?? p.privatisationTtcCents })) : s;
       const courant = completer(periodes, montant(serie));
       const n1 = serieN1 ? completer(periodes, montant(serieN1)) : null;
       const avecN1 = n1?.some((p) => p.nbVentes > 0);
+      // Privatisations (forfaits, le jour du début) : barres à part de la courbe des ventes d'impression
+      const avecPriv = courant.some((p) => (p.nbPrivatisations ?? 0) > 0);
 
       return {
-        legend: { ...(avecN1 ? {} : { show: false }), top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 4, textStyle: { color: j.ink2 } },
+        legend: { ...(avecN1 || avecPriv ? {} : { show: false }), top: 0, left: 0, icon: "roundRect", itemWidth: 12, itemHeight: 4, textStyle: { color: j.ink2 } },
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "line", lineStyle: { color: j.axis } },
           formatter: (items: { dataIndex: number; seriesName: string; marker: string }[]) => {
             const i = items[0].dataIndex;
-            const lignes = items.map((it) => {
+            const lignes = items.filter((it) => it.seriesName !== "Privatisations").map((it) => {
               const p = it.seriesName === "N-1" ? n1![i] : courant[i];
               // Une seule courbe : pas de nom de série (« Période : » n'apporte rien)
-              return `${it.marker} ${avecN1 ? `${it.seriesName} : ` : ""}<b>${euros(p.caTtcCents)}</b> · ${nombre(p.nbVentes)} vente${p.nbVentes > 1 ? "s" : ""}`;
+              return `${it.marker} ${avecN1 || avecPriv ? `${it.seriesName} : ` : ""}<b>${euros(p.caTtcCents)}</b> · ${nombre(p.nbVentes)} vente${p.nbVentes > 1 ? "s" : ""}`;
             });
+            const pr = courant[i];
+            if (pr.nbPrivatisations) {
+              const m = items.find((it) => it.seriesName === "Privatisations")?.marker ?? "";
+              lignes.push(`${m} Privatisations : <b>${euros(pr.privatisationTtcCents ?? 0)}</b> · ${nombre(pr.nbPrivatisations)}`);
+              lignes.push(`<span style="color:${j.ink2}">Total : ${euros(pr.caTtcCents + (pr.privatisationTtcCents ?? 0))}</span>`);
+            }
             const info = granularite === "jour" ? infosJour?.[periodes[i]] : undefined;
             if (info) lignes.push(`<span style="color:${j.ink2}">${info}</span>`);
             const { titre, droite } = titrePeriode(periodes[i], granularite);
@@ -63,7 +72,7 @@ export function GraphiqueCA({
         yAxis: axeValeur(j, (v: number) => eurosRond(v * 100)),
         series: [
           {
-            name: "Période",
+            name: avecPriv ? "Ventes" : "Période",
             type: "line",
             data: courant.map((p) => p.caTtcCents / 100),
             lineStyle: { width: 2, color: j.viz1 },
@@ -104,6 +113,17 @@ export function GraphiqueCA({
                 }
               : undefined,
           },
+          ...(avecPriv
+            ? [
+                {
+                  name: "Privatisations",
+                  type: "bar",
+                  data: courant.map((p) => (p.privatisationTtcCents ?? 0) / 100),
+                  barMaxWidth: 14,
+                  itemStyle: { color: j.viz3, borderRadius: [4, 4, 0, 0] },
+                },
+              ]
+            : []),
           ...(avecN1
             ? [
                 {

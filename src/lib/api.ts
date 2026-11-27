@@ -122,6 +122,10 @@ export interface Kpis {
   lieuxAvecVentes: number;
   /** Ventes des cartes de test sur la période : hors chiffres ci-dessus */
   tests?: { nbVentes: number; caTtcCents: number };
+  /** Privatisations commencées dans la période : à part de caTtcCents (ventes d'impression), comprises dans caTotal* */
+  privatisations?: { nb: number; nbOffertes: number; caTtcCents: number; caHtCents: number };
+  caTotalTtcCents?: number;
+  caTotalHtCents?: number;
   // Activité photo (séances) : prises = arrivées au paiement, achetées = avec une vraie vente
   photosPrises: number;
   /** parcours : photos vraiment prises (parcours invité) ; paiement : séances arrivées au paiement */
@@ -145,6 +149,27 @@ export interface PointSerie {
   caTtcCents: number;
   caHtCents?: number;
   nbVentes: number;
+  /** Privatisations de la période (comptées le jour de leur début), à part des ventes */
+  privatisationTtcCents?: number;
+  privatisationHtCents?: number;
+  nbPrivatisations?: number;
+}
+
+export interface Privatisation {
+  id: number;
+  lieuId: number;
+  libelle: string;
+  debut: string;
+  fin: string;
+  offerte: boolean;
+  montantHtCents: number;
+  /** 2000 = 20 % */
+  tauxTvaBp: number;
+  montantTtcCents: number;
+  papierInclus: boolean;
+  note: string | null;
+  auteur: { prenom: string; nom: string; photoUrl: string | null } | null;
+  createdAt: string;
 }
 
 export interface StatsGlobales {
@@ -163,6 +188,11 @@ export interface StatsGlobales {
     nbVentes: number;
     joursAvecVente: number;
     caParJourVenteCents: number;
+    privatisationTtcCents?: number;
+    privatisationHtCents?: number;
+    nbPrivatisations?: number;
+    caTotalTtcCents?: number;
+    caTotalHtCents?: number;
   }[];
   /** CA par heure de la journée sur la période */
   parHeure: { heure: number; caTtcCents: number; caHtCents: number; nbVentes: number }[];

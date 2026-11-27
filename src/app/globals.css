@@ -27,6 +27,8 @@
 
   --viz-1: #2a78d6;
   --viz-2: #eb6834;
+  /* Privatisations (barres de la courbe de CA) */
+  --viz-3: #1a9a82;
   --viz-grid: #e1e0d9;
   --viz-axis: #c3c2b7;
   --viz-label: #898781;
@@ -65,6 +67,7 @@
 
     --viz-1: #3987e5;
     --viz-2: #d95926;
+    --viz-3: #2bb49a;
     --viz-grid: #2c2c2a;
     --viz-axis: #383835;
     --viz-label: #898781;
@@ -102,6 +105,7 @@
 
   --viz-1: #3987e5;
   --viz-2: #d95926;
+  --viz-3: #2bb49a;
   --viz-grid: #2c2c2a;
   --viz-axis: #383835;
   --viz-label: #898781;

@@ -101,13 +101,17 @@ function Contenu({
 }) {
   const { courant: c, precedente: p } = data.kpis;
   const montant = (k: { caTtcCents: number; caHtCents: number }) => (ht ? k.caHtCents : k.caTtcCents);
+  // Total : ventes d'impression + privatisations
+  const total = (k: { caTtcCents: number; caHtCents: number; caTotalTtcCents?: number; caTotalHtCents?: number }) =>
+    ht ? k.caTotalHtCents ?? k.caHtCents : k.caTotalTtcCents ?? k.caTtcCents;
+  const priv = c.privatisations?.nb ? c.privatisations : null;
   const suffixe = ht ? "HT" : "TTC";
   const unJour = data.periode.du === data.periode.au;
   // Journée en cours : la comparer à toute la journée d'hier n'a pas de sens (toujours en baisse le matin)
   const enCours = unJour && data.periode.du === ymd(aujourdhui());
   const comparer = (courant: number, precedente: number) => (enCours ? {} : { courant, precedente });
   // Des centaines de lieux : seulement ceux qui ont vendu sur la période (retour de Sébastien)
-  const lieux = data.classement.filter((l) => l.caTtcCents > 0 || l.nbVentes > 0).sort((a, b) => montant(b) - montant(a));
+  const lieux = data.classement.filter((l) => l.caTtcCents > 0 || l.nbVentes > 0 || (l.nbPrivatisations ?? 0) > 0).sort((a, b) => total(b) - total(a));
 
   return (
     <div className="space-y-6">
@@ -117,9 +121,15 @@ function Contenu({
           teinte="vert"
           icone="billet"
           libelle={`Encaissé ${suffixe}`}
-          valeur={euros(montant(c))}
-          detail={ht ? `TTC : ${euros(c.caTtcCents)}` : `HT : ${euros(c.caHtCents)}`}
-          {...comparer(montant(c), montant(p))}
+          valeur={euros(total(c))}
+          detail={
+            priv
+              ? `impressions ${euros(montant(c))} · privatisations ${euros(ht ? priv.caHtCents : priv.caTtcCents)}`
+              : ht
+                ? `TTC : ${euros(c.caTotalTtcCents ?? c.caTtcCents)}`
+                : `HT : ${euros(c.caTotalHtCents ?? c.caHtCents)}`
+          }
+          {...comparer(total(c), total(p))}
         />
         <KpiCouleur teinte="bleu" icone="image" libelle="Photos achetées" valeur={nombre(c.photosAchetees)} detail="séances payées" {...comparer(c.photosAchetees, p.photosAchetees)} />
         <KpiCouleur teinte="indigo" icone="numerique" libelle="Versions numériques" valeur={nombre(c.versionsNumeriques)} detail="achetées" {...comparer(c.versionsNumeriques, p.versionsNumeriques)} />
@@ -207,7 +217,12 @@ function Contenu({
                         <Link className="font-medium hover:underline" href={`/lieux/${l.lieuId}`}>{l.enseigne}</Link>
                         {l.ville && <div className="text-xs text-ink-muted">{l.ville}</div>}
                       </td>
-                      <td className="py-2 pr-3 text-right">{euros(montant(l))}</td>
+                      <td className="py-2 pr-3 text-right">
+                        {euros(total(l))}
+                        {(l.nbPrivatisations ?? 0) > 0 && (
+                          <div className="text-xs text-ink-muted">dont privatisation {euros(ht ? l.privatisationHtCents ?? 0 : l.privatisationTtcCents ?? 0)}</div>
+                        )}
+                      </td>
                       <td className="py-2 text-right text-ink-2">{nombre(l.nbVentes)}</td>
                     </tr>
                   ))}

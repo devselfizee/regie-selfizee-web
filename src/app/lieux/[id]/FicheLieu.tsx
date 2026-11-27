@@ -17,6 +17,7 @@ import { JournalEvenements, superpositions, useContexteLieu, useEvenements } fro
 import { Comportement } from "@/components/Entonnoir";
 import { BasculeHt, htDepuisTtc, usePreferenceHt } from "@/components/BasculeHt";
 import { ListePaiements } from "@/components/ListePaiements";
+import { PrivatisationsLieu } from "@/components/PrivatisationsLieu";
 import { DernieresVentes } from "@/components/DernieresVentes";
 import { CarteLieux } from "@/components/CarteLieux";
 import { SuiviLieu } from "@/components/SuiviLieu";
@@ -155,7 +156,13 @@ export function FicheLieu({ id, ongletInitial }: { id: number; ongletInitial?: s
         </div>
       )}
 
-      {ongletActif === "ventes" && <ListePaiements lieuIdFixe={id} ht={ht} />}
+      {ongletActif === "ventes" && (
+        <div className="space-y-6">
+          {/* Forfaits vendus (ou offerts) au lieu pour un événement en gratuit (demande de Sébastien du 26/11/2026) */}
+          <PrivatisationsLieu lieuId={id} peutEcrire={a("privatisations.edit")} />
+          <ListePaiements lieuIdFixe={id} ht={ht} />
+        </div>
+      )}
 
       {/* Journal d'événements : dans le suivi plutôt que sous les statistiques (retour de Sébastien du 10/11) */}
       {ongletActif === "suivi" && <SuiviLieu lieuId={id} journal={<JournalEvenements lieuId={id} peutEcrire={a("contexte.edit")} />} />}
@@ -370,7 +377,7 @@ function Statistiques({ s: brut, lieuId, l, ht, requete, voirVentes }: { s: Stat
   const longue = (new Date(s.periode.au).getTime() - new Date(s.periode.du).getTime()) / 86_400_000 + 1 > 31;
   const reperesCalendrier = longue ? sup.reperes.filter((x) => x.court !== "Férié") : sup.reperes;
   const prevision = l.statut === "ACTIF" && <PrevisionLieuSection lieuId={lieuId} ht={ht} />;
-  if (!c.nbVentes && !c.nbRefusees) {
+  if (!c.nbVentes && !c.nbRefusees && !c.privatisations?.nb) {
     return (
       <div className="space-y-6">
         <div className="carte p-4">
