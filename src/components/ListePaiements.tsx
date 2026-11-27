@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useEffect, useState, type ReactNode } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs, type BorneListe, type LieuListe, type Vente } from "@/lib/api";
-import { dateHeure, euros, GRATUITES, nombre, OPTIONS_MOYENS } from "@/lib/format";
+import { CHIFFRES_WALLET, chiffresPeutEtreWallet, dateHeure, euros, GRATUITES, nombre, OPTIONS_MOYENS } from "@/lib/format";
 import { versCents } from "@/lib/commissions";
 import { Badge, Chargement, EnTete, Erreur, Vide } from "./Etat";
 import { Modale } from "./Modale";
@@ -155,7 +155,7 @@ export function ListePaiements({ lieuIdFixe, initial, ht: htFiche }: { lieuIdFix
       <div className={`mb-3 flex flex-wrap items-end justify-end ${lieuIdFixe ? "gap-1.5" : "gap-2"}`}>
         <label className={champ}>
           <span className="etiquette">Recherche</span>
-          <input id="paiements-recherche" className="champ" placeholder="Transaction, n° d'autorisation, 4 derniers chiffres, pi_…" value={f.q} onChange={(e) => changer("q")(e.target.value)} />
+          <input id="paiements-recherche" className="champ" placeholder="Transaction, n° d'autorisation, 4 derniers chiffres, pi_…" title={`4 derniers chiffres : ${CHIFFRES_WALLET}`} value={f.q} onChange={(e) => changer("q")(e.target.value)} />
         </label>
         {vue === "liste" && (
           <>
@@ -435,7 +435,14 @@ function TableauPaiements({ lignes, ht, onRecap, onRembourser }: { lignes: Vente
                 <td className="px-3 py-2 whitespace-nowrap">
                   {moyenCourt(v.moyenPaiement, v.statut)}
                   <div className="text-xs text-ink-muted">
-                    {v.carteFin ? <span className="font-mono">****{v.carteFin}</span> : v.typeModule.libelle}
+                    {v.carteFin ? (
+                      <span className="font-mono" title={chiffresPeutEtreWallet(v.moyenPaiement) ? CHIFFRES_WALLET : undefined}>
+                        ****{v.carteFin}
+                        {chiffresPeutEtreWallet(v.moyenPaiement) && <span className="ml-1 font-sans" aria-label={CHIFFRES_WALLET}>ⓘ</span>}
+                      </span>
+                    ) : (
+                      v.typeModule.libelle
+                    )}
                   </div>
                 </td>
                 <td className="px-3 py-2 text-right whitespace-nowrap">

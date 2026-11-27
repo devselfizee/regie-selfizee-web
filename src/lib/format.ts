@@ -80,13 +80,22 @@ export const MOYENS: Record<string, string> = {
 };
 
 // Carte insérée et sans contact : le même paiement bancaire par le terminal (Hexapay) ; le détail est un sous-filtre
-export const CARTE_BANCAIRE = ["CB", "SANS_CONTACT"];
+// MOBILE : quand la borne saura distinguer le téléphone (note de l'équipe borne du 27/11/2026), c'est le même terminal
+export const CARTE_BANCAIRE = ["CB", "SANS_CONTACT", "MOBILE"];
+
+/**
+ * Apple Pay, Google Pay, montre : le terminal reçoit un numéro virtuel propre à l'appareil, pas celui de la carte. Les
+ * 4 chiffres d'une vente sans contact peuvent donc être ceux du Wallet (note de l'équipe borne du 27/11/2026).
+ */
+export const CHIFFRES_WALLET =
+  "Paiement par téléphone : ces chiffres sont ceux affichés dans le Wallet du client (la carte → « Numéro de compte de l'appareil »), pas ceux de sa carte.";
+export const chiffresPeutEtreWallet = (moyen: string) => moyen === "SANS_CONTACT" || moyen === "MOBILE";
 export const OPTIONS_MOYENS = [
   { value: CARTE_BANCAIRE.join(","), label: "Carte bancaire (terminal)" },
   { value: "CB", label: "  · carte insérée" },
   { value: "SANS_CONTACT", label: "  · sans contact" },
+  { value: "MOBILE", label: "  · téléphone" },
   // Pas d'espèces : les bornes ne les gèrent pas (retour de Sébastien)
-  // Ni espèces (non gérées) ni téléphone (jamais envoyé : le terminal le voit comme du sans contact)
   ...["WEB", "AUCUN", "AUTRE"].map((m) => ({ value: m, label: MOYENS[m] })),
 ];
 

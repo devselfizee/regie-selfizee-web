@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, fichierProtege, type RecapVente } from "@/lib/api";
-import { dateHeure, euros, GRATUITES, libelleMoyen } from "@/lib/format";
+import { CHIFFRES_WALLET, chiffresPeutEtreWallet, dateHeure, euros, GRATUITES, libelleMoyen } from "@/lib/format";
 import { Badge, Chargement, Erreur } from "./Etat";
 import { Gate } from "@/lib/perms";
 
@@ -125,7 +125,10 @@ export function RecapCommande({ id, onRembourser }: { id: string; onRembourser?:
             {libelleMoyen(v.moyenPaiement, v.statut)}
             <span className="block text-xs text-ink-muted">{v.typeModule.libelle}{v.module?.identifiantPrestataire ? ` · TID ${v.module.identifiantPrestataire}` : ""}</span>
           </Info>
-          <Info libelle="Carte">{v.carteFin ? <span className="font-mono">•••• {v.carteFin}</span> : <span className="text-ink-muted">—</span>}</Info>
+          <Info libelle="Carte">
+            {v.carteFin ? <span className="font-mono">•••• {v.carteFin}</span> : <span className="text-ink-muted">—</span>}
+            {v.carteFin && chiffresPeutEtreWallet(v.moyenPaiement) && <span className="block text-xs text-ink-muted">{CHIFFRES_WALLET}</span>}
+          </Info>
           <Info libelle="N° d'autorisation">{v.referenceMonetique ? <span className="font-mono">{v.referenceMonetique}</span> : <span className="text-ink-muted">—</span>}</Info>
           <Info libelle="N° de séquence">{v.referenceSequence ? <span className="font-mono">{v.referenceSequence}</span> : <span className="text-ink-muted">—</span>}</Info>
           {v.codesUtilises.length > 0 && (
