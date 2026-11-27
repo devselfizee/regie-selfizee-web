@@ -296,6 +296,54 @@ interface Detail extends CodeRemise {
   ventes: { id: string; transactionIdModule: string; horodatage: string; statut: string; montantTtcCents: number; nbTirages: number; borne: { id: number; identifiant: string }; lieu: { id: number; enseigne: string } | null }[];
 }
 
+/** Corriger le lot du code : impressions (ou utilisations en %) par code, date de validité (demande de Sébastien du 27/11/2026). */
+function ModifierLot({ c, nbCodes }: { c: Detail; nbCodes: number }) {
+  const client = useQueryClient();
+  const [ouvert, setOuvert] = useState(false);
+  const [quantite, setQuantite] = useState(String(c.quantite));
+  const [expireLe, setExpireLe] = useState(c.expireLe.slice(0, 10));
+  const modifier = useMutation({
+    mutationFn: () => api(`/codes-remise/lots/${c.lotId}/modifier`, { method: "POST", json: { quantite: Number(quantite), expireLe } }),
+    onSuccess: () => {
+      setOuvert(false);
+      client.invalidateQueries({ queryKey: ["codes-remise"] });
+      client.invalidateQueries({ queryKey: ["lieu"] });
+    },
+  });
+  if (!ouvert)
+    return (
+      <button type="button" className="bouton-second" onClick={() => { modifier.reset(); setOuvert(true); }}>
+        Modifier la remise
+      </button>
+    );
+  return (
+    <form
+      className="w-full space-y-2 rounded-lg border border-line p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        modifier.mutate();
+      }}
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="etiquette">{c.type === "OFFERT" ? "Impressions par code" : "Utilisations par code"}</span>
+          <input className="champ" type="number" min={Math.max(1, c.utilise)} required value={quantite} onChange={(e) => setQuantite(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className="etiquette">Valable jusqu&apos;au</span>
+          <input className="champ" type="date" required value={expireLe} onChange={(e) => setExpireLe(e.target.value)} />
+        </label>
+      </div>
+      {nbCodes > 1 && <p className="text-xs text-warn-ink">S&apos;applique aux {nombre(nbCodes)} codes du lot #{c.lotId}.</p>}
+      <div className="flex items-center gap-2">
+        <button type="submit" className="bouton" disabled={modifier.isPending}>Enregistrer</button>
+        <button type="button" className="text-sm text-ink-2 hover:underline" onClick={() => setOuvert(false)}>Annuler</button>
+      </div>
+      {modifier.error && <Erreur erreur={modifier.error} />}
+    </form>
+  );
+}
+
 function DetailCode({ id }: { id: number }) {
   const client = useQueryClient();
   const { data: c, error } = useQuery({ queryKey: ["codes-remise", "detail", id], queryFn: () => api<Detail>(`/codes-remise/${id}`) });
@@ -417,7 +465,12 @@ function DetailCode({ id }: { id: number }) {
         )}
       </div>
 
-      <div className="border-t border-line pt-3">
+      <div className="flex flex-wrap items-start gap-3 border-t border-line pt-3">
+        {c.origine.type === "manuel" && (
+          <Gate perm="codes_remise.edit">
+            <ModifierLot c={c} nbCodes={c.origine.nbCodes} />
+          </Gate>
+        )}
         {c.desactiveLe ? (
           <button type="button" className="bouton-second" disabled={basculer.isPending} onClick={() => basculer.mutate(true)}>Réactiver le code</button>
         ) : (
