@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { FicheEvenementLieu, GrilleTarifs, LotJeu, ReglagesEvenement } from "@/lib/api";
 import { euros } from "@/lib/format";
-import { EditeurGrille } from "../GrilleTarifs";
+import { EditeurGrille, erreursGrille } from "../GrilleTarifs";
 import { Segments } from "../EvenementsLieu";
 import { Interrupteur, Ligne } from "./Blocs";
 
@@ -42,14 +42,23 @@ export function TarifsEvenement({ t, maj, tarifsLieu, enseigne }: { t: Tarifs; m
       cents: p.prixCents,
       avant: g.palierMisEnAvant === p.de,
       changer: (c: number) => majGrille({ paliers: g.paliers.map((x, j) => (j === i ? { ...x, prixCents: c } : x)) }),
+      // Le premier palier (prix unitaire) ne se retire pas
+      retirer: i > 0 ? () => majGrille({ paliers: g.paliers.filter((_, j) => j !== i), palierMisEnAvant: g.palierMisEnAvant === p.de ? null : g.palierMisEnAvant }) : null,
     })),
-    { cle: "pote", libelle: "+1 pour un pote", cents: g.plusUnCents, avant: false, changer: (c: number) => majGrille({ plusUnCents: c }) },
+    { cle: "pote", libelle: "+1 pour un pote", cents: g.plusUnCents, avant: false, changer: (c: number) => majGrille({ plusUnCents: c }), retirer: null },
   ];
+  const dernier = g.paliers[g.paliers.length - 1];
+  // Nouveau palier : une quantité de plus que le dernier, même prix ; sa case s'ouvre pour saisir le prix
+  const ajouter = () => {
+    majGrille({ paliers: [...g.paliers, { de: dernier.de + 1, prixCents: dernier.prixCents }] });
+    setEdition(`p${dernier.de + 1}`);
+  };
+  const erreurs = t.herite ? [] : erreursGrille(g);
   return (
     <div>
       <ul className="flex flex-wrap gap-3">
         {cases.map((c) => (
-          <li key={c.cle}>
+          <li key={c.cle} className="relative">
             <button
               type="button"
               disabled={t.herite}
@@ -81,9 +90,38 @@ export function TarifsEvenement({ t, maj, tarifsLieu, enseigne }: { t: Tarifs; m
                 <span className="block text-lg font-semibold tabular">{c.cle === "pote" && !c.cents ? "non posé" : euros(c.cents)}</span>
               )}
             </button>
+            {!t.herite && c.retirer && (
+              <button
+                type="button"
+                onClick={c.retirer}
+                aria-label={`Retirer le palier ${c.libelle}`}
+                title="Retirer ce palier"
+                className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full border border-line bg-surface text-sm leading-none text-ink-2 shadow-sm hover:border-crit-ink hover:text-crit-ink"
+              >
+                ×
+              </button>
+            )}
           </li>
         ))}
+        {!t.herite && g.paliers.length < 10 && (
+          <li>
+            <button
+              type="button"
+              onClick={ajouter}
+              className="flex h-full min-h-[3.75rem] min-w-[7.5rem] items-center justify-center rounded-lg border border-dashed border-line px-3 py-2 text-sm text-ink-2 hover:border-accent hover:text-accent"
+            >
+              + Palier
+            </button>
+          </li>
+        )}
       </ul>
+      {erreurs.length > 0 && (
+        <ul className="mt-2 space-y-0.5 text-xs text-crit-ink">
+          {erreurs.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      )}
       {t.herite ? (
         <p className="mt-3 text-sm text-ink-2">
           Hérités d&apos;{enseigne}, qui {tarifsLieu.origine === "LIEU" ? "a ses tarifs propres" : "hérite du parc"}.
@@ -91,9 +129,9 @@ export function TarifsEvenement({ t, maj, tarifsLieu, enseigne }: { t: Tarifs; m
       ) : (
         <div className="mt-3 space-y-3">
           <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-            <span className="font-semibold text-accent">Tarifs propres à cet événement : cliquer un prix pour le modifier.</span>
+            <span className="font-semibold text-accent">Tarifs propres à cet événement : cliquer un prix pour le modifier, × pour retirer un palier.</span>
             <button type="button" className="text-ink-2 hover:text-ink hover:underline" aria-expanded={complet} onClick={() => setComplet(!complet)}>
-              {complet ? "Fermer les paliers" : "Paliers et mise en avant…"}
+              {complet ? "Fermer" : "Quantités des paliers et mise en avant…"}
             </button>
           </p>
           {complet && <EditeurGrille valeur={t} onChange={(x) => majGrille(x)} nom="evenement" />}
