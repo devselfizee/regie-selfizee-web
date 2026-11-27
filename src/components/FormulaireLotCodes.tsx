@@ -24,6 +24,9 @@ const dansUnAn = () => {
 export function FormulaireLot({ lieux = [], lieuFixe, onCree }: { lieux?: LieuListe[]; lieuFixe?: number; onCree: (lotId: number) => void }) {
   const client = useQueryClient();
   const [nbCodes, setNbCodes] = useState("10");
+  // Code au nom choisi (« ENZO ») : un seul code (demande de Sébastien du 27/11/2026)
+  const [code, setCode] = useState("");
+  const codeChoisi = code.toUpperCase().replace(/[\s-]/g, "");
   const [libelle, setLibelle] = useState("");
   const [type, setType] = useState<"OFFERT" | "POURCENTAGE">("OFFERT");
   const [quantite, setQuantite] = useState("1");
@@ -36,7 +39,8 @@ export function FormulaireLot({ lieux = [], lieuFixe, onCree }: { lieux?: LieuLi
       api<{ lotId: number; codesCrees: number }>("/codes-remise/lots", {
         method: "POST",
         json: {
-          nbCodes: Number(nbCodes),
+          nbCodes: codeChoisi ? 1 : Number(nbCodes),
+          code: codeChoisi || undefined,
           libelle: libelle.trim() || undefined,
           type,
           quantite: Number(quantite),
@@ -65,10 +69,24 @@ export function FormulaireLot({ lieux = [], lieuFixe, onCree }: { lieux?: LieuLi
     >
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <span className="etiquette">Nombre de codes *</span>
-          <input className="champ" type="number" min={1} max={1000} required value={nbCodes} onChange={(e) => setNbCodes(e.target.value)} />
+          <span className="etiquette">Code choisi</span>
+          <input
+            className="champ font-mono uppercase tracking-wider"
+            maxLength={20}
+            pattern="[A-Za-z0-9 \-]{3,24}"
+            placeholder="Vide : codes au hasard"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+          <span className="mt-1 block text-xs text-ink-muted">Ex. ENZO : 3 à 20 lettres ou chiffres, un seul code.</span>
         </label>
         <label className="block">
+          <span className="etiquette">Nombre de codes *</span>
+          <input className="champ" type="number" min={1} max={1000} required disabled={!!codeChoisi} value={codeChoisi ? "1" : nbCodes} onChange={(e) => setNbCodes(e.target.value)} />
+        </label>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block sm:col-span-2">
           <span className="etiquette">Nom du lot</span>
           <input className="champ" maxLength={120} placeholder="Offerts au Satori, soirée d'ouverture…" value={libelle} onChange={(e) => setLibelle(e.target.value)} />
         </label>
@@ -120,7 +138,7 @@ export function FormulaireLot({ lieux = [], lieuFixe, onCree }: { lieux?: LieuLi
       </fieldset>
 
       <p className="text-sm text-ink-2">
-        {nombre(Number(nbCodes) || 0)} code{Number(nbCodes) > 1 ? "s" : ""} de 5 caractères · {apercu} chacun · jusqu&apos;au {expireLe ? jour(expireLe) : "—"}.
+        {codeChoisi ? <>Le code <span className="font-mono font-medium">{codeChoisi}</span></> : <>{nombre(Number(nbCodes) || 0)} code{Number(nbCodes) > 1 ? "s" : ""} de 5 caractères</>} · {apercu} chacun · jusqu&apos;au {expireLe ? jour(expireLe) : "—"}.
       </p>
       {creer.error && <Erreur erreur={creer.error} />}
       <button className="bouton" disabled={creer.isPending}>{creer.isPending ? "Génération…" : "Générer"}</button>
